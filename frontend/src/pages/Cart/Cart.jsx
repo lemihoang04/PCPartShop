@@ -2,7 +2,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../context/UserProvider";
 import { toast } from 'react-toastify';
-import { loadCart, removeFromCart } from '../../services/apiService';
+import { loadCart, removeFromCart, checkOutStock } from '../../services/apiService';
 import './Cart.css'; // Đổi tên file CSS
 
 const CartPage = () => {
@@ -10,6 +10,7 @@ const CartPage = () => {
     const [cartItems, setCartItems] = useState([]);
     const { user, fetchUser } = useContext(UserContext);
     const [selectedItems, setSelectedItems] = useState([]);
+    const [isCheckingOut, setIsCheckingOut] = useState(false);
 
     useEffect(() => {
         if (user && user.account.id) {
@@ -39,20 +40,40 @@ const CartPage = () => {
         );
     };
 
-    const handleCheckoutClick = () => {
+    const handleCheckoutClick = async () => {
         if (selectedItems.length === 0) {
             toast.error("Please select at least one item to proceed to checkout.");
             return;
         }
+
+        if (isCheckingOut) {
+            return;
+        }
+
+        setIsCheckingOut(true);
+
         const formValue = {
-            items: cartItems.filter(item => selectedItems.includes(item.product_id)),
+            items: cartItems.filter(item => selectedItems.includes(item.cart_id)),
             amount: calculateSubtotal(),
         };
-        setTimeout(() => {
-            navigate("/checkout", {
-                state: { formValue }
-            });
-        }, 1000);
+
+        try {
+            const checkOutStockRes = await checkOutStock(formValue.items);
+            if (checkOutStockRes.data && checkOutStockRes.errCode === 0) {
+                setTimeout(() => {
+                    navigate("/checkout", {
+                        state: { formValue }
+                    });
+                }, 1000);
+            } else {
+                toast.error("Stock check failed. Please review your cart items.");
+                setIsCheckingOut(false);
+            }
+        } catch (error) {
+            console.error('Error checking stock:', error);
+            toast.error("Unable to check stock. Please try again.");
+            setIsCheckingOut(false);
+        }
     };
 
     const handleDeleteClick = async (cart_id) => {
@@ -63,11 +84,8 @@ const CartPage = () => {
                     prevCartItems.filter((item) => item.cart_id !== cart_id)
                 );
 
-                // Remove from selected items if necessary
-                setSelectedItems(prev => prev.filter(id => {
-                    const item = cartItems.find(item => item.cart_id === cart_id);
-                    return item?.product_id !== id;
-                }));
+                // Keep selected items in sync with removed cart entry.
+                setSelectedItems((prev) => prev.filter((id) => id !== cart_id));
 
                 toast.success("Item removed from the cart.");
                 fetchUser();
@@ -84,14 +102,14 @@ const CartPage = () => {
         if (selectedItems.length === cartItems.length) {
             setSelectedItems([]);
         } else {
-            setSelectedItems(cartItems.map(item => item.product_id));
+            setSelectedItems(cartItems.map((item) => item.cart_id));
         }
     };
 
     // Calculate subtotal dynamically
     const calculateSubtotal = () => {
         return cartItems
-            .filter(item => selectedItems.includes(item.product_id))
+            .filter((item) => selectedItems.includes(item.cart_id))
             .reduce((total, item) => total + item.price * item.quantity, 0)
             .toFixed(2);
     };
@@ -133,13 +151,13 @@ const CartPage = () => {
                     ) : (
                         <div className="crt__items-list">
                             {cartItems.map((item) => (
-                                <div key={item.id} className="crt__item">
+                                <div key={item.cart_id} className="crt__item">
                                     <div className="crt__item-checkbox">
                                         <input
                                             type="checkbox"
                                             className="crt__checkbox"
-                                            checked={selectedItems.includes(item.product_id)}
-                                            onChange={() => handleCheckboxChange(item.product_id)}
+                                            checked={selectedItems.includes(item.cart_id)}
+                                            onChange={() => handleCheckboxChange(item.cart_id)}
                                         />
                                     </div>
                                     <div className="crt__item-image">
@@ -214,9 +232,16 @@ const CartPage = () => {
                             <button
                                 className="crt__checkout-btn"
                                 onClick={handleCheckoutClick}
-                                disabled={selectedItems.length === 0}
+                                disabled={selectedItems.length === 0 || isCheckingOut}
                             >
-                                Proceed to checkout
+                                {isCheckingOut ? (
+                                    <span className="crt__checkout-btn-content">
+                                        <span className="crt__checkout-spinner" aria-hidden="true"></span>
+                                        Checking stock...
+                                    </span>
+                                ) : (
+                                    "Proceed to checkout"
+                                )}
                             </button>
                         </div>
                     </div>

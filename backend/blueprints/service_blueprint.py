@@ -1,6 +1,8 @@
-from flask import Blueprint, request, jsonify, session
+import os
+
+from flask import Blueprint, redirect, request, jsonify, session
 from DAL.service_dal import *
-import time, hmac, hashlib, json, requests, urllib.request, urllib.parse
+import stripe, time, hmac, hashlib, json, requests, urllib.request, urllib.parse
 from context.email_utils import send_order_confirmation_email
 
 service_blueprint = Blueprint('service', __name__)
@@ -11,6 +13,8 @@ ZALOPAY_CONFIG = {
     "create_order_endpoint": "https://sb-openapi.zalopay.vn/v2/create",
     "query_order_endpoint": "https://sb-openapi.zalopay.vn/v2/query",
 }
+YOUR_DOMAIN = 'http://localhost:3000'
+stripe_client = stripe.StripeClient(os.getenv("STRIPE_API_KEY"))
 
 @service_blueprint.route("/create_order", methods=["POST"])
 def create_order():
@@ -73,6 +77,60 @@ def query_order():
         return jsonify(response.json()), response.status_code
     except Exception as e:
         return jsonify({"errCode": 1, "message": str(e)}), 500
+    
+    
+@service_blueprint.route('/create-checkout-session', methods=['POST'])
+def create_checkout_session():
+    data = request.json
+    total_amount = int(float(data.get('amount', 10000)))*100
+    print("Creating checkout session with amount:", total_amount)  # Debug log
+    try:
+        checkout_session = stripe_client.v1.checkout.sessions.create(params={
+            'line_items': [{
+                'price_data': {
+                    'currency': 'usd',
+                    'product_data': {
+                        'name': 'Thanh toán đơn hàng'
+                    },
+                    'unit_amount': total_amount,  
+                },
+                'quantity': 1
+            }],
+            'mode': 'payment',
+            'success_url': YOUR_DOMAIN + '/checkPayment?session_id={CHECKOUT_SESSION_ID}',
+        })
+    except Exception as e:
+        return str(e)
+
+    return jsonify({
+    "checkout_url": checkout_session.url
+})
+
+@service_blueprint.route('/check-payment', methods=['POST'])
+def check_payment():
+    data = request.get_json()
+    print("Received data for check-payment:", data)  # Debug log
+    session_id = data.get("session_id")
+
+    if not session_id:
+        return jsonify({"err": "Missing session_id"}), 400
+
+    try:
+        session = stripe_client.v1.checkout.sessions.retrieve(session_id)
+        
+        if session.payment_status == 'paid':
+            return jsonify({
+                "status": "success",
+                "payment_status": session.payment_status
+            })
+        else:
+            return jsonify({
+                "status": "fail",
+                "payment_status": session.payment_status
+            })
+
+    except Exception as e:
+        return jsonify({"err": str(e)}), 500
 
 @service_blueprint.route('/checkout', methods=['POST'])
 def api_checkout():

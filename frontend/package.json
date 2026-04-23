@@ -28,6 +28,7 @@
     "react-scripts": "^5.0.1",
     "react-select": "^5.10.1",
     "react-toastify": "^11.0.5",
+    "remark-gfm": "^4.0.1",
     "url": "^0.11.4",
     "web-vitals": "^4.2.4"
   },

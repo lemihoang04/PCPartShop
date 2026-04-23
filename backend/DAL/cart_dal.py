@@ -85,3 +85,20 @@ def delete_cart(cart_id):
     finally:
         cursor.close()
         connection.close()
+
+def checkOutStock(items):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+
+    try:
+        for item in items:
+            cursor.execute("SELECT stock FROM products WHERE product_id = %s", (item['product_id'],))
+            product = cursor.fetchone()
+            if not product or product['stock'] < item['quantity']:
+                return False
+        return True
+    except Error as e:
+        raise Exception(f"Database error: {str(e)}")
+    finally:
+        cursor.close()
+        connection.close()

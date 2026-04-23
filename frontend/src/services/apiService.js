@@ -31,6 +31,17 @@ const removeFromCart = async (cart_id) => {
 		throw error.response.data;
 	}
 }
+
+const checkOutStock = async (items) => {
+	try {
+		const response = await axios.post('/checkOutStock', { items });
+		return response;
+	} catch (error) {
+		console.error("Error checking out stock:", error);
+		throw error.response.data;
+	}
+}
+
 const CheckPaymentZalopay = async (apptransid) => {
 	return axios.post(
 		"/checkPayment",
@@ -49,6 +60,26 @@ const PaymentZaloPay = async (user) => {
 			"Content-Type": "application/json",
 		},
 	});
+};
+
+const PaymentStripe = async (user) => {
+	return axios.post("/create-checkout-session", user, {
+		headers: {
+			"Content-Type": "application/json",
+		},
+	});
+};
+
+const CheckPaymentStripe = async (session_id) => {
+	return axios.post(
+		"/check-payment",
+		{ session_id: session_id },
+		{
+			headers: {
+				"Content-Type": "application/json",
+			},
+		}
+	);
 };
 
 const CheckOut = async (orderData) => {
@@ -105,8 +136,11 @@ export {
 	loadCart,
 	addToCart,
 	removeFromCart,
+	checkOutStock,	
 	CheckPaymentZalopay,
 	PaymentZaloPay,
+	PaymentStripe,
+	CheckPaymentStripe,
 	CheckOut,
 	GetOrdersData,
 	GetOrderDetail,

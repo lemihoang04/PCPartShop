@@ -39,3 +39,16 @@ def api_delete_cart(cart_id):
         return jsonify({"errCode": 0, "message": "Cart deleted successfully"}), 200
     else:
         return jsonify({"errCode": 1, "message": "Cart not found"}), 404
+
+@cart_blueprint.route('/checkOutStock', methods=['POST'])
+def api_check_out_stock():
+    data = request.json
+    items = data.get('items', [])
+    if not items:
+        return jsonify({'error': 'No items provided'}), 400
+
+    try:
+        stock_results = checkOutStock(items)
+        return jsonify({"errCode": 0, "data": stock_results}), 200
+    except Exception as e:
+        return jsonify({"errCode": 1, 'error': str(e)}), 500

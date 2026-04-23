@@ -2,8 +2,7 @@ import React, { useContext, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fetchProductById, fetchProductsByCategoryId } from "../../services/productService.js";
 import { UserContext } from "../../context/UserProvider";
-import { FaStar, FaStarHalfAlt, FaRegStar, FaShoppingCart, FaHeart } from "react-icons/fa";
-import { IoShareSocialOutline } from "react-icons/io5";
+import { FaStar, FaStarHalfAlt, FaRegStar, FaShoppingCart, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { addToCart } from "../../services/apiService.js";
 import "./ProductInfo.css";
@@ -77,6 +76,24 @@ const ProductInfo = () => {
   const [error, setError] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [isSpecsExpanded, setIsSpecsExpanded] = useState(false);
+  const stockCount = Number(productInfo?.stock ?? 0);
+  const isOutOfStock = stockCount <= 0;
+
+  useEffect(() => {
+    if (isOutOfStock) {
+      setQuantity(0);
+      return;
+    }
+
+    if (quantity < 1) {
+      setQuantity(1);
+    }
+
+    if (quantity > stockCount) {
+      setQuantity(stockCount);
+    }
+  }, [isOutOfStock, stockCount, quantity]);
 
   // Fetch product details
   useEffect(() => {
@@ -121,7 +138,7 @@ const ProductInfo = () => {
         // Filter out the current product and limit to 8
         const filtered = response
           .filter(prod => prod.product_id !== currentProductId)
-          .slice(0, 10);
+          .slice(0, 6);
         setSimilarProducts(filtered);
       }
     } catch (err) {
@@ -130,11 +147,21 @@ const ProductInfo = () => {
   };
 
   const rating = productInfo ? (parseFloat(productInfo.rating) || 0) : 0;
+  const unitPrice = Number(productInfo?.price || 0);
+  const totalPrice = unitPrice * quantity;
+  const displayPrice = quantity > 0 ? totalPrice : unitPrice;
 
   // Prepare product images
   const productImages = productInfo?.image
     ? productInfo.image.split('; ').filter(img => img && img.trim().length > 0)
     : [];
+
+  const specsEntries = productInfo?.attributes
+    ? Object.entries(productInfo.attributes).filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== "")
+    : [];
+
+  const hasMoreSpecs = specsEntries.length > 7;
+  const visibleSpecs = isSpecsExpanded ? specsEntries : specsEntries.slice(0, 7);
 
   // Handle quantity changes
   const decreaseQuantity = () => {
@@ -142,7 +169,8 @@ const ProductInfo = () => {
   };
 
   const increaseQuantity = () => {
-    setQuantity(quantity + 1);
+    if (isOutOfStock) return;
+    setQuantity((currentQuantity) => Math.min(currentQuantity + 1, stockCount));
   };
 
   const handleAddToCart = async () => {
@@ -153,6 +181,10 @@ const ProductInfo = () => {
     if (!(user && user.isAuthenticated)) {
       toast.error("You must be logged in to add products to the cart!");
       navigate('/login');
+      return;
+    }
+    if (isOutOfStock) {
+      toast.error("This product is out of stock.");
       return;
     }
     try {
@@ -172,6 +204,10 @@ const ProductInfo = () => {
   // Handle the buy now action
   const handleBuyNow = () => {
     if (!productInfo) return;
+    if (isOutOfStock) {
+      toast.error("This product is out of stock.");
+      return;
+    }
     const item = {
       product_id: productInfo.product_id,
       price: productInfo.price,
@@ -229,17 +265,25 @@ const ProductInfo = () => {
 
           <div className="pi-product-pricing">
             <div className="pi-current-price">
-              {productInfo.price ? `$${productInfo.price.toLocaleString()}` : "Price not available"}
+              {unitPrice ? `$${displayPrice.toLocaleString()}` : "Price not available"}
             </div>
+            {unitPrice > 0 && quantity > 1 && (
+              <div className="pi-price-breakdown">
+                {`$${unitPrice.toLocaleString()} x ${quantity}`}
+              </div>
+            )}
             {productInfo.originalPrice && (
               <div className="pi-original-price">
                 ${productInfo.originalPrice.toLocaleString()}
               </div>
             )}
             {productInfo.discount && <div className="pi-discount-badge">-{productInfo.discount}%</div>}
+            <div className={`pi-stock-badge ${isOutOfStock ? "pi-stock-out" : "pi-stock-in"}`}>
+              {isOutOfStock ? "Out of stock" : `${stockCount} in stock`}
+            </div>
           </div>
 
-          <div className="pi-product-description">
+          {/* <div className="pi-product-description">
             <div className={`pi-description-content ${isDescriptionExpanded ? 'pi-expanded' : ''}`}>
               {productInfo.description || "No description available."}
             </div>
@@ -251,27 +295,57 @@ const ProductInfo = () => {
                 {isDescriptionExpanded ? 'Read less' : 'Read more'}
               </button>
             )}
-          </div>
+          </div> */}
 
           <div className="pi-product-actions">
             <div className="pi-quantity-selector">
-              <button onClick={decreaseQuantity} className="pi-quantity-btn pi-quantity-btn-left">-</button>
+              <button
+                onClick={decreaseQuantity}
+                className="pi-quantity-btn pi-quantity-btn-left"
+                disabled={isOutOfStock || quantity <= 1}
+              >
+                -
+              </button>
               <input
                 type="number"
                 value={quantity}
-                onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                min="1"
+                onChange={(e) => {
+                  if (isOutOfStock) {
+                    setQuantity(0);
+                    return;
+                  }
+
+                  const nextQuantity = Math.max(1, parseInt(e.target.value, 10) || 1);
+                  setQuantity(Math.min(nextQuantity, stockCount));
+                }}
+                min={isOutOfStock ? "0" : "1"}
+                max={stockCount || undefined}
                 className="pi-quantity-input"
+                disabled={isOutOfStock}
               />
-              <button onClick={increaseQuantity} className="pi-quantity-btn pi-quantity-btn-right">+</button>
+              <button
+                onClick={increaseQuantity}
+                className="pi-quantity-btn pi-quantity-btn-right"
+                disabled={isOutOfStock || quantity >= stockCount}
+              >
+                +
+              </button>
             </div>
 
             <div className="pi-action-buttons">
-              <button onClick={handleAddToCart} className="pi-add-to-cart-btn">
+              <button
+                onClick={handleAddToCart}
+                className="pi-add-to-cart-btn"
+                disabled={isOutOfStock}
+              >
                 <FaShoppingCart /> Add to Cart
               </button>
-              <button onClick={handleBuyNow} className="pi-buy-now-btn">
-                Buy Now
+              <button
+                onClick={handleBuyNow}
+                className="pi-buy-now-btn"
+                disabled={isOutOfStock}
+              >
+                {isOutOfStock ? "Out of Stock" : "Buy Now"}
               </button>
             </div>
 
@@ -288,16 +362,28 @@ const ProductInfo = () => {
           {/* Product Specifications */}
           <div className="pi-product-specs-section">
             <h2 className="pi-section-title">Specifications</h2>
-            <div className="pi-specs-container">
-              {productInfo.attributes && Object.entries(productInfo.attributes).map(([key, value]) => {
-                if (!value) return null;
+            <div className="pi-specs-card">
+              <div className="pi-specs-container">
+                {visibleSpecs.map(([key, value]) => {
                 return (
                   <div className="pi-spec-item" key={key}>
                     <div className="pi-spec-name">{key.replace(/_/g, " ").replace(/\b\w/g, char => char.toUpperCase())}</div>
                     <div className="pi-spec-value">{value.toString()}</div>
                   </div>
                 );
-              })}
+                })}
+              </div>
+
+              {hasMoreSpecs && (
+                <button
+                  type="button"
+                  className="pi-specs-toggle"
+                  onClick={() => setIsSpecsExpanded(!isSpecsExpanded)}
+                >
+                  {isSpecsExpanded ? <FaChevronUp /> : <FaChevronDown />}
+                  {isSpecsExpanded ? "See less" : "See more"}
+                </button>
+              )}
             </div>
           </div>
         </section>

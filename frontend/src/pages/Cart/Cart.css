@@ -264,6 +264,29 @@
     transition: background-color 0.2s ease;
 }
 
+.crt__checkout-btn-content {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.crt__checkout-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.45);
+    border-top-color: #66d4ff;
+    border-right-color: #66d4ff;
+    border-radius: 50%;
+    animation: crt-spin 0.8s linear infinite;
+}
+
+@keyframes crt-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .crt__checkout-btn:hover {
     background-color: #0055aa;
 }

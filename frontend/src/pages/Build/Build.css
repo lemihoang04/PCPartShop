@@ -1,10 +1,13 @@
 .build-container {
-  font-family: 'Inter', 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Manrope', sans-serif;
   max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
-  color: #1e293b;
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  margin: 1.5rem auto;
+  padding: 1.5rem;
+  color: #16253a;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(31, 147, 255, 0.08), transparent 30%),
+    radial-gradient(circle at 92% 6%, rgba(31, 147, 255, 0.07), transparent 34%),
+    #ffffff;
   min-height: 100vh;
 }
 
@@ -12,12 +15,12 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 18px 25px;
+  padding: 20px 25px;
   margin-bottom: 25px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  border-radius: 16px;
+  background: linear-gradient(135deg, #1f93ff 0%, #0e67c2 100%);
   color: white;
-  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 6px 25px rgba(31, 147, 255, 0.25);
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
@@ -36,7 +39,7 @@
 
 .header.incompatible {
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  box-shadow: 0 10px 25px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 6px 25px rgba(239, 68, 68, 0.25);
 }
 
 .compatibility {
@@ -79,13 +82,12 @@
 .wattage {
   display: flex;
   align-items: center;
-  padding: 10px 16px;
-  background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #0e67c2 0%, #0a4ba8 100%);
   border-radius: 10px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(31, 147, 255, 0.2);
+  transition: all 0.3s ease;
   z-index: 1;
-  backdrop-filter: blur(10px);
 }
 
 .wattage:hover {
@@ -108,10 +110,11 @@
   border-collapse: separate;
   border-spacing: 0;
   margin-bottom: 30px;
-  border-radius: 12px;
+  border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 6px 25px rgba(59, 130, 246, 0.12);
+  box-shadow: 0 6px 25px rgba(31, 147, 255, 0.12);
   background: white;
+  border: 1px solid #dbeaf9;
 }
 
 .components-table th,
@@ -122,7 +125,7 @@
 }
 
 .components-table thead {
-  background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+  background: linear-gradient(135deg, #0e67c2 0%, #1f93ff 100%);
   color: white;
 }
 
@@ -149,29 +152,29 @@
 }
 
 .component-name div {
-  color: #1e40af;
+  color: #0e67c2;
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 700;
   transition: all 0.2s;
   display: flex;
   align-items: center;
-  padding: 6px 10px;
+  padding: 8px 12px;
   border-radius: 8px;
-  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  background: linear-gradient(135deg, #f5faff 0%, #eef6ff 100%);
 }
 
 .component-name div:hover {
-  color: #1d4ed8;
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1f93ff;
+  background: linear-gradient(135deg, #e8f3ff 0%, #d1e9ff 100%);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 4px 12px rgba(31, 147, 255, 0.2);
 }
 
 .component-icon {
   margin-right: 10px;
   font-size: 18px;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
-  color: #3b82f6;
+  color: #1f93ff;
   display: flex;
   align-items: center;
 }
@@ -179,11 +182,11 @@
 .selected-component {
   display: flex;
   align-items: center;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  background: linear-gradient(135deg, #f5faff 0%, #eef6ff 100%);
   padding: 10px 14px;
   border-radius: 10px;
   transition: all 0.3s;
-  border: 2px solid #e2e8f0;
+  border: 2px solid #dbeaf9;
   position: relative;
 }
 
@@ -194,15 +197,15 @@
   top: 0;
   bottom: 0;
   width: 4px;
-  background: linear-gradient(to bottom, #3b82f6, #1d4ed8);
+  background: linear-gradient(to bottom, #1f93ff, #0e67c2);
   border-radius: 2px;
 }
 
 .selected-component:hover {
-  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-  border-color: #3b82f6;
+  background: linear-gradient(135deg, #e8f3ff 0%, #d1e9ff 100%);
+  border-color: #1f93ff;
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 8px 25px rgba(31, 147, 255, 0.15);
 }
 
 .selected-component img {
@@ -218,16 +221,16 @@
 }
 
 .choose-btn {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #1f93ff 0%, #1573d8 100%);
   color: white;
   border: none;
   padding: 12px 20px;
   border-radius: 10px;
   cursor: pointer;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   transition: all 0.3s;
-  box-shadow: 0 3px 10px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 3px 10px rgba(31, 147, 255, 0.3);
   position: relative;
   overflow: hidden;
 }
@@ -248,9 +251,9 @@
 }
 
 .choose-btn:hover {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #1573d8 0%, #0e67c2 100%);
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 8px 20px rgba(31, 147, 255, 0.35);
 }
 
 .action-buttons {
@@ -260,9 +263,9 @@
 }
 
 .remove-btn {
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border: 2px solid #e2e8f0;
-  color: #64748b;
+  background: linear-gradient(135deg, #f5faff 0%, #eef6ff 100%);
+  border: 2px solid #dbeaf9;
+  color: #3f5877;
   cursor: pointer;
   font-size: 14px;
   height: 35px;
@@ -279,13 +282,13 @@
   color: #ef4444;
   border-color: #ef4444;
   background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-  transform: scale(1.1);
+  transform: scale(1.08);
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
 
 /* Add Another Button Styling */
 .add-another-row {
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  background: linear-gradient(135deg, #f5faff 0%, #eef6ff 100%);
 }
 
 .add-another-cell {
@@ -295,13 +298,13 @@
 }
 
 .add-another-btn {
-  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  background: linear-gradient(135deg, #eef6ff 0%, #dbeaf9 100%);
   border: 2px dashed #94a3b8;
   border-radius: 10px;
   padding: 10px 20px;
-  color: #64748b;
+  color: #3f5877;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.3s;
   display: flex;
@@ -312,11 +315,11 @@
 }
 
 .add-another-btn:hover {
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-  border-color: #3b82f6;
-  color: #1e40af;
+  background: linear-gradient(135deg, #d1e9ff 0%, #b0d9ff 100%);
+  border-color: #1f93ff;
+  color: #0e67c2;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 4px 12px rgba(31, 147, 255, 0.15);
 }
 
 .add-another-btn:before {
@@ -332,24 +335,24 @@
   align-items: center;
   padding: 20px 25px;
   margin: 30px 0;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border-radius: 12px;
-  box-shadow: 0 6px 25px rgba(59, 130, 246, 0.1);
-  border: 1px solid #e2e8f0;
+  background: linear-gradient(135deg, #f5faff 0%, #eef6ff 100%);
+  border-radius: 14px;
+  box-shadow: 0 6px 25px rgba(31, 147, 255, 0.1);
+  border: 1px solid #dbeaf9;
 }
 
 .total-label {
   font-weight: 700;
   margin-right: 20px;
   font-size: 20px;
-  color: #1e293b;
+  color: #16253a;
 }
 
 .total-price {
   font-weight: 800;
   font-size: 28px;
-  color: #1d4ed8;
-  text-shadow: 0 2px 4px rgba(29, 78, 216, 0.2);
+  color: #0e67c2;
+  text-shadow: 0 2px 4px rgba(14, 103, 194, 0.2);
 }
 
 .checkout-section {
@@ -360,7 +363,7 @@
 }
 
 .amazon-buy-btn {
-  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  background: linear-gradient(135deg, #1f93ff 0%, #0e67c2 100%);
   color: white;
   border: none;
   padding: 14px 28px;
@@ -370,7 +373,7 @@
   font-weight: 700;
   letter-spacing: 0.5px;
   transition: all 0.3s;
-  box-shadow: 0 6px 20px rgba(29, 78, 216, 0.3);
+  box-shadow: 0 6px 20px rgba(31, 147, 255, 0.3);
   display: flex;
   align-items: center;
   position: relative;
@@ -393,9 +396,9 @@
 }
 
 .amazon-buy-btn:hover {
-  background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+  background: linear-gradient(135deg, #0e67c2 0%, #084fa0 100%);
   transform: translateY(-3px);
-  box-shadow: 0 12px 35px rgba(29, 78, 216, 0.4);
+  box-shadow: 0 12px 35px rgba(31, 147, 255, 0.35);
 }
 
 .checkout-icon {
@@ -413,17 +416,17 @@
   padding: 25px;
   background: white;
   border-radius: 16px;
-  box-shadow: 0 8px 30px rgba(59, 130, 246, 0.08);
-  border: 1px solid #e2e8f0;
+  box-shadow: 0 8px 30px rgba(31, 147, 255, 0.08);
+  border: 1px solid #dbeaf9;
 }
 
 .compatibility-issues h2 {
   margin-top: 0;
-  color: #1e293b;
+  color: #16253a;
   font-size: 22px;
   margin-bottom: 20px;
   padding-bottom: 12px;
-  border-bottom: 3px solid #e2e8f0;
+  border-bottom: 3px solid #dbeaf9;
   position: relative;
 }
 
@@ -434,7 +437,7 @@
   bottom: -3px;
   width: 70px;
   height: 3px;
-  background: linear-gradient(to right, #3b82f6, #1d4ed8);
+  background: linear-gradient(to right, #1f93ff, #0e67c2);
   border-radius: 2px;
 }
 
@@ -466,29 +469,32 @@
 
 .issue-item.problem {
   background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-  border: 1px solid #fecaca;
+  border: 1px solid #fca5a5;
 }
 
 .issue-item.problem::before {
   background: linear-gradient(to bottom, #ef4444, #dc2626);
+  border-radius: 0 2px 2px 0;
 }
 
 .issue-item.disclaimer {
-  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-  border: 1px solid #bfdbfe;
+  background: linear-gradient(135deg, #e8f3ff 0%, #d1e9ff 100%);
+  border: 1px solid #b0d9ff;
 }
 
 .issue-item.disclaimer::before {
-  background: linear-gradient(to bottom, #3b82f6, #1d4ed8);
+  background: linear-gradient(to bottom, #1f93ff, #0e67c2);
+  border-radius: 0 2px 2px 0;
 }
 
 .issue-item.cooler {
   background: linear-gradient(135deg, #f0fdff 0%, #e0f7fa 100%);
-  border: 1px solid #b2ebf2;
+  border: 1px solid #a5e9f6;
 }
 
 .issue-item.cooler::before {
   background: linear-gradient(to bottom, #06b6d4, #0891b2);
+  border-radius: 0 2px 2px 0;
 }
 
 .issue-item.cooler .issue-badge {
@@ -552,11 +558,13 @@
 .issue-item.problem .issue-badge {
   background: linear-gradient(135deg, #ef4444, #dc2626);
   color: white;
+  box-shadow: 0 3px 10px rgba(239, 68, 68, 0.3);
 }
 
 .issue-item.disclaimer .issue-badge {
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  background: linear-gradient(135deg, #1f93ff, #0e67c2);
   color: white;
+  box-shadow: 0 3px 10px rgba(31, 147, 255, 0.3);
 }
 
 .issue-item.cooler .issue-badge {
@@ -581,7 +589,7 @@
 }
 
 .issue-item.disclaimer .issue-type {
-  color: #1d4ed8;
+  color: #0e67c2;
 }
 
 .issue-item.cooler .issue-type {

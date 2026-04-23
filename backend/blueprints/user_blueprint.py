@@ -24,12 +24,13 @@ def api_create_user():
 
 @user_blueprint.route('/api/account', methods=['GET'])
 def get_user():
+    print("SESSION:", dict(session))
     user_id = session.get('user_id')
     if not user_id:
         return jsonify({"errCode": 1, "message": "Not authenticated"}), 401
-
     user = get_user_by_id(user_id)
     cart_items_count = get_number_of_cart_items(user_id)
+    print(f"User ID: {user_id}, Cart Items Count: {cart_items_count}")
     if user:
         return jsonify({"errCode": 0, "user": user, "cart_items_count": cart_items_count}), 200
     else:
@@ -85,6 +86,7 @@ def api_login():
 
     if user:
         session['user_id'] = user['id']
+        print(f"User ID {session['user_id']} logged in")
         session['email'] = email
         return jsonify({"errCode": 0, "user": user}), 200
     else:

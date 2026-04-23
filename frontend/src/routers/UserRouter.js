@@ -20,7 +20,7 @@ const UserRouter = ({ children }) => {
                     <span className="visually-hidden">Loading...</span>
                 </div>
             </div>
-        );
+        );      
     }
 
     if (!user.isAuthenticated) {

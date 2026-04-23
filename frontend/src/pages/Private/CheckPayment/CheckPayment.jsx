@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { CheckPaymentZalopay } from "../../../services/apiService";
+import { CheckPaymentStripe } from "../../../services/apiService";
 import "./CheckPayment.css";
 import { CheckOut } from "../../../services/apiService";
 import { toast } from 'react-toastify';
@@ -14,23 +14,23 @@ const CheckPayment = () => {
     useEffect(() => {
         const checkPayment = async () => {
             const params = new URLSearchParams(location.search);
-            const app_trans_id = params.get("apptransid");
+            const session_id = params.get("session_id");
 
-            if (!app_trans_id) {
+            if (!session_id) {
                 navigate("/failPayment");
                 return;
             }
 
             try {
-                const response = await CheckPaymentZalopay(app_trans_id);
-                if (response?.return_code === 1 && response?.sub_return_code === 1) {
+                const response = await CheckPaymentStripe(session_id);
+                if (response?.status === "success") {
                     const orderDataStr = localStorage.getItem("pendingOrderData");
                     if (!orderDataStr) {
                         navigate("/failPayment");
                         return;
                     }
                     const orderData = JSON.parse(orderDataStr);
-                    orderData.app_trans_id = app_trans_id;
+                    orderData.session_id = session_id;
                     localStorage.removeItem("pendingOrderData");
                     const responseCheckout = await CheckOut(orderData);
                     if (responseCheckout && responseCheckout.errCode === 0) {

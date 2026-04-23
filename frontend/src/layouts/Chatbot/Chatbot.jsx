@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
 import ReactMarkdown from 'react-markdown'; // Import thêm react-markdown
+import remarkGfm from 'remark-gfm';
 import { sendChatbotQuery } from '../../services/chatbotService';
 import { UserContext } from '../../context/UserProvider';
 import './Chatbot.css';
@@ -14,6 +15,7 @@ const Chatbot = () => {
     const [isTyping, setIsTyping] = useState(false);
     const messagesEndRef = useRef(null);
     const { user } = useContext(UserContext);
+    const userId = user?.account?.id || user?.account?.user_id || null;
 
     const toggleChat = () => {
         setIsOpen(!isOpen);
@@ -36,21 +38,27 @@ const Chatbot = () => {
         setIsTyping(true);
 
         try {
-            // Get bot response
-            const userId = user?.account?.id || null;
             const response = await sendChatbotQuery(input, userId);
 
             setTimeout(() => {
-                if (response && !response.error) {
-                    setMessages(prev => [...prev, { text: response.response.output, sender: 'bot' }]);
+                const output = response?.response?.output;
+
+                if (response?.success && output) {
+                    setMessages(prev => [...prev, { text: output, sender: 'bot' }]);
                 } else {
-                    setMessages(prev => [...prev, { text: "Sorry, I'm having trouble connecting right now. Please try again later.", sender: 'bot' }]);
+                    setMessages(prev => [...prev, {
+                        text: 'Xin lỗi, mình chưa lấy được phản hồi từ chatbot. Vui lòng thử lại sau.',
+                        sender: 'bot'
+                    }]);
                 }
                 setIsTyping(false);
             }, 600);
         } catch (error) {
             console.error('Error in chatbot:', error);
-            setMessages(prev => [...prev, { text: "Sorry, something went wrong. Please try again.", sender: 'bot' }]);
+            setMessages(prev => [...prev, {
+                text: 'Đã xảy ra lỗi khi gửi tin nhắn. Vui lòng thử lại.',
+                sender: 'bot'
+            }]);
             setIsTyping(false);
         }
     };
@@ -102,7 +110,7 @@ const Chatbot = () => {
             {isOpen && (
                 <div className="ts-chatbot-window ts-chatbot-window-no-button">
                     <div className="ts-chatbot-header">
-                        <h3>TechShop Assistant</h3>
+                        <h3>TechShop AI Assistant</h3>
                         <button onClick={toggleChat} className="ts-close-button" aria-label="Close chat">
                             <FaTimes />
                         </button>
@@ -116,7 +124,7 @@ const Chatbot = () => {
                                 </div>
                                 <div className="ts-message-text">
                                     <div className="ts-markdown-wrapper">
-                                        <ReactMarkdown>{msg.text}</ReactMarkdown>
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
                                     </div>
                                 </div>
                             </div>
@@ -137,7 +145,7 @@ const Chatbot = () => {
                     <div className="ts-chatbot-input">
                         <input
                             type="text"
-                            placeholder="Type your message..."
+                            placeholder="Hỏi về linh kiện, giá hoặc build PC..."
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             onKeyPress={handleKeyPress}

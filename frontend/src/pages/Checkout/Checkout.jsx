@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from "react";
 import { toast } from "react-toastify";
-import { PaymentZaloPay, CheckOut } from "../../services/apiService.js";
+import { PaymentZaloPay, PaymentStripe, CheckOut } from "../../services/apiService.js";
 import { UserContext } from "../../context/UserProvider";
 import { useLocation, useNavigate } from "react-router-dom";
 import "./Checkout.css";
@@ -154,12 +154,12 @@ const Checkout = () => {
             localStorage.setItem("pendingOrderData", JSON.stringify(orderData));
             setIsLoading(true);
             try {
-                let payment = await PaymentZaloPay({
+                let res = await PaymentStripe({
                     name: formData.name,
                     amount: totalAmount,
                 });
-                if (payment && payment.return_code === 1) {
-                    window.location.href = payment.order_url;
+                if (res && res.checkout_url) {
+                    window.location.href = res.checkout_url;
                 } else {
                     toast.error("Payment Failed");
                     setIsLoading(false);

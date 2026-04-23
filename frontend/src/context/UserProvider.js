@@ -1,84 +1,102 @@
-import React, { createContext, useState, useEffect } from "react";
+import React, { createContext, useState, useEffect, useCallback, useMemo } from "react";
 import { getUserAccount } from "../services/userService";
 export const UserContext = createContext();
 
+const USER_DEFAULT = {
+	isLoading: true,
+	isAuthenticated: false,
+	account: {},
+};
+
+const USER_LOGGED_OUT = {
+	...USER_DEFAULT,
+	isLoading: false,
+};
+
+const parseSessionData = (key, fallback) => {
+	const data = sessionStorage.getItem(key);
+	if (!data) {
+		return fallback;
+	}
+
+	try {
+		return JSON.parse(data);
+	} catch (error) {
+		console.error(`Error parsing ${key} data:`, error);
+		return fallback;
+	}
+};
+
 const UserProvider = ({ children }) => {
-	const userDefault = {
-		isLoading: true,
-		isAuthenticated: false,
-		account: {},
-	};
-	const [user, setUser] = useState(userDefault);
-	const [admin, setAdmin] = useState(userDefault);
+	const [user, setUser] = useState(USER_DEFAULT);
+	const [admin, setAdmin] = useState(USER_DEFAULT);
 
 	useEffect(() => {
-		const storedUser = sessionStorage.getItem("user");
-		const storedAdmin = sessionStorage.getItem("admin");
-
-		if (storedUser) {
-			try {
-				setUser(JSON.parse(storedUser));
-			} catch (error) {
-				console.error("Error parsing user data:", error);
-			}
-		}
-
-		if (storedAdmin) {
-			try {
-				setAdmin(JSON.parse(storedAdmin));
-			} catch (error) {
-				console.error("Error parsing admin data:", error);
-			}
-		}
+		setUser(parseSessionData("user", USER_DEFAULT));
+		setAdmin(parseSessionData("admin", USER_DEFAULT));
 	}, []);
 
-	const loginUser = (userData) => {
-		setUser(userData);
-		fetchUser();
-		sessionStorage.setItem("user", JSON.stringify(userData));
-	};
-
-	const updateUser = (userData) => {
-		setUser((prev) => ({ ...prev, account: { ...prev.account, ...userData } }));
-		sessionStorage.setItem("user", JSON.stringify({ ...user, account: { ...user.account, ...userData } }));
-	};
-
-	const loginAdmin = (adminData) => {
-		setAdmin(adminData);
-		sessionStorage.setItem("admin", JSON.stringify(adminData));
-	};
-
-	const fetchUser = async () => {
-		console.log('🔍 fetchUser called');
-		console.trace();
+	// const loginUser = (userData) => {
+	// 	setUser(userData);
+	// 	fetchUser();
+	// 	// sessionStorage.setItem("user", JSON.stringify(userData));
+	// };
+	const fetchUser = useCallback(async () => {
 		try {
 			const response = await getUserAccount();
 			if (response && response.errCode === 0) {
-				setUser({
+				const nextUser = {
 					isAuthenticated: true,
 					account: { ...response.user, cart_items_count: response.cart_items_count },
 					isLoading: false,
-				});
+				};
+
+				setUser(nextUser);
+				sessionStorage.setItem("user", JSON.stringify(nextUser));
 			} else {
-				setUser({ ...userDefault, isLoading: false });
+				setUser(USER_LOGGED_OUT);
+				sessionStorage.removeItem("user");
 			}
 		} catch (error) {
 			console.error("Error fetching user:", error);
-			setUser({ ...userDefault, isLoading: false });
+			setUser(USER_LOGGED_OUT);
+			sessionStorage.removeItem("user");
 		}
-	};
+	}, []);
+
+	const loginUser = useCallback(async () => {
+		await fetchUser(); // chỉ gọi 1 lần
+	}, [fetchUser]);
 
 
-	const logoutUser = () => {
-		setUser(null);
-		sessionStorage.removeItem("user", "chatMessages");
+	const updateUser = useCallback((userData) => {
+		setUser((prev) => {
+			const nextUser = {
+				...prev,
+				account: { ...prev.account, ...userData },
+			};
 
-	};
+			sessionStorage.setItem("user", JSON.stringify(nextUser));
+			return nextUser;
+		});
+	}, []);
 
-	const logoutAdmin = () => {
-		setAdmin(userDefault);
+	const loginAdmin = useCallback((adminData) => {
+		setAdmin(adminData);
+		sessionStorage.setItem("admin", JSON.stringify(adminData));
+	}, []);
+
+
+	const logoutUser = useCallback(() => {
+		setUser(USER_LOGGED_OUT);
+		sessionStorage.removeItem("user");
+		sessionStorage.removeItem("chatMessages");
+	}, []);
+
+	const logoutAdmin = useCallback(() => {
+		setAdmin(USER_DEFAULT);
 		sessionStorage.removeItem("admin");
-	};
+	}, []);
 	// useEffect(() => {
 	// 	if (
 	// 		window.location.pathname !== "/login" &&
@@ -89,8 +107,13 @@ const UserProvider = ({ children }) => {
 	// 		setUser({ ...user, isLoading: false });
 	// 	}
 	// }, []);
+	const contextValue = useMemo(
+		() => ({ user, loginUser, updateUser, logoutUser, fetchUser, loginAdmin, logoutAdmin, admin }),
+		[user, loginUser, updateUser, logoutUser, fetchUser, loginAdmin, logoutAdmin, admin]
+	);
+
 	return (
-		<UserContext.Provider value={{ user, loginUser, updateUser, logoutUser, fetchUser, loginAdmin, logoutAdmin, admin }}>
+		<UserContext.Provider value={contextValue}>
 			{children}
 		</UserContext.Provider>
 	);

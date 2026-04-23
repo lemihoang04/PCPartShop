@@ -352,6 +352,53 @@
     padding: 0;
 }
 
+.ts-markdown-wrapper table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.5rem 0;
+    font-size: 12px;
+    overflow: hidden;
+}
+
+.ts-markdown-wrapper th,
+.ts-markdown-wrapper td {
+    border: 1px solid #e2e8f0;
+    padding: 6px 8px;
+    text-align: left;
+    vertical-align: top;
+}
+
+.ts-markdown-wrapper th {
+    background: #edf2f7;
+    font-weight: 600;
+}
+
+.ts-markdown-wrapper tr:nth-child(even) td {
+    background: #fafafa;
+}
+
+.ts-markdown-wrapper ul,
+.ts-markdown-wrapper ol {
+    margin: 0.25rem 0 0.25rem 1.25rem;
+    padding: 0;
+}
+
+.ts-markdown-wrapper code {
+    background: #edf2f7;
+    padding: 0.1rem 0.25rem;
+    border-radius: 4px;
+    font-size: 0.95em;
+}
+
+.ts-markdown-wrapper pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: #edf2f7;
+    padding: 0.75rem;
+    border-radius: 8px;
+    overflow-x: auto;
+}
+
 /* If there are multiple paragraphs, only add spacing between them */
 .ts-markdown-wrapper p+p {
     margin-top: 0.5em;

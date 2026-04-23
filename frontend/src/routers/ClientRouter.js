@@ -19,7 +19,7 @@ import ComponentSearch from "../pages/Component/ComponentSearch"
 import Orders from "../pages/Order/Orders";
 import CheckPayment from "../pages/Private/CheckPayment/CheckPayment";
 import FailPayment from "../pages/Private/failPayment/failPayment";
-import ForgetPassword from "../pages/ForgerPassword/ForgetPassword";
+import ForgetPassword from "../pages/ForgetPassword/ForgetPassword";
 import ScrollToTop from "../components/ScrollToTop";
 import LoginAdmin from "../pages/Admin/Login/AdminLogin";
 import AddProduct from "../pages/Admin/AddProduct";

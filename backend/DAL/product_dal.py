@@ -884,12 +884,13 @@ def get_products_from_db_by_query(query=None):
         SELECT p.product_id, p.title AS product_name, c.category_name AS type, p.price
         FROM products p
         JOIN categories c ON p.category_id = c.category_id
-        ORDER BY p.product_id ASC
     """
     if query:
         sql += " WHERE p.title LIKE %s"
+        sql += " ORDER BY p.product_id ASC"
         cursor.execute(sql, (f"%{query}%",))
     else:
+        sql += " ORDER BY p.product_id ASC"
         cursor.execute(sql)
     products = cursor.fetchall()
     for product in products:
@@ -898,6 +899,85 @@ def get_products_from_db_by_query(query=None):
     cursor.close()
     connection.close()
     return products
+
+
+def dal_ai_query_products(
+    category_name=None,
+    keyword=None,
+    min_price=None,
+    max_price=None,
+    attribute_filters=None,
+    limit=30,
+):
+    """Query products for chatbot with DB-side filtering by category, keyword, price, and attributes."""
+    db = get_db_connection()
+    if not db:
+        return {"error": "Database connection failed"}, 500
+
+    cursor = db.cursor(dictionary=True)
+    try:
+        joins = []
+        conditions = []
+        params = []
+
+        if category_name:
+            conditions.append("LOWER(c.category_name) = LOWER(%s)")
+            params.append(category_name)
+
+        if keyword:
+            conditions.append("p.title LIKE %s")
+            params.append(f"%{keyword}%")
+
+        if min_price is not None:
+            conditions.append("p.price >= %s")
+            params.append(min_price)
+
+        if max_price is not None:
+            conditions.append("p.price <= %s")
+            params.append(max_price)
+
+        if attribute_filters:
+            for idx, (attr_name, attr_value) in enumerate(attribute_filters.items()):
+                alias = f"pa{idx}"
+                joins.append(f"JOIN product_attributes {alias} ON p.product_id = {alias}.product_id")
+                conditions.append(f"LOWER({alias}.attribute_name) = LOWER(%s)")
+                params.append(attr_name)
+                conditions.append(f"LOWER({alias}.attribute_value) LIKE LOWER(%s)")
+                params.append(f"%{attr_value}%")
+
+        sql = """
+            SELECT DISTINCT
+                p.product_id,
+                p.title AS product_name,
+                c.category_name AS type,
+                p.price
+            FROM products p
+            JOIN categories c ON p.category_id = c.category_id
+        """
+
+        if joins:
+            sql += " " + " ".join(joins)
+
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+
+        sql += " ORDER BY p.product_id ASC LIMIT %s"
+        params.append(max(1, min(int(limit), 100)))
+
+        cursor.execute(sql, tuple(params))
+        products = cursor.fetchall()
+
+        for product in products:
+            if "type" in product and isinstance(product["type"], str):
+                product["type"] = product["type"].lower()
+
+        return products, 200
+
+    except Exception as e:
+        return {"error": str(e)}, 500
+    finally:
+        cursor.close()
+        db.close()
 
 def dal_delete_product(product_id):
     """

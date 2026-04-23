@@ -29,11 +29,18 @@ def checkout(order_data):
         for item in order_data['order_items']:
             # Get product name for email
             cursor.execute("""
-                SELECT title FROM Products WHERE product_id = %s
+                SELECT title,stock FROM Products WHERE product_id = %s
             """, (item['product_id'],))
             product_data = cursor.fetchone()
             product_name = product_data.get('title', 'Unknown Product') if product_data else 'Unknown Product'
-            
+            product_stock = product_data.get('stock', 0) if product_data else 0
+            updated_stock = product_stock - item['quantity']
+            if updated_stock < 0:
+                updated_stock = 0
+            # Update product stock
+            cursor.execute("""
+                UPDATE Products SET stock = %s WHERE product_id = %s
+            """, (updated_stock, item['product_id']))
             # Store product details for email
             enhanced_item = {
                 'product_id': item['product_id'],

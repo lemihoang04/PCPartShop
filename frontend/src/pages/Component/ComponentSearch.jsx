@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchCompatibleCPUs, fetchCompatibleCpuCoolers, fetchCompatibleMainboards, fetchComponents, fetchCompatibleRam, fetchCompatibleStorage, fetchCompatibleCases, fetchCompatiblePSU } from '../../services/componentService';
 import './ComponentSearch.css';
@@ -22,8 +22,9 @@ const ComponentSearch = () => {
   }); const [currentPage, setCurrentPage] = useState(1);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isFilterVisible, setIsFilterVisible] = useState(false);
+  const [isFilterVisible, setIsFilterVisible] = useState(true);
   const [showAllManufacturers, setShowAllManufacturers] = useState(false);
+  const [sortConfig, setSortConfig] = useState({ key: 'Price', direction: 'asc' });
   const navigate = useNavigate();
 
   const validTypes = ['Storage', 'PSU', 'Mainboard', 'GPU', 'CPU', 'RAM', 'CPU Cooler', 'Case'];
@@ -247,10 +248,157 @@ const ComponentSearch = () => {
   }, [normalizedType, window.location.search]); // Thêm location.search vào dependencies để reload khi query params thay đổi
 
   const itemsPerPage = 50;
+  const getRawComponentHeaders = () => {
+    const headers = {
+      CPU: [
+        'Name',
+        'Core Count',
+        'Core Clock',
+        'Core Boost Clock',
+        'Socket',
+        'TDP',
+        'Integrated Graphics',
+        'Rating',
+        'Price',
+        'Action'
+      ],
+      RAM: [
+        'Name',
+        'Speed',
+        'Modules',
+        'CAS Latency',
+        'Voltage',
+        'Timing',
+        'ECC / Registered',
+        'Price',
+        'Action'
+      ],
+      'CPU Cooler': [
+        'Name',
+        'Fan RPM',
+        'Noise Level',
+        'Height',
+        'CPU Socket',
+        'Water Cooled',
+        'Fanless',
+        'Price',
+        'Action'
+      ],
+      Case: [
+        'Name',
+        'Type',
+        'Color',
+        'Side Panel',
+        'Motherboard Form Factor',
+        'Maximum Video Card Length',
+        'Drive Bays',
+        'Price',
+        'Action'
+      ],
+      GPU: [
+        'Name',
+        'Chipset',
+        'Memory',
+        'Core Clock',
+        'Boost Clock',
+        'TDP',
+        'Cooling',
+        'Interface',
+        'Price',
+        'Action'
+      ],
+      Mainboard: [
+        'Name',
+        'Socket/CPU',
+        'Form Factor',
+        'Chipset',
+        'Memory Max',
+        'Memory Slots',
+        'PCIe x16 Slots',
+        'Price',
+        'Action'
+      ],
+      PSU: [
+        'Name',
+        'Wattage',
+        'Efficiency Rating',
+        'Modular',
+        'ATX 4-Pin Connectors',
+        'PCIe 8-Pin Connectors',
+        'SATA Connectors',
+        'Price',
+        'Action'
+      ],
+      Storage: [
+        'Name',
+        'Capacity',
+        'Type',
+        'Form Factor',
+        'Interface',
+        'NVME',
+        'Cache',
+        'Price',
+        'Action'
+      ],
+    };
+
+    return headers[normalizedType] || ['Name', 'Price'];
+  };
+
+  const getSortableValue = (component, key) => {
+    if (key === 'Name') return component.title || '';
+    if (key === 'Price') return Number(component.price) || 0;
+    if (key === 'Rating') return Number(component.attributes?.['Rating Count']) || 0;
+
+    const value = component.attributes?.[key];
+    if (value === undefined || value === null || value === 'N/A') return '';
+
+    if (typeof value === 'number') return value;
+
+    const asString = String(value).trim();
+    const numeric = parseFloat(asString.replace(/[^\d.-]/g, ''));
+
+    return Number.isNaN(numeric) ? asString.toLowerCase() : numeric;
+  };
+
+  const sortedComponents = useMemo(() => {
+    const sortable = [...filteredComponents];
+
+    sortable.sort((a, b) => {
+      const aValue = getSortableValue(a, sortConfig.key);
+      const bValue = getSortableValue(b, sortConfig.key);
+
+      if (aValue === bValue) return 0;
+
+      if (sortConfig.direction === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      }
+
+      return aValue < bValue ? 1 : -1;
+    });
+
+    return sortable;
+  }, [filteredComponents, sortConfig]);
+
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentComponents = filteredComponents.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredComponents.length / itemsPerPage);
+  const currentComponents = sortedComponents.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(sortedComponents.length / itemsPerPage);
+
+  const handleSort = (key) => {
+    if (!key || key === 'Action') return;
+
+    setSortConfig((prev) => {
+      if (prev.key === key) {
+        return {
+          key,
+          direction: prev.direction === 'asc' ? 'desc' : 'asc'
+        };
+      }
+
+      return { key, direction: 'asc' };
+    });
+  };
 
   const handleSearch = (e) => {
     const term = e.target.value.toLowerCase();
@@ -344,100 +492,7 @@ const ComponentSearch = () => {
         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
 
-    const headers = {
-      CPU: [
-        'Name',
-        'Core Count',
-        'Performance Core Clock',
-        'Performance Core Boost Clock',
-        'Socket',
-        'TDP',
-        'Integrated Graphics',
-        'Rating',
-        'Price',
-        'Action'
-      ],
-      RAM: [
-        'Name',
-        'Speed',
-        'Modules',
-        'CAS Latency',
-        'Voltage',
-        'Timing',
-        'ECC / Registered',
-        'Price',
-        'Action'
-      ],
-      'CPU Cooler': [
-        'Name',
-        'Fan RPM',
-        'Noise Level',
-        'Height',
-        'CPU Socket',
-        'Water Cooled',
-        'Fanless',
-        'Price',
-        'Action'
-      ],
-      Case: [
-        'Name',
-        'Type',
-        'Color',
-        'Side Panel',
-        'Motherboard Form Factor',
-        'Maximum Video Card Length',
-        'Drive Bays',
-        'Price',
-        'Action'
-      ],
-      GPU: [
-        'Name',
-        'Chipset',
-        'Memory',
-        'Core Clock',
-        'Boost Clock',
-        'TDP',
-        'Cooling',
-        'Interface',
-        'Price',
-        'Action'
-      ],
-      Mainboard: [
-        'Name',
-        'Socket/CPU',
-        'Form Factor',
-        'Chipset',
-        'Memory Max',
-        'Memory Slots',
-        'PCIe x16 Slots',
-        'Price',
-        'Action'
-      ],
-      PSU: [
-        'Name',
-        'Wattage',
-        'Efficiency Rating',
-        'Modular',
-        'ATX 4-Pin Connectors',
-        'PCIe 8-Pin Connectors',
-        'SATA Connectors',
-        'Price',
-        'Action'
-      ],
-      Storage: [
-        'Name',
-        'Capacity',
-        'Type',
-        'Form Factor',
-        'Interface',
-        'NVME',
-        'Cache',
-        'Price',
-        'Action'
-      ],
-    };
-
-    return (headers[normalizedType] || ['Name', 'Price']).map(normalizeHeader);
+    return getRawComponentHeaders().map(normalizeHeader);
   };
 
   const getComponentRowData = (component) => {
@@ -724,10 +779,17 @@ const ComponentSearch = () => {
                 <h2>{filteredComponents.length} Compatible {normalizedType} Products</h2>
                 <div className="comp-search-sort">
                   <label>Sort by:</label>
-                  <select>
-                    <option>Price: Low to High</option>
-                    <option>Price: High to Low</option>
-                    <option>Name: A to Z</option>
+                  <select
+                    value={`${sortConfig.key}-${sortConfig.direction}`}
+                    onChange={(e) => {
+                      const [key, direction] = e.target.value.split('-');
+                      setSortConfig({ key, direction });
+                    }}
+                  >
+                    <option value="Price-asc">Price: Low to High</option>
+                    <option value="Price-desc">Price: High to Low</option>
+                    <option value="Name-asc">Name: A to Z</option>
+                    <option value="Name-desc">Name: Z to A</option>
                   </select>
                 </div>
               </div>
@@ -736,11 +798,25 @@ const ComponentSearch = () => {
                 <table>
                   <thead>
                     <tr>
-                      {getComponentHeaders().map((header, index) => (
-                        <th key={index}>
-                          {header} {header !== 'Name' && header !== 'Action' && <i className="fas fa-sort"></i>}
+                      {getComponentHeaders().map((header, index) => {
+                        const rawHeader = getRawComponentHeaders()[index];
+                        const isSortable = rawHeader !== 'Action';
+                        const isActiveSort = sortConfig.key === rawHeader;
+                        const sortIconClass = isActiveSort
+                          ? (sortConfig.direction === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down')
+                          : 'fas fa-sort';
+
+                        return (
+                        <th
+                          key={index}
+                          onClick={() => isSortable && handleSort(rawHeader)}
+                          className={isActiveSort ? 'comp-search-th-active' : ''}
+                          style={{ cursor: isSortable ? 'pointer' : 'default' }}
+                        >
+                          {header} {isSortable && <i className={sortIconClass}></i>}
                         </th>
-                      ))}
+                        );
+                      })}
                     </tr>
                   </thead>
                   <tbody>

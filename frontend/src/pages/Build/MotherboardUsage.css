@@ -3,23 +3,23 @@
   padding: 25px;
   border-radius: 16px;
   background: white;
-  box-shadow: 0 8px 30px rgba(59, 130, 246, 0.08);
+  box-shadow: 0 8px 30px rgba(31, 147, 255, 0.08);
   transition: all 0.3s ease;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #dbeaf9;
 }
 
 .motherboard-usage:hover {
-  box-shadow: 0 15px 50px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 15px 50px rgba(31, 147, 255, 0.15);
   transform: translateY(-2px);
 }
 
 .motherboard-usage h2 {
   margin-top: 0;
-  color: #1e293b;
+  color: #16253a;
   font-size: 24px;
   margin-bottom: 25px;
   padding-bottom: 12px;
-  border-bottom: 3px solid #e2e8f0;
+  border-bottom: 3px solid #dbeaf9;
   position: relative;
   font-weight: 800;
 }
@@ -31,7 +31,7 @@
   bottom: -3px;
   width: 80px;
   height: 3px;
-  background: linear-gradient(to right, #3b82f6, #1d4ed8);
+  background: linear-gradient(to right, #1f93ff, #0e67c2);
   border-radius: 2px;
 }
 
@@ -55,9 +55,9 @@
   align-items: center;
   margin-bottom: 30px;
   padding: 20px;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  background: linear-gradient(135deg, #f5faff 0%, #eef6ff 100%);
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #dbeaf9;
 }
 
 .mb-image-container {
@@ -67,18 +67,18 @@
   justify-content: center;
   align-items: center;
   background: white;
-  border: 2px solid #e2e8f0;
+  border: 2px solid #dbeaf9;
   border-radius: 12px;
   margin-right: 20px;
   padding: 8px;
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 6px 20px rgba(31, 147, 255, 0.1);
   transition: all 0.3s;
 }
 
 .mb-image-container:hover {
   transform: scale(1.05);
-  border-color: #3b82f6;
-  box-shadow: 0 12px 35px rgba(59, 130, 246, 0.2);
+  border-color: #1f93ff;
+  box-shadow: 0 12px 35px rgba(31, 147, 255, 0.2);
 }
 
 .mb-image {
@@ -90,13 +90,13 @@
 .mb-title {
   font-weight: 700;
   font-size: 20px;
-  color: #1e293b;
+  color: #16253a;
   flex: 1;
 }
 
 .mb-subtitle {
   font-size: 14px;
-  color: #64748b;
+  color: #3f5877;
   margin-top: 6px;
   font-weight: 500;
 }
@@ -115,17 +115,17 @@
   background: white;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 3px 15px rgba(59, 130, 246, 0.08);
-  border: 1px solid #e2e8f0;
+  box-shadow: 0 3px 15px rgba(31, 147, 255, 0.08);
+  border: 1px solid #dbeaf9;
 }
 
 .mb-section:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 30px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 8px 30px rgba(31, 147, 255, 0.15);
 }
 
 .section-header {
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #1f93ff 0%, #0e67c2 100%);
   padding: 15px 18px;
   font-weight: 700;
   font-size: 15px;
@@ -157,17 +157,17 @@
   padding: 12px;
   border-radius: 10px;
   transition: all 0.3s;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border: 1px solid #e2e8f0;
+  background: linear-gradient(135deg, #f5faff 0%, #eef6ff 100%);
+  border: 1px solid #dbeaf9;
 }
 
 .socket-item:hover,
 .memory-item:hover,
 .slot-item:hover {
-  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-  border-color: #3b82f6;
+  background: linear-gradient(135deg, #e8f3ff 0%, #d1e9ff 100%);
+  border-color: #1f93ff;
   transform: translateX(8px);
-  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 4px 15px rgba(31, 147, 255, 0.1);
 }
 
 .socket-item:last-child,
@@ -182,12 +182,12 @@
   font-weight: 700;
   width: 160px;
   padding: 10px 14px;
-  background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+  background: linear-gradient(135deg, #0e67c2 0%, #1f93ff 100%);
   color: white;
   border-radius: 8px;
   text-align: center;
   font-size: 13px;
-  box-shadow: 0 3px 10px rgba(30, 64, 175, 0.3);
+  box-shadow: 0 3px 10px rgba(14, 103, 194, 0.3);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
@@ -212,18 +212,18 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+  background: linear-gradient(135deg, #1f93ff, #0e67c2);
+  box-shadow: 0 2px 6px rgba(31, 147, 255, 0.3);
 }
 
 .component-item {
   display: flex;
   align-items: center;
   flex: 1;
-  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  background: linear-gradient(135deg, #e8f3ff 0%, #d1e9ff 100%);
   padding: 12px 16px;
   border-radius: 10px;
-  border: 2px solid #bfdbfe;
+  border: 2px solid #b0d9ff;
   transition: all 0.3s;
   position: relative;
 }
@@ -235,14 +235,14 @@
   top: 0;
   bottom: 0;
   width: 4px;
-  background: linear-gradient(to bottom, #3b82f6, #1d4ed8);
+  background: linear-gradient(to bottom, #1f93ff, #0e67c2);
   border-radius: 0 2px 2px 0;
 }
 
 .component-item:hover {
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  background: linear-gradient(135deg, #d1e9ff 0%, #b0d9ff 100%);
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 8px 25px rgba(31, 147, 255, 0.2);
 }
 
 .component-image {
@@ -254,19 +254,19 @@
   padding: 5px;
   border-radius: 8px;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
+  border: 1px solid #dbeaf9;
 }
 
 .component-name {
   font-size: 14px;
-  color: #1e293b;
+  color: #16253a;
   font-weight: 600;
   line-height: 1.4;
 }
 
 .component-specs {
   font-size: 11px;
-  color: #64748b;
+  color: #3f5877;
   margin-top: 3px;
   font-weight: 500;
 }
@@ -276,7 +276,7 @@
   color: #94a3b8;
   font-style: italic;
   padding: 12px 16px;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  background: linear-gradient(135deg, #f5faff 0%, #eef6ff 100%);
   border-radius: 10px;
   border: 2px dashed #cbd5e1;
   text-align: center;
@@ -284,7 +284,7 @@
 }
 
 .mb-note {
-  color: #64748b;
+  color: #3f5877;
   font-style: italic;
   margin: 20px 0;
   font-size: 14px;
@@ -317,10 +317,10 @@
 .motherboard-footer {
   margin-top: 30px;
   padding: 25px;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  background: linear-gradient(135deg, #f5faff 0%, #eef6ff 100%);
   border-radius: 12px;
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.08);
-  border: 1px solid #e2e8f0;
+  box-shadow: 0 6px 20px rgba(31, 147, 255, 0.08);
+  border: 1px solid #dbeaf9;
 }
 
 .compatibility-rating {
@@ -334,7 +334,7 @@
 .rating-label {
   font-weight: 700;
   font-size: 18px;
-  color: #1e293b;
+  color: #16253a;
 }
 
 .rating-stars {
@@ -356,7 +356,7 @@
 
 .rating-text {
   font-weight: 700;
-  color: #3b82f6;
+  color: #1f93ff;
   font-size: 16px;
 }
 
@@ -374,13 +374,13 @@
   padding: 10px 14px;
   background: white;
   border-radius: 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #dbeaf9;
   transition: all 0.2s;
 }
 
 .detail-item:hover {
-  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-  border-color: #3b82f6;
+  background: linear-gradient(135deg, #e8f3ff 0%, #d1e9ff 100%);
+  border-color: #1f93ff;
   transform: translateX(4px);
 }
 
@@ -463,8 +463,8 @@
 }
 
 .rating-text.very-good {
-  color: #3b82f6;
-  text-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+  color: #1f93ff;
+  text-shadow: 0 0 8px rgba(31, 147, 255, 0.3);
 }
 
 .rating-text.good {
@@ -511,14 +511,14 @@
   padding: 20px;
   background: white;
   border-radius: 12px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 15px rgba(31, 147, 255, 0.1);
   border: 2px solid transparent;
   transition: all 0.3s ease;
 }
 
 .compatibility-rating:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 30px rgba(31, 147, 255, 0.15);
 }
 
 /* Power Summary Styling */
@@ -528,9 +528,9 @@
   gap: 16px;
   margin-bottom: 25px;
   padding: 20px;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  background: linear-gradient(135deg, #e8f3ff 0%, #d1e9ff 100%);
   border-radius: 12px;
-  border: 2px solid #bae6fd;
+  border: 2px solid #b0d9ff;
 }
 
 .power-item {
@@ -549,12 +549,12 @@
 .power-item:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-  border-color: #3b82f6;
+  border-color: #1f93ff;
 }
 
 .power-label {
   font-size: 12px;
-  color: #64748b;
+  color: #3f5877;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -564,8 +564,8 @@
 .power-value {
   font-size: 20px;
   font-weight: 800;
-  color: #1e40af;
-  text-shadow: 0 1px 2px rgba(30, 64, 175, 0.2);
+  color: #0e67c2;
+  text-shadow: 0 1px 2px rgba(14, 103, 194, 0.2);
 }
 
 .power-value.low-load {
@@ -628,7 +628,7 @@
 }
 
 .power-value.thermal-good {
-  color: #3b82f6;
+  color: #1f93ff;
 }
 
 .power-value.thermal-adequate {
