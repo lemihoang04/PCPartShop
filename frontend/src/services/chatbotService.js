@@ -6,7 +6,6 @@ const sendChatbotQuery = async (query, userId = null) => {
             query,
             user_id: userId
         });
-        console.log('Chatbot response:', response.data);
         return response;
     } catch (error) {
         console.error('Error sending chatbot query:', error);

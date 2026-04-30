@@ -171,7 +171,7 @@ def get_components_by_type(type):
             else:
                 print(f"No matching category found for '{type}', using fallback method")
                 # Fallback to standard types list
-                valid_types = ['Storage', 'PSU', 'Mainboard', 'GPU', 'CPU', 'RAM', 'CPU Cooler', 'Case']
+                valid_types = ['Storage', 'PSU', 'Mainboard', 'GPU', 'CPU', 'RAM', 'CPU Cooler', 'Case', 'CPU_Cooler']
                 standardized_type = None
                 
                 # Try to match against valid types in a case-insensitive way

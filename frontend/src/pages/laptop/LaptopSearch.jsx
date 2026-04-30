@@ -49,11 +49,20 @@ const LaptopSearch = () => {
   // Apply all filters to laptops
   useEffect(() => {
     let results = [...laptops];    // Apply search term filter
-    if (searchTerm) {
-      results = results.filter(laptop =>
-        laptop.title.toLowerCase().includes(searchTerm.toLowerCase())
+     if (searchTerm) {
+    const keywords = searchTerm
+      .toLowerCase()
+      .trim()
+      .split(/\s+/);
+
+    results = results.filter((laptop) => {
+      const title = laptop.title.toLowerCase();
+
+      return keywords.every((word) =>
+        title.includes(word)
       );
-    }
+    });
+  }
 
     // Apply price range filter
     results = results.filter(laptop => {

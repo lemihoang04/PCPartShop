@@ -1,38 +1,94 @@
-from flask import Blueprint, request, jsonify
-from DAL.product_dal import *
-from context.langchain_utils import create_product_agent  # Thêm import này
+import json
+import re
+
+from flask import Blueprint, jsonify, request
+
+from context.chatbot_agent import create_pc_product_agent
+from DAL.product_dal import dal_get_products_by_ids_for_chatbot
 
 chatbot_blueprint = Blueprint('chatbot', __name__)
 
+product_agent = create_pc_product_agent()
 
-# Khởi tạo agent một lần (hoặc có thể tạo trong hàm nếu muốn mỗi lần mới)
-product_agent = create_product_agent()
+
+def _extract_chatbot_payload(agent_response):
+    if isinstance(agent_response, dict):
+        if 'message' in agent_response or 'product_ids' in agent_response:
+            message = str(agent_response.get('message') or agent_response.get('output') or '')
+            product_ids = agent_response.get('product_ids') or []
+            return message, list(product_ids)
+
+    if isinstance(agent_response, str):
+        raw_content = agent_response.strip()
+    else:
+        last_message = None
+        if isinstance(agent_response, dict) and 'messages' in agent_response:
+            messages = agent_response.get('messages') or []
+            last_message = messages[-1] if messages else None
+        else:
+            last_message = agent_response
+
+        raw_content = getattr(last_message, 'content', str(last_message) if last_message is not None else '').strip()
+
+    if not raw_content:
+        return '', []
+
+    normalized = raw_content
+    if normalized.startswith('```'):
+        normalized = re.sub(r'^```(?:json)?\s*', '', normalized, flags=re.IGNORECASE)
+        normalized = re.sub(r'\s*```$', '', normalized)
+
+    try:
+        parsed = json.loads(normalized)
+        if isinstance(parsed, dict):
+            message = str(parsed.get('message') or parsed.get('output') or '')
+            product_ids = parsed.get('product_ids') or []
+            return message, list(product_ids)
+    except Exception:
+        pass
+
+    product_ids = re.findall(r'/product-info/([^\)\s]+)', raw_content)
+    product_ids = list(dict.fromkeys(product_ids))
+    return raw_content, product_ids
+
 
 @chatbot_blueprint.route("/chatbot/query", methods=["POST"])
 def chatbot_langchain_query():
-    user_message = request.json.get('query', '')
-    
-    # # Check for greeting before invoking the LLM agent.
-    # if any(greeting in user_message.lower() for greeting in ["hi", "hello", "hey"]):
-    #     response = "Hello! I'm your product assistant. How can I help you find products today?"
-    #     return jsonify({'response': {'output': response}})
-    
+    data = request.get_json(silent=True) or {}
+    user_message = (data.get("query") or "").strip()
+
+    if not user_message:
+        return jsonify({
+            'success': False,
+            'error': 'Missing or empty "query" field in request body',
+        }), 400
+
     try:
-        # Get the agent's response
-        agent_response = product_agent.invoke(user_message)
-        
-        # Extract the content from the agent response
-        if isinstance(agent_response, dict) and 'output' in agent_response:
-            response_content = agent_response['output']
-        else:
-            response_content = str(agent_response)
-            
-        return jsonify({'response': {'output': response_content}})
+        agent_response = product_agent.invoke({"messages": [("user", user_message)]})
+
+        response_content, product_ids = _extract_chatbot_payload(agent_response)
+
+        products = []
+        if product_ids:
+            product_result = dal_get_products_by_ids_for_chatbot(product_ids)
+            if isinstance(product_result, tuple) and len(product_result) == 2:
+                products, status_code = product_result
+                if status_code != 200:
+                    products = []
+
+        return jsonify({
+            'success': True,
+            'response': {
+                'message': response_content,
+                'output': response_content,
+                'product_ids': product_ids,
+                'products': products,
+                'type': 'markdown',
+            }
+        })
     except Exception as e:
-        error_text = str(e)
-        if "Final Answer:" in error_text:
-            start_idx = error_text.find("Final Answer:") + len("Final Answer:")
-            response = error_text[start_idx:].strip()
-        else:
-            response = "I encountered an issue processing your request. Please try asking about specific product details."
-        return jsonify({'response': {'output': response}})
+        return jsonify({
+            'success': False,
+            'error': 'Đã xảy ra lỗi khi xử lý yêu cầu. Vui lòng thử lại.',
+            'detail': str(e) if __debug__ else None,
+        }), 500

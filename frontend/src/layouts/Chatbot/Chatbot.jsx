@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
 import ReactMarkdown from 'react-markdown'; // Import thêm react-markdown
 import remarkGfm from 'remark-gfm';
+import { useNavigate } from 'react-router-dom';
 import { sendChatbotQuery } from '../../services/chatbotService';
 import { UserContext } from '../../context/UserProvider';
 import './Chatbot.css';
@@ -9,20 +10,43 @@ import { FaRobot, FaTimes, FaUser, FaPaperPlane } from 'react-icons/fa';
 const Chatbot = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([
-        { text: "Hello! How can I help you with TechShop today?", sender: 'bot' }
+        { text: 'Xin chào! Mình có thể hỗ trợ bạn tìm linh kiện, kiểm tra giá hoặc gợi ý build PC.', sender: 'bot' }
     ]);
     const [input, setInput] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     const messagesEndRef = useRef(null);
+    const inputRef = useRef(null);
     const { user } = useContext(UserContext);
+    const navigate = useNavigate();
     const userId = user?.account?.id || user?.account?.user_id || null;
+
+    const formatPrice = (value) => {
+        if (value === null || value === undefined || value === '') {
+            return 'Liên hệ';
+        }
+
+        const numericValue = Number(value);
+        if (Number.isNaN(numericValue)) {
+            return String(value);
+        }
+
+        return `${new Intl.NumberFormat('vi-VN').format(numericValue)}đ`;
+    };
+
+    const getProductImage = (image) => {
+        if (!image) {
+            return '/default-image.jpg';
+        }
+
+        return String(image).split(';')[0].trim() || '/default-image.jpg';
+    };
 
     const toggleChat = () => {
         setIsOpen(!isOpen);
         // Add focus to input when chat opens and scroll to bottom
         if (!isOpen) {
             setTimeout(() => {
-                document.querySelector('.ts-chatbot-input input')?.focus();
+                inputRef.current?.focus();
                 messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
             }, 300);
         }
@@ -39,15 +63,16 @@ const Chatbot = () => {
 
         try {
             const response = await sendChatbotQuery(input, userId);
+            const chatbotResponse = response?.response ?? response;
+            const output = chatbotResponse?.message ?? chatbotResponse?.output ?? chatbotResponse?.detail ?? chatbotResponse?.error;
+            const products = Array.isArray(chatbotResponse?.products) ? chatbotResponse.products : [];
 
             setTimeout(() => {
-                const output = response?.response?.output;
-
                 if (response?.success && output) {
-                    setMessages(prev => [...prev, { text: output, sender: 'bot' }]);
+                    setMessages(prev => [...prev, { text: output, sender: 'bot', products }]);
                 } else {
                     setMessages(prev => [...prev, {
-                        text: 'Xin lỗi, mình chưa lấy được phản hồi từ chatbot. Vui lòng thử lại sau.',
+                        text: output || 'Xin lỗi, mình chưa lấy được phản hồi từ chatbot. Vui lòng thử lại sau.',
                         sender: 'bot'
                     }]);
                 }
@@ -63,8 +88,9 @@ const Chatbot = () => {
         }
     };
 
-    const handleKeyPress = (e) => {
-        if (e.key === 'Enter') {
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
             handleSend();
         }
     };
@@ -119,14 +145,67 @@ const Chatbot = () => {
                     <div className="ts-chatbot-messages">
                         {messages.map((msg, index) => (
                             <div key={index} className={`ts-message ${msg.sender}`}>
-                                <div className="ts-message-icon">
-                                    {msg.sender === 'bot' ? <FaRobot /> : <FaUser />}
-                                </div>
-                                <div className="ts-message-text">
-                                    <div className="ts-markdown-wrapper">
-                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
+                                <div className="ts-message-row">
+                                    <div className="ts-message-icon">
+                                        {msg.sender === 'bot' ? <FaRobot /> : <FaUser />}
+                                    </div>
+                                    <div className="ts-message-text">
+                                        <div className="ts-markdown-wrapper">
+                                            <ReactMarkdown
+                                                remarkPlugins={[remarkGfm]}
+                                                components={{
+                                                    a: ({ href, children, ...props }) => {
+                                                        const isInternal = typeof href === 'string' && href.startsWith('/');
+                                                        return (
+                                                            <a
+                                                                href={href}
+                                                                {...props}
+                                                                target={isInternal ? undefined : '_blank'}
+                                                                rel={isInternal ? undefined : 'noreferrer'}
+                                                            >
+                                                                {children}
+                                                            </a>
+                                                        );
+                                                    },
+                                                    img: ({ src, alt, ...props }) => (
+                                                        <img src={src} alt={alt || 'product'} {...props} />
+                                                    )
+                                                }}
+                                            >
+                                                {msg.text}
+                                            </ReactMarkdown>
+                                        </div>
                                     </div>
                                 </div>
+                                {msg.sender === 'bot' && Array.isArray(msg.products) && msg.products.length > 0 && (
+                                    <div className="ts-chatbot-product-grid">
+                                        {msg.products.map((product) => (
+                                            <button
+                                                key={product.product_id}
+                                                type="button"
+                                                className="ts-chatbot-product-card"
+                                                onClick={() => navigate(`/product-info/${product.product_id}`)}
+                                            >
+                                                <div className="ts-chatbot-product-image-wrap">
+                                                    <img
+                                                        src={getProductImage(product.image)}
+                                                        alt={product.title || 'Product'}
+                                                        className="ts-chatbot-product-image"
+                                                    />
+                                                </div>
+                                                <div className="ts-chatbot-product-info">
+                                                    {product.category_name && (
+                                                        <span className="ts-chatbot-product-category">{product.category_name}</span>
+                                                    )}
+                                                    <div className="ts-chatbot-product-title">
+                                                        {product.title || 'Sản phẩm'}
+                                                    </div>
+                                                    <span className="ts-chatbot-product-price">{formatPrice(product.price)}</span>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         ))}
                         {isTyping && (
@@ -148,7 +227,8 @@ const Chatbot = () => {
                             placeholder="Hỏi về linh kiện, giá hoặc build PC..."
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            onKeyPress={handleKeyPress}
+                            onKeyDown={handleKeyDown}
+                            ref={inputRef}
                         />
                         <button onClick={handleSend} disabled={isTyping}>
                             <FaPaperPlane />
