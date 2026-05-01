@@ -8,11 +8,10 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_core.messages import AIMessage, SystemMessage
 from langchain_core.tools import tool
-from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
-from DAL.product_dal import dal_get_products_by_ids_for_chatbot
 
 # =====================================================
 # CONFIG
@@ -21,7 +20,7 @@ from DAL.product_dal import dal_get_products_by_ids_for_chatbot
 BASE_DIR = Path(__file__).resolve().parent
 COLLECTION_NAME = "pc_products"
 PERSIST_DIR = str(BASE_DIR / "chroma_db")
-MODEL_NAME = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+MODEL_NAME = os.getenv("GOOGLE_MODEL", "gemma-4-26b-a4b-it")
 
 CATEGORY_KEYWORDS = {
     "cpu": ["cpu", "vi xu ly", "vi xử lý", "chip"],
@@ -47,15 +46,16 @@ class AgentState(TypedDict):
 # INIT MODELS
 # =====================================================
 
-def get_llm() -> ChatGroq:
-    groq_api_key = os.getenv("GROQ_API_KEY")
-    if not groq_api_key:
-        raise ValueError("Thiếu GROQ_API_KEY trong biến môi trường.")
+def get_llm() -> ChatGoogleGenerativeAI:
+    google_api_key = os.getenv("GOOGLE_API_KEY")
+    if not google_api_key:
+        raise ValueError("Thiếu GOOGLE_API_KEY trong biến môi trường.")
+    
 
-    return ChatGroq(
-        groq_api_key=groq_api_key,
-        model_name=MODEL_NAME,
-        temperature=0.1,
+    return ChatGoogleGenerativeAI(
+        api_key=google_api_key,
+        model=MODEL_NAME,
+        temperature=0.05,
     )
 
 
@@ -179,7 +179,7 @@ def build_context_block(docs: List[Any]) -> str:
     for idx, doc in enumerate(docs, start=1):
         product_id = doc_uid(doc)
         # product_link = f"/product-info/{product_id}"
-        image_url = doc_image(doc)
+        # image_url = doc_image(doc)
         # content = (getattr(doc, "page_content", "") or "").replace("\n", " ").strip()
         # excerpt = content[:300] if content else "Khong co mo ta"
         # line = (
@@ -206,12 +206,7 @@ def format_markdown_output(text: str) -> str:
     if not cleaned:
         return cleaned
 
-    # Normalize any bare image URLs into markdown images for frontend rendering.
-    cleaned = re.sub(
-        r"image:\s*(https?://\S+)",
-        lambda match: f"image: ![image]({match.group(1)})",
-        cleaned,
-    )
+
 
     return cleaned
 
@@ -408,7 +403,7 @@ def search_products_by_budget(max_price: int, product_type: str = "", limit: int
     if product_type:
         filters["category"] = product_type.strip().lower()
 
-    docs = ranked_search(f"san pham gia {max_price}", filters or None, k=max(1, min(limit, 20)))
+    docs = ranked_search(f"sản phẩm giá {max_price}", filters or None, k=max(1, min(limit, 20)))
     docs = [doc for doc in docs if (doc_price(doc) or 0) <= max_price] or docs
     docs = docs[: max(1, min(limit, 20))]
     if not docs:
@@ -485,47 +480,11 @@ def agent_node(state: AgentState):
         response = llm_with_tools.invoke(messages)
         print("LLM response:", response)
         return {"messages": [response]}
-    except Exception:
-        user_text = ""
-        for message in reversed(state["messages"]):
-            if isinstance(message, tuple) and len(message) == 2 and message[0] == "user":
-                user_text = str(message[1])
-                break
-            content = getattr(message, "content", "")
-            if content:
-                user_text = str(content)
-                break
-
-        text_low = user_text.lower()
-        budget = detect_budget(text_low)
-        category = detect_category(text_low)
-        build_intent = any(
-            key in text_low
-            for key in ("build", "cau hinh", "cấu hình", "lap", "lắp", "pc")
-        )
-        type_request = any(
-            key in text_low
-            for key in ("loai", "loại", "danh muc", "danh mục", "co nhung", "có những")
-        )
-
-        if budget and build_intent:
-            output = recommend_pc_build.invoke({"budget": int(budget), "priority": "balance"})
-        elif budget:
-            output = search_products_by_budget.invoke(
-                {
-                    "max_price": int(budget),
-                    "product_type": category or "",
-                    "limit": 8,
-                }
-            )
-        elif category:
-            output = search_products_by_type.invoke({"product_type": category, "limit": 8})
-        elif type_request:
-            output = get_available_types.invoke({})
-        else:
-            output = search_products_by_keyword.invoke({"keyword": user_text, "limit": 8})
-
-        return {"messages": [AIMessage(content=build_json_response(str(output)))]}
+    except Exception as e:
+        print("❌ ERROR in agent_node:", str(e))
+        fallback_message = "Xin lỗi, tôi đã gặp lỗi khi xử lý yêu cầu của bạn. Vui lòng thử lại sau."
+        return {"messages": [AIMessage(content=fallback_message)]}
+        
 
 
 def format_node(state: AgentState):
@@ -538,13 +497,48 @@ def format_node(state: AgentState):
     if not content:
         return {"messages": []}
 
-    formatted = format_markdown_output(str(content))
+    content_str = str(content).strip()
+    
+    # Thử parse JSON từ content
     try:
-        last_message.content = formatted
-    except Exception:
-        return {"messages": [AIMessage(content=formatted)]}
-
-    return {"messages": []}
+        parsed = json.loads(content_str)
+        # Kiểm tra có đủ keys "message" và "product_ids" không
+        if isinstance(parsed, dict) and "message" in parsed and "product_ids" in parsed:
+            formatted = json.dumps(parsed, ensure_ascii=False)
+            return {"messages": [AIMessage(content=formatted)]}
+    except (json.JSONDecodeError, ValueError):
+        pass
+    
+    # Nếu không phải JSON hợp lệ, ép nó về format chuẩn
+    # Extract product_ids từ content (tìm pattern [1, 2, 3] hoặc product_id: [...])
+    product_ids = extract_product_ids_from_text(content_str)
+    
+    # Tìm product_id list trong format [1, 2, 3] hoặc product_id: [1, 2, 3]
+    id_list_pattern = r'\[[\d\s,]+\]'
+    id_matches = re.findall(id_list_pattern, content_str)
+    if id_matches:
+        try:
+            # Cố gắng parse list số từ pattern tìm được
+            for match in id_matches:
+                extracted = re.findall(r'\d+', match)
+                if extracted:
+                    product_ids.extend(extracted)
+        except Exception:
+            pass
+    
+    product_ids = list(dict.fromkeys(product_ids))  # Dedup
+    
+    # Lấy message bằng cách remove product_id list pattern
+    message = re.sub(id_list_pattern, '', content_str).strip()
+    message = re.sub(r'product_id\s*:\s*\[[\d\s,]+\]', '', message).strip()
+    message = message or content_str
+    
+    formatted_json = json.dumps({
+        "message": message,
+        "product_ids": product_ids
+    }, ensure_ascii=False)
+    
+    return {"messages": [AIMessage(content=formatted_json)]}
 
 
 workflow = StateGraph(AgentState)

@@ -136,7 +136,18 @@ const Chatbot = () => {
             {isOpen && (
                 <div className="ts-chatbot-window ts-chatbot-window-no-button">
                     <div className="ts-chatbot-header">
-                        <h3>TechShop AI Assistant</h3>
+                        <div className="ts-chatbot-header-left">
+                            <div className="ts-chatbot-header-avatar">
+                                <FaRobot />
+                            </div>
+                            <div className="ts-chatbot-header-info">
+                                <h3>TechShop AI Assistant</h3>
+                                <div className="ts-chatbot-header-status">
+                                    <div className="ts-chatbot-header-status-dot" />
+                                    <span>Đang hoạt động</span>
+                                </div>
+                            </div>
+                        </div>
                         <button onClick={toggleChat} className="ts-close-button" aria-label="Close chat">
                             <FaTimes />
                         </button>
@@ -146,9 +157,6 @@ const Chatbot = () => {
                         {messages.map((msg, index) => (
                             <div key={index} className={`ts-message ${msg.sender}`}>
                                 <div className="ts-message-row">
-                                    <div className="ts-message-icon">
-                                        {msg.sender === 'bot' ? <FaRobot /> : <FaUser />}
-                                    </div>
                                     <div className="ts-message-text">
                                         <div className="ts-markdown-wrapper">
                                             <ReactMarkdown
@@ -210,7 +218,6 @@ const Chatbot = () => {
                         ))}
                         {isTyping && (
                             <div className="ts-message bot">
-                                <div className="ts-message-icon"><FaRobot /></div>
                                 <div className="ts-typing-indicator">
                                     <span></span>
                                     <span></span>
