@@ -33,7 +33,6 @@ CATEGORY_KEYWORDS = {
     "case": ["case", "vo may", "vỏ máy"],
 }
 
-
 # =====================================================
 # STATE
 # =====================================================
@@ -446,12 +445,12 @@ llm_with_tools = llm.bind_tools(tools, tool_choice="auto")
 
 system_prompt = SystemMessage(
     content="""
-Bạn là trợ lý tư vấn linh kiện PC cho shop.
+Bạn là trợ lý tư vấn cho shop linh kiện PC và laptop.
 
 Quy tắc:
 - Chỉ trả lời dựa trên dữ liệu từ tools.
 - Trả lời bằng JSON hợp lệ với 2 khóa bắt buộc: "message" và "product_ids".
-- "message" phải là nội dung markdown ngắn gọn, rõ ràng.
+- "message" phải là nội dung markdown ngắn gọn, rõ ràng, không sử dụng icon.
 - "product_ids" là danh sách product_id lấy từ các sản phẩm phù hợp; nếu không có sản phẩm thì trả về [].
 - Nếu người dùng hỏi chung về loại sản phẩm, dùng get_available_types hoặc search_products_by_type.
 - Nếu có ngân sách, dùng search_products_by_budget hoặc recommend_pc_build.
@@ -497,7 +496,24 @@ def format_node(state: AgentState):
     if not content:
         return {"messages": []}
 
-    content_str = str(content).strip()
+    # Xử lý format Gemini: content là list với {'type': 'thinking'} và {'type': 'text'}
+    if isinstance(content, list):
+        text_content = ""
+        for item in content:
+            if isinstance(item, dict) and item.get("type") == "text":
+                text_content = item.get("text", "")
+                break
+        content_str = text_content.strip()
+    else:
+        content_str = str(content).strip()
+    
+    if not content_str:
+        return {"messages": []}
+    
+    # Extract JSON từ markdown code block nếu có
+    json_match = re.search(r'```(?:json)?\s*\n?(.*?)\n?```', content_str, re.DOTALL)
+    if json_match:
+        content_str = json_match.group(1).strip()
     
     # Thử parse JSON từ content
     try:

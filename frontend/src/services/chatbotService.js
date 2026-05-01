@@ -1,10 +1,21 @@
 import axios from '../setup/axios';
 
-const sendChatbotQuery = async (query, userId = null) => {
+// =====================================================
+// SEND QUERY (with conversation memory)
+// =====================================================
+
+/**
+ * Send a chat message, optionally tied to a conversation.
+ * @param {string} query
+ * @param {number|null} userId
+ * @param {number|null} conversationId - existing conversation ID, or null to create new
+ */
+const sendChatbotQuery = async (query, userId = null, conversationId = null) => {
     try {
         const response = await axios.post('/chatbot/query', {
             query,
-            user_id: userId
+            user_id: userId,
+            conversation_id: conversationId,
         });
         return response;
     } catch (error) {
@@ -16,4 +27,64 @@ const sendChatbotQuery = async (query, userId = null) => {
         };
     }
 };
-export { sendChatbotQuery };
+
+// =====================================================
+// CONVERSATIONS
+// =====================================================
+
+/**
+ * Fetch all conversations for a logged-in user.
+ * @param {number} userId
+ */
+const getConversations = async (userId) => {
+    try {
+        const response = await axios.get('/chatbot/conversations', {
+            params: { user_id: userId },
+        });
+        return response;
+    } catch (error) {
+        console.error('Error fetching conversations:', error);
+        return { success: false, conversations: [] };
+    }
+};
+
+/**
+ * Create a new conversation for a user.
+ * @param {number} userId
+ */
+const createConversation = async (userId) => {
+    try {
+        const response = await axios.post('/chatbot/conversations', {
+            user_id: userId,
+        });
+        return response;
+    } catch (error) {
+        console.error('Error creating conversation:', error);
+        return { success: false };
+    }
+};
+
+// =====================================================
+// MESSAGES
+// =====================================================
+
+/**
+ * Load messages for a specific conversation.
+ * @param {number} conversationId
+ */
+const getConversationMessages = async (conversationId) => {
+    try {
+        const response = await axios.get(`/chatbot/conversations/${conversationId}/messages`);
+        return response;
+    } catch (error) {
+        console.error('Error fetching conversation messages:', error);
+        return { success: false, messages: [] };
+    }
+};
+
+export {
+    sendChatbotQuery,
+    getConversations,
+    createConversation,
+    getConversationMessages,
+};
