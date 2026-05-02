@@ -267,6 +267,7 @@ def get_compatible_mainboards(cpu_socket):
     Returns:
         JSON response with compatible Mainboards or error message.
     """
+    print(cpu_socket)
     try:
         # Call the DAL function to get compatible mainboards
         mainboards, status = dal_Mainboard_vs_CPU(cpu_socket)

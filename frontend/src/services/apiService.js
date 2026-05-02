@@ -132,11 +132,21 @@ const SubmitProductRating = async (ratingData) => {
 	}
 }
 
+const GetProductReviews = async (product_id) => {
+	try {
+		const response = await axios.get(`/product/${product_id}/reviews`);
+		return response;
+	} catch (error) {
+		console.error("Error getting product rating:", error);
+		throw error;
+	}
+}
+
 export {
 	loadCart,
 	addToCart,
 	removeFromCart,
-	checkOutStock,	
+	checkOutStock,
 	CheckPaymentZalopay,
 	PaymentZaloPay,
 	PaymentStripe,
@@ -147,4 +157,5 @@ export {
 	GetOrderPayment,
 	CancelOrder,
 	SubmitProductRating,
+	GetProductReviews,
 };

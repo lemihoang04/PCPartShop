@@ -1,6 +1,7 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fetchProductById, fetchProductsByCategoryId } from "../../services/productService.js";
+import { GetProductReviews } from "../../services/apiService.js";
 import { UserContext } from "../../context/UserProvider";
 import { FaStar, FaStarHalfAlt, FaRegStar, FaShoppingCart, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import { toast } from "react-toastify";
@@ -77,6 +78,9 @@ const ProductInfo = () => {
   const [quantity, setQuantity] = useState(1);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isSpecsExpanded, setIsSpecsExpanded] = useState(false);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [filterStar, setFilterStar] = useState(0); // 0 = all
   const stockCount = Number(productInfo?.stock ?? 0);
   const isOutOfStock = stockCount <= 0;
 
@@ -94,6 +98,24 @@ const ProductInfo = () => {
       setQuantity(stockCount);
     }
   }, [isOutOfStock, stockCount, quantity]);
+
+  // Fetch product reviews
+  const fetchReviews = useCallback(async (pid) => {
+    setReviewsLoading(true);
+    try {
+      const res = await GetProductReviews(pid);
+      if (res && res.errCode === 0) {
+        setReviews(res.reviews || []);
+      } else {
+        setReviews([]);
+      }
+    } catch (err) {
+      console.error("Error fetching reviews:", err);
+      setReviews([]);
+    } finally {
+      setReviewsLoading(false);
+    }
+  }, []);
 
   // Fetch product details
   useEffect(() => {
@@ -124,8 +146,10 @@ const ProductInfo = () => {
 
     if (productId) {
       fetchProductDetails();
+      fetchReviews(productId);
+      setFilterStar(0);
     }
-  }, [productId]);
+  }, [productId, fetchReviews]);
 
   // Function to fetch similar products by category
   const fetchSimilarProducts = async (currentProductId, categoryId) => {
@@ -365,12 +389,12 @@ const ProductInfo = () => {
             <div className="pi-specs-card">
               <div className="pi-specs-container">
                 {visibleSpecs.map(([key, value]) => {
-                return (
-                  <div className="pi-spec-item" key={key}>
-                    <div className="pi-spec-name">{key.replace(/_/g, " ").replace(/\b\w/g, char => char.toUpperCase())}</div>
-                    <div className="pi-spec-value">{value.toString()}</div>
-                  </div>
-                );
+                  return (
+                    <div className="pi-spec-item" key={key}>
+                      <div className="pi-spec-name">{key.replace(/_/g, " ").replace(/\b\w/g, char => char.toUpperCase())}</div>
+                      <div className="pi-spec-value">{value.toString()}</div>
+                    </div>
+                  );
                 })}
               </div>
 
@@ -429,6 +453,79 @@ const ProductInfo = () => {
           </div>
         </section>
       )}
+
+      {/* Product Reviews Section */}
+      <section className="pi-reviews-section">
+        <h2 className="pi-section-title">Customer Reviews</h2>
+
+        {/* Star filter */}
+        <div className="pi-reviews-filter">
+          <span className="pi-filter-label">Filter by:</span>
+          {[0, 5, 4, 3, 2, 1].map((star) => (
+            <button
+              key={star}
+              className={`pi-filter-btn ${filterStar === star ? 'pi-filter-active' : ''}`}
+              onClick={() => setFilterStar(star)}
+            >
+              {star === 0 ? 'All' : (
+                <span className="pi-filter-star-label">
+                  {star} <FaStar className="pi-filter-star-icon" />
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {reviewsLoading ? (
+          <div className="pi-reviews-loading">Loading reviews...</div>
+        ) : (() => {
+          const filtered = filterStar === 0 ? reviews : reviews.filter(r => r.rating === filterStar);
+          if (filtered.length === 0) {
+            return (
+              <div className="pi-reviews-empty">
+                {filterStar === 0
+                  ? 'No reviews yet for this product.'
+                  : `No ${filterStar}-star reviews found.`}
+              </div>
+            );
+          }
+          return (
+            <div className="pi-reviews-list">
+              {filtered.map((review) => (
+                <div key={review.review_id} className="pi-review-card">
+                  <div className="pi-review-header">
+                    <div className="pi-review-avatar">
+                      {(review.username || review.user_name || 'A').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="pi-review-meta">
+                      <span className="pi-review-author">
+                        {review.username || review.user_name || 'Anonymous'}
+                      </span>
+                      <span className="pi-review-date">
+                        {review.created_at
+                          ? new Date(review.created_at).toLocaleDateString('vi-VN', {
+                              year: 'numeric', month: 'long', day: 'numeric'
+                            })
+                          : ''}
+                      </span>
+                    </div>
+                    <div className="pi-review-stars">
+                      {Array.from({ length: 5 }, (_, i) =>
+                        i < review.rating
+                          ? <FaStar key={i} className="pi-star-filled" />
+                          : <FaStar key={i} className="pi-star-empty" />
+                      )}
+                    </div>
+                  </div>
+                  {review.comment && (
+                    <p className="pi-review-content">{review.comment}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+      </section>
     </div>
   );
 };

@@ -562,7 +562,7 @@ def dal_Mainboard_vs_CPU(cpu_socket):
         SELECT DISTINCT pa.product_id
         FROM product_attributes pa
         JOIN products p ON pa.product_id = p.product_id
-        WHERE p.category_id = 14  # Assuming 7 is the category_id for motherboards
+        WHERE p.category_id = 14
           AND pa.attribute_name = 'Socket/CPU'
           AND pa.attribute_value LIKE %s
         """

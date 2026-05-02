@@ -238,7 +238,7 @@ const Chatbot = () => {
                                 {view === 'chat' && (
                                     <div className="ts-chatbot-header-status">
                                         <div className="ts-chatbot-header-status-dot" />
-                                        <span>Đang hoạt động</span>
+                                        <span>Active</span>
                                     </div>
                                 )}
                             </div>
