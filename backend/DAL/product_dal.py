@@ -194,6 +194,44 @@ def dal_get_product_by_id(product_id):
         cursor.close()
         connection.close()
 
+def dal_get_products_by_ids_for_chatbot(product_ids):
+    db = get_db_connection()
+    if not db:
+        return {"error": "Database connection failed"}, 500
+
+    cursor = db.cursor(dictionary=True)
+    try:
+        product_ids_placeholder = ', '.join(['%s'] * len(product_ids))
+
+        # Query to get product details
+        product_query = f"""
+        SELECT 
+            p.product_id,
+            p.title,
+            p.price,
+            p.stock,
+            p.rating,
+            p.image,
+            c.category_name
+        FROM products p
+        JOIN categories c ON p.category_id = c.category_id
+        WHERE p.product_id IN ({product_ids_placeholder})
+        """
+        cursor.execute(product_query, product_ids)
+        products = cursor.fetchall()
+
+        if not products:
+            return {"error": "No products found for the given IDs"}, 404
+
+        return products, 200
+
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+    finally:
+        cursor.close()
+        db.close()
+
 def dal_get_components_by_type(type):
     valid_types = ['Storage', 'PSU', 'Mainboard', 'GPU', 'CPU', 'RAM', 'CPU Cooler', 'Case']
     if type not in valid_types:
@@ -524,7 +562,7 @@ def dal_Mainboard_vs_CPU(cpu_socket):
         SELECT DISTINCT pa.product_id
         FROM product_attributes pa
         JOIN products p ON pa.product_id = p.product_id
-        WHERE p.category_id = 14  # Assuming 7 is the category_id for motherboards
+        WHERE p.category_id = 14
           AND pa.attribute_name = 'Socket/CPU'
           AND pa.attribute_value LIKE %s
         """
@@ -733,6 +771,7 @@ def dal_get_components_by_attributes(type, attributes=None):
         return {'error': 'Database connection failed'}, 500
     
     cursor = db.cursor(dictionary=True)
+    print(f"Checking if category '{type}' exists in the database")
     try:
         # Check if this category actually exists in the database
         cursor.execute("""

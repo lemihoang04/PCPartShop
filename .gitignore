@@ -27,6 +27,7 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+**/.env
 
 # React
 node_modules/
@@ -40,3 +41,4 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 backend/credentials/service_account.json
+data/

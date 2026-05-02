@@ -401,13 +401,19 @@ const ComponentSearch = () => {
   };
 
   const handleSearch = (e) => {
-    const term = e.target.value.toLowerCase();
-    const filtered = components.filter((component) =>
-      component.title?.toLowerCase().includes(term)
-    );
+    const term = e.target.value
+      .toLowerCase()
+      .trim()
+      .split(/\s+/);
+    const filtered = components.filter((component) => {
+      const title = component.title.toLowerCase()
+
+      return term.every((word) => title.includes(word));
+    });
     setFilteredComponents(filtered);
     setCurrentPage(1);
-  }; const handlePriceFilter = () => {
+  };
+  const handlePriceFilter = () => {
     // Lọc các component trong khoảng giá đã chọn
     const filtered = components.filter(
       (component) => {
@@ -807,14 +813,14 @@ const ComponentSearch = () => {
                           : 'fas fa-sort';
 
                         return (
-                        <th
-                          key={index}
-                          onClick={() => isSortable && handleSort(rawHeader)}
-                          className={isActiveSort ? 'comp-search-th-active' : ''}
-                          style={{ cursor: isSortable ? 'pointer' : 'default' }}
-                        >
-                          {header} {isSortable && <i className={sortIconClass}></i>}
-                        </th>
+                          <th
+                            key={index}
+                            onClick={() => isSortable && handleSort(rawHeader)}
+                            className={isActiveSort ? 'comp-search-th-active' : ''}
+                            style={{ cursor: isSortable ? 'pointer' : 'default' }}
+                          >
+                            {header} {isSortable && <i className={sortIconClass}></i>}
+                          </th>
                         );
                       })}
                     </tr>

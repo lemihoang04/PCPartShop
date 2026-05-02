@@ -5,9 +5,9 @@ import logging
 
 # Configure Cloudinary
 cloudinary.config(
-    cloud_name="dfkqjtzks",
-    api_key="484499562979351",
-    api_secret="g8ppo8gFa2tXES_N5k-4j07vB80"
+    cloud_name="ddptatoir3",
+    api_key="165159972684744",
+    api_secret="T7bkP2pH_hFTXPeZK-21jJnIFjE"
 )
 
 # Setup logging

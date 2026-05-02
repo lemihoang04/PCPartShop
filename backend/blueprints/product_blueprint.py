@@ -171,7 +171,7 @@ def get_components_by_type(type):
             else:
                 print(f"No matching category found for '{type}', using fallback method")
                 # Fallback to standard types list
-                valid_types = ['Storage', 'PSU', 'Mainboard', 'GPU', 'CPU', 'RAM', 'CPU Cooler', 'Case']
+                valid_types = ['Storage', 'PSU', 'Mainboard', 'GPU', 'CPU', 'RAM', 'CPU Cooler', 'Case', 'CPU_Cooler']
                 standardized_type = None
                 
                 # Try to match against valid types in a case-insensitive way
@@ -267,6 +267,7 @@ def get_compatible_mainboards(cpu_socket):
     Returns:
         JSON response with compatible Mainboards or error message.
     """
+    print(cpu_socket)
     try:
         # Call the DAL function to get compatible mainboards
         mainboards, status = dal_Mainboard_vs_CPU(cpu_socket)

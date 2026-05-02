@@ -34,10 +34,10 @@
   margin: 1.5rem auto;
   padding: 0 1rem;
   font-family: 'Manrope', sans-serif;
-  background:
+  /* background:
     radial-gradient(circle at 8% 0%, rgba(31, 147, 255, 0.08), transparent 30%),
     radial-gradient(circle at 92% 6%, rgba(31, 147, 255, 0.07), transparent 34%),
-    #ffffff;
+    #ffffff; */
 }
 
 .pi-product-container {
@@ -163,7 +163,7 @@
 }
 
 .pi-product-title {
-  font-size: 1.75rem;
+  font-size: 1.6rem;
   font-weight: 700;
   margin: 0 0 0.75rem;
   color: var(--pi-text-primary);
@@ -251,7 +251,7 @@
 .pi-stock-badge {
   padding: 0.25rem 0.65rem;
   border-radius: 999px;
-  font-size: 0.8rem;
+  font-size: 1rem;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
@@ -785,5 +785,199 @@
   .pi-spec-item {
     grid-template-columns: 1fr;
     gap: 0.25rem;
+  }
+}
+
+/* ==============================
+   Product Reviews Section
+   ============================== */
+.pi-reviews-section {
+  margin-top: 1.5rem;
+  padding: 1.75rem;
+  border-radius: var(--pi-radius-lg);
+  box-shadow: var(--pi-shadow-sm);
+  border: 1px solid var(--pi-border-color);
+  background: #ffffff;
+}
+
+/* Filter Bar */
+.pi-reviews-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.pi-filter-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--pi-text-secondary);
+  margin-right: 0.25rem;
+}
+
+.pi-filter-btn {
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--pi-border-color);
+  background: #f5faff;
+  color: var(--pi-text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--pi-transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-family: 'Manrope', sans-serif;
+}
+
+.pi-filter-btn:hover {
+  border-color: var(--pi-primary-color);
+  color: var(--pi-primary-dark);
+  background: var(--pi-primary-light);
+}
+
+.pi-filter-btn.pi-filter-active {
+  background: var(--pi-primary-color);
+  border-color: var(--pi-primary-color);
+  color: #ffffff;
+  box-shadow: 0 3px 10px rgba(31, 147, 255, 0.3);
+}
+
+.pi-filter-star-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.pi-filter-star-icon {
+  font-size: 0.75rem;
+}
+
+/* States */
+.pi-reviews-loading,
+.pi-reviews-empty {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--pi-text-light);
+  font-size: 1rem;
+  background: var(--pi-background-light);
+  border-radius: var(--pi-radius-md);
+  border: 1px dashed var(--pi-border-color);
+}
+
+/* Reviews List */
+.pi-reviews-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Review Card */
+.pi-review-card {
+  padding: 1.25rem;
+  border-radius: var(--pi-radius-md);
+  border: 1px solid var(--pi-border-color);
+  background: #f8fbff;
+  transition: var(--pi-transition);
+}
+
+.pi-review-card:hover {
+  box-shadow: var(--pi-shadow-sm);
+  border-color: #c3daf6;
+  transform: translateY(-2px);
+}
+
+/* Review Header */
+.pi-review-header {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+
+.pi-review-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--pi-primary-color);
+  color: white;
+  font-weight: 700;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 3px 10px rgba(31, 147, 255, 0.25);
+}
+
+.pi-review-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.pi-review-author {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--pi-text-primary);
+}
+
+.pi-review-date {
+  font-size: 0.78rem;
+  color: var(--pi-text-light);
+}
+
+.pi-review-stars {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  font-size: 0.95rem;
+}
+
+.pi-star-filled {
+  color: var(--pi-warning-color);
+}
+
+.pi-star-empty {
+  color: #d1dce8;
+}
+
+/* Review Content */
+.pi-review-content {
+  font-size: 0.9rem;
+  color: var(--pi-text-secondary);
+  line-height: 1.65;
+  margin: 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--pi-border-color);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .pi-reviews-section {
+    padding: 1.25rem;
+  }
+
+  .pi-review-header {
+    flex-wrap: wrap;
+  }
+
+  .pi-review-stars {
+    width: 100%;
+    margin-top: 0.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .pi-reviews-filter {
+    gap: 0.35rem;
+  }
+
+  .pi-filter-btn {
+    padding: 0.3rem 0.65rem;
+    font-size: 0.8rem;
   }
 }

@@ -1,219 +1,460 @@
-/* Chatbot Container */
+/* ============================================================
+   CHATBOT — Modern Flat Design
+   Primary color: #2563eb (blue-600)
+   Surface: #ffffff  Background: #f1f5f9
+   Text: #0f172a / #475569
+   ============================================================ */
+
+/* ---------- Container ---------- */
 .ts-chatbot-container {
     position: fixed;
-    bottom: 15px;
-    right: 15px;
-    z-index: 100;
-    /* font-family: 'Roboto', 'Segoe UI', sans-serif; */
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
 }
 
-/* Chatbot Toggle Button */
+/* ---------- Toggle Button ---------- */
 .ts-chatbot-button {
-    width: 50px;
-    height: 50px;
+    width: 54px;
+    height: 54px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
-    color: white;
+    background-color: #2563eb;
+    color: #ffffff;
     border: none;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 20px;
-    box-shadow: 0 4px 15px rgba(66, 153, 225, 0.4);
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-}
-
-.ts-chatbot-button::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: radial-gradient(circle at center, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 70%);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    border-radius: 50%;
+    font-size: 22px;
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
+    transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .ts-chatbot-button:hover {
-    transform: translateY(-3px) scale(1.05);
-    box-shadow: 0 6px 20px rgba(66, 153, 225, 0.5);
-    background: linear-gradient(135deg, #3182ce 0%, #2c5282 100%);
+    background-color: #1d4ed8;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.45);
 }
 
-.ts-chatbot-button:hover::before {
-    opacity: 1;
+.ts-chatbot-button:active {
+    transform: translateY(0);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
 }
 
-.ts-chatbot-button.active {
-    background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
-    box-shadow: 0 4px 15px rgba(229, 62, 62, 0.4);
-}
-
-.ts-chatbot-button.active:hover {
-    background: linear-gradient(135deg, #c53030 0%, #9b2c2c 100%);
-    box-shadow: 0 6px 20px rgba(229, 62, 62, 0.5);
-}
-
-/* Chatbot Window */
+/* ---------- Chat Window ---------- */
 .ts-chatbot-window {
     position: absolute;
-    bottom: 65px;
+    bottom: 70px;
     right: 0;
-    width: 300px;
-    height: 340px;
-    background-color: white;
-    border-radius: 10px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    width: 370px;
+    height: 520px;
+    background-color: #ffffff;
+    border-radius: 16px;
+    box-shadow:
+        0 4px 6px rgba(0, 0, 0, 0.14),
+        0 20px 40px rgba(0, 0, 0, 0.12);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    transition: all 0.3s ease;
+    animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Position adjustment when button is hidden */
 .ts-chatbot-window-no-button {
-    bottom: 15px;
+    bottom: 20px;
 }
 
-/* Chatbot Header */
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.97);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* ---------- Header ---------- */
 .ts-chatbot-header {
-    padding: 10px 15px;
-    background-color: #0070f3;
-    color: white;
+    padding: 10px 12px;
+    background-color: #067fd9;
+    color: #ffffff;
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
 }
 
-.ts-chatbot-header h3 {
-    margin: 0;
+.ts-chatbot-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+}
+
+.ts-chatbot-header-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: 16px;
+    flex-shrink: 0;
+}
+
+.ts-chatbot-header-info {
+    min-width: 0;
+}
+
+.ts-chatbot-header-info h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ts-chatbot-header-status {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 2px;
+}
+
+.ts-chatbot-header-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #4ade80;
+    animation: pulse-dot 2s ease infinite;
+}
+
+@keyframes pulse-dot {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.ts-chatbot-header-status span {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+/* ---------- Header Action Buttons ---------- */
+.ts-chatbot-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.ts-icon-btn {
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    color: #ffffff;
+    font-size: 13px;
+    cursor: pointer;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease;
+    flex-shrink: 0;
+}
+
+.ts-icon-btn:hover {
+    background-color: rgba(255, 255, 255, 0.28);
 }
 
 .ts-close-button {
-    background: none;
+    background: rgba(255, 255, 255, 0.15);
     border: none;
-    color: white;
+    color: #ffffff;
     font-size: 14px;
     cursor: pointer;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease;
+    flex-shrink: 0;
 }
 
-/* Chatbot Messages Container */
-.ts-chatbot-messages {
+.ts-close-button:hover {
+    background-color: rgba(255, 255, 255, 0.25);
+}
+
+/* ---------- Conversation List Panel ---------- */
+.ts-conv-list {
     flex: 1;
-    padding: 10px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    background-color: #f8fafc;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e0 transparent;
 }
 
-/* Message Styling */
+.ts-conv-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.ts-conv-list::-webkit-scrollbar-thumb {
+    background-color: #cbd5e0;
+    border-radius: 4px;
+}
+
+.ts-conv-loading {
+    padding: 24px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+}
+
+.ts-conv-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: #94a3b8;
+    padding: 32px 16px;
+    text-align: center;
+}
+
+.ts-conv-empty-icon {
+    font-size: 36px;
+    color: #cbd5e0;
+}
+
+.ts-conv-empty p {
+    margin: 0;
+    font-size: 13px;
+}
+
+.ts-conv-new-btn {
+    margin-top: 4px;
+    padding: 8px 20px;
+    background-color: #067fd9;
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.ts-conv-new-btn:hover {
+    background-color: #1d4ed8;
+}
+
+.ts-conv-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: none;
+    border-bottom: 1px solid #f1f5f9;
+    background: #ffffff;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 0.15s ease;
+    width: 100%;
+}
+
+.ts-conv-item:hover {
+    background-color: #f0f7ff;
+}
+
+.ts-conv-item.active {
+    background-color: #eff6ff;
+    border-left: 3px solid #067fd9;
+}
+
+.ts-conv-item-icon {
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background-color: #e0f0ff;
+    color: #067fd9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+}
+
+.ts-conv-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.ts-conv-item-preview {
+    font-size: 13px;
+    font-weight: 500;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4;
+}
+
+.ts-conv-item-time {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+
+/* ---------- Messages Container ---------- */
+.ts-chatbot-messages {
+    flex: 1;
+    padding: 14px 10px 12px 25px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background-color: #f8fafc;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e0 transparent;
+}
+
+.ts-chatbot-messages::-webkit-scrollbar {
+    width: 4px;
+}
+
+.ts-chatbot-messages::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.ts-chatbot-messages::-webkit-scrollbar-thumb {
+    background-color: #cbd5e0;
+    border-radius: 4px;
+}
+
+/* ---------- Message Wrapper ---------- */
 .ts-message {
     display: flex;
+    flex-direction: column;
     align-items: flex-start;
-    max-width: 85%;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
+    width: 100%;
+    animation: fadeInMsg 0.2s ease;
+}
+
+@keyframes fadeInMsg {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .ts-message.user {
-    align-self: flex-end;
-    flex-direction: row-reverse;
+    align-items: flex-end;
 }
 
 .ts-message.bot {
     align-self: flex-start;
 }
 
-.ts-message-icon {
-    width: 24px;
-    height: 24px;
-    min-width: 24px;
-    flex-shrink: 0;
-    border-radius: 50%;
+.ts-message-row {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 5px;
-    font-size: 12px;
+    align-items: flex-end;
+    max-width: 88%;
+    gap: 7px;
 }
 
-.ts-message.user .ts-message-icon {
-    background-color: #4299e1;
-    color: white;
+.ts-message.user .ts-message-row {
+    flex-direction: row-reverse;
 }
 
-.ts-message.bot .ts-message-icon {
-    background: linear-gradient(135deg, #3182ce 0%, #2c5282 100%);
-    color: white;
-}
 
+/* ---------- Message Bubble ---------- */
 .ts-message-text {
-    padding: 8px 12px;
-    border-radius: 15px;
-    background-color: #f7fafc;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-    line-height: 1.3;
-    font-size: 13px;
-}
-
-.ts-message-text h2 {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 500;
-}
-
-.ts-message-text h3 {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 500;
+    padding: 9px 13px;
+    border-radius: 16px;
+    line-height: 1.5;
+    font-size: 13.5px;
+    word-break: break-word;
 }
 
 .ts-message.user .ts-message-text {
-    background-color: #4299e1;
-    color: white;
-    border-top-right-radius: 0;
+    background-color: #1f93ff;
+    color: #ffffff;
+    border-bottom-right-radius: 4px;
+    box-shadow: 0 1px 4px rgba(37, 99, 235, 0.25);
 }
 
 .ts-message.bot .ts-message-text {
-    background-color: #f7fafc;
-    color: #2d3748;
-    border-top-left-radius: 0;
+    background-color: #ffffff;
+    color: #1e293b;
+    border-bottom-left-radius: 4px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-/* Typing Indicator */
+.ts-message-text h2,
+.ts-message-text h3 {
+    margin: 0 0 4px 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* ---------- Typing Indicator ---------- */
 .ts-typing-indicator {
     display: flex;
-    padding: 8px 12px;
-    background-color: #f7fafc;
-    border-radius: 15px;
-    border-top-left-radius: 0;
+    align-items: center;
+    gap: 3px;
+    padding: 10px 14px;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    border-bottom-left-radius: 4px;
+    width: fit-content;
 }
 
 .ts-typing-indicator span {
-    height: 6px;
-    width: 6px;
-    background-color: #718096;
+    height: 7px;
+    width: 7px;
+    background-color: #94a3b8;
     border-radius: 50%;
     display: inline-block;
-    margin: 0 2px;
-    animation: wave 1.3s linear infinite;
+    animation: wave 1.4s ease infinite;
 }
 
 .ts-typing-indicator span:nth-child(2) {
-    animation-delay: -1.1s;
+    animation-delay: 0.15s;
 }
 
 .ts-typing-indicator span:nth-child(3) {
-    animation-delay: -0.9s;
+    animation-delay: 0.30s;
 }
 
 @keyframes wave {
+
     0%,
     60%,
     100% {
@@ -221,127 +462,190 @@
     }
 
     30% {
-        transform: translateY(-3px);
+        transform: translateY(-5px);
     }
 }
 
-/* Input Area */
+/* ---------- Input Area ---------- */
 .ts-chatbot-input {
     display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
     border-top: 1px solid #e2e8f0;
-    padding: 8px;
+    background-color: #ffffff;
+    flex-shrink: 0;
 }
 
 .ts-chatbot-input input {
     flex: 1;
-    padding: 8px 12px;
-    border: 1px solid #e2e8f0;
-    border-radius: 18px;
-    margin-right: 8px;
-    font-size: 13px;
-    transition: all 0.3s ease;
+    padding: 9px 14px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 20px;
+    font-size: 13.5px;
+    color: #0f172a;
+    background-color: #f8fafc;
     outline: none;
-    /* Remove default focus outline */
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+    font-family: inherit;
+}
+
+.ts-chatbot-input input::placeholder {
+    color: #94a3b8;
 }
 
 .ts-chatbot-input input:focus {
-    border-color: transparent;
-    /* Hide the standard border */
-    box-shadow: 0 0 0 2px transparent;
-    /* Create space for the gradient */
-    background-image:
-        linear-gradient(white, white),
-        linear-gradient(45deg,
-            #ff0000 0%,
-            #ff8000 14%,
-            #ffff00 28%,
-            #00ff00 42%,
-            #00ffff 56%,
-            #0000ff 70%,
-            #8000ff 84%,
-            #ff0080 100%);
-    background-origin: border-box;
-    background-clip: padding-box, border-box;
-    animation: rainbowRotate 3s linear infinite, borderPulse 2s ease infinite;
-}
-
-@keyframes rainbowRotate {
-    0% {
-        background-image:
-            linear-gradient(white, white),
-            linear-gradient(45deg,
-                #ff0000 0%,
-                #ff8000 14%,
-                #ffff00 28%,
-                #00ff00 42%,
-                #00ffff 56%,
-                #0000ff 70%,
-                #8000ff 84%,
-                #ff0080 100%);
-    }
-
-    100% {
-        background-image:
-            linear-gradient(white, white),
-            linear-gradient(405deg,
-                #ff0000 0%,
-                #ff8000 14%,
-                #ffff00 28%,
-                #00ff00 42%,
-                #00ffff 56%,
-                #0000ff 70%,
-                #8000ff 84%,
-                #ff0080 100%);
-    }
-}
-
-@keyframes borderPulse {
-    0% {
-        box-shadow: 0 0 0 0 rgba(66, 153, 225, 0.4);
-    }
-
-    70% {
-        box-shadow: 0 0 0 6px rgba(66, 153, 225, 0);
-    }
-
-    100% {
-        box-shadow: 0 0 0 0 rgba(66, 153, 225, 0);
-    }
+    border-color: #2563eb;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
 }
 
 .ts-chatbot-input button {
-    background-color: #4299e1;
-    color: white;
+    background-color: #1f93ff;
+    color: #ffffff;
     border: none;
     border-radius: 50%;
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
     font-size: 14px;
+    transition: background-color 0.2s ease, transform 0.15s ease;
+    flex-shrink: 0;
 }
 
-.ts-chatbot-input button:hover {
-    background-color: #3182ce;
+.ts-chatbot-input button:hover:not(:disabled) {
+    background-color: #1d4ed8;
+    transform: scale(1.05);
+}
+
+.ts-chatbot-input button:active:not(:disabled) {
+    transform: scale(0.95);
 }
 
 .ts-chatbot-input button:disabled {
-    background-color: #a0aec0;
+    background-color: #cbd5e0;
     cursor: not-allowed;
 }
 
-/* Fix for markdown extra line break */
-.ts-markdown-content>p:last-child {
-    margin-bottom: 0;
+/* ---------- Product Grid ---------- */
+.ts-chatbot-product-grid {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    width: 100%;
+    margin-top: 8px;
+    padding-bottom: 4px;
+    box-sizing: border-box;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e0 transparent;
 }
 
-.ts-markdown-content>p:only-child {
-    margin: 0;
+.ts-chatbot-product-grid::-webkit-scrollbar {
+    height: 4px;
 }
 
+.ts-chatbot-product-grid::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.ts-chatbot-product-grid::-webkit-scrollbar-thumb {
+    background-color: #cbd5e0;
+    border-radius: 4px;
+}
+
+/* ---------- Product Card ---------- */
+.ts-chatbot-product-card {
+    flex: 0 0 auto;
+    width: 210px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    background: #ffffff;
+    padding: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    text-align: left;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.ts-chatbot-product-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.1);
+    border-color: #93c5fd;
+}
+
+.ts-chatbot-product-image-wrap {
+    flex: 0 0 auto;
+    width: 70px;
+    height: 70px;
+    /* background-color: #f1f5f9; */
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.ts-chatbot-product-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.ts-chatbot-product-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.ts-chatbot-product-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1e293b;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.ts-chatbot-product-price {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #dc2626;
+}
+
+.ts-chatbot-product-category {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 500;
+    color: #2563eb;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 999px;
+    padding: 1px 7px;
+    line-height: 1.6;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+/* ---------- Markdown Styles ---------- */
 .ts-markdown-wrapper {
     display: inline-block;
     width: 100%;
@@ -352,12 +656,35 @@
     padding: 0;
 }
 
+.ts-markdown-wrapper p+p {
+    margin-top: 0.45em;
+}
+
+.ts-markdown-wrapper a {
+    color: #2563eb;
+    text-decoration: underline;
+    word-break: break-word;
+}
+
+.ts-message.user .ts-markdown-wrapper a {
+    color: #bfdbfe;
+}
+
+.ts-markdown-wrapper img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin: 6px 0;
+}
+
 .ts-markdown-wrapper table {
     width: 100%;
     border-collapse: collapse;
     margin: 0.5rem 0;
     font-size: 12px;
     overflow: hidden;
+    border-radius: 8px;
 }
 
 .ts-markdown-wrapper th,
@@ -369,12 +696,13 @@
 }
 
 .ts-markdown-wrapper th {
-    background: #edf2f7;
+    background: #f1f5f9;
     font-weight: 600;
+    color: #334155;
 }
 
 .ts-markdown-wrapper tr:nth-child(even) td {
-    background: #fafafa;
+    background: #f8fafc;
 }
 
 .ts-markdown-wrapper ul,
@@ -383,50 +711,54 @@
     padding: 0;
 }
 
+.ts-markdown-wrapper li {
+    margin-bottom: 2px;
+}
+
 .ts-markdown-wrapper code {
-    background: #edf2f7;
-    padding: 0.1rem 0.25rem;
+    background: #f1f5f9;
+    padding: 0.1rem 0.3rem;
     border-radius: 4px;
-    font-size: 0.95em;
+    font-size: 0.93em;
+    color: #1e293b;
+    font-family: 'Fira Code', 'Consolas', monospace;
 }
 
 .ts-markdown-wrapper pre {
     white-space: pre-wrap;
     word-break: break-word;
-    background: #edf2f7;
+    background: #f1f5f9;
     padding: 0.75rem;
     border-radius: 8px;
     overflow-x: auto;
+    border: 1px solid #e2e8f0;
 }
 
-/* If there are multiple paragraphs, only add spacing between them */
-.ts-markdown-wrapper p+p {
-    margin-top: 0.5em;
+.ts-markdown-wrapper strong {
+    font-weight: 600;
+    color: inherit;
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-    .ts-chatbot-window {
-        width: 260px;
-        height: 320px;
-    }
-}
-
+/* ---------- Responsive ---------- */
 @media (max-width: 480px) {
     .ts-chatbot-window {
-        width: 240px;
-        height: 300px;
+        width: calc(100vw - 32px);
+        height: 75vh;
         right: 0;
     }
 
     .ts-chatbot-button {
-        width: 45px;
-        height: 45px;
-        font-size: 18px;
+        width: 48px;
+        height: 48px;
+        font-size: 20px;
     }
 
     .ts-message-text {
-        font-size: 12px;
-        padding: 7px 10px;
+        font-size: 13px;
+        padding: 8px 11px;
+    }
+
+    .ts-conv-item {
+        padding: 10px 12px;
     }
 }
