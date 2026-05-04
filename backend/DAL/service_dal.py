@@ -5,6 +5,7 @@ import time
 import uuid
 import random
 import string
+from DAL.coupon_dal import record_coupon_usage
 
 def checkout(order_data):
     connection = get_db_connection()
@@ -85,6 +86,18 @@ def checkout(order_data):
             payment_status  
         ))
         connection.commit()
+
+        # Record coupon usage if a coupon was applied
+        coupon_id = order_data.get('coupon_id')
+        if coupon_id:
+            try:
+                record_coupon_usage(
+                    coupon_id=coupon_id,
+                    user_id=order_data['user_id'],
+                    order_id=order_id,
+                )
+            except Exception:
+                pass  # Non-fatal: order already committed
         
         # Prepare data for email confirmation
         email_data = {
