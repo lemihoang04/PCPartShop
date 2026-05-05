@@ -8,6 +8,7 @@ import UserManager from "./User/UserManager.jsx";
 import OrderManager from "./Order/OrderManager.jsx";
 import CategoryManager from "./Category/CategoryManager.jsx";
 import ProductManager from "./Product/ProductManager.jsx";
+import CouponManager from "./Coupon/CouponManager.jsx";
 import adminAvatar from "./assets/images/admin-icon.svg"; // Make sure this path is correct
 // import Settings from "./Settings/Settings.jsx";
 import { useNavigate } from "react-router-dom";
@@ -36,6 +37,8 @@ const Admin = () => {
                 return <UserManager />;
             case "Product":
                 return <ProductManager />;
+            case "Coupon":
+                return <CouponManager />;
             // case "Settings":
             //     return <Settings />;
             default:
@@ -101,6 +104,7 @@ const Admin = () => {
                         { name: "Product", icon: "bi-box" },
                         { name: "Order", icon: "bi-cart" },
                         { name: "Customers", icon: "bi-people" },
+                        { name: "Coupon", icon: "bi-ticket-perforated" },
                         // { name: "Reports", icon: "bi-bar-chart" },
                         // { name: "Settings", icon: "bi-gear" },
                     ].map((item) => (

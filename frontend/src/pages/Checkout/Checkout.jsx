@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from "react";
 import { toast } from "react-toastify";
 import { PaymentZaloPay, PaymentStripe, CheckOut } from "../../services/apiService.js";
+import { validateCoupon } from "../../services/couponService.js";
 import { UserContext } from "../../context/UserProvider";
 import { useLocation, useNavigate } from "react-router-dom";
 import "./Checkout.css";
@@ -31,8 +32,10 @@ const Checkout = () => {
     const [discount, setDiscount] = useState({
         applied: false,
         amount: 0,
-        code: ""
+        code: "",
+        coupon_id: null,
     });
+    const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
     const [totalAmount, setTotalAmount] = useState(formValue?.amount || 0);
 
     useEffect(() => {
@@ -64,43 +67,39 @@ const Checkout = () => {
         setFormData({ ...formData, payment: e.target.id });
     };
 
-    const applyDiscountCode = () => {
+    const applyDiscountCode = async () => {
         if (!discountCode.trim()) {
-            toast.error("Please enter a discount code");
+            toast.error("Vui lòng nhập mã giảm giá");
+            return;
+        }
+        if (!user?.account?.id) {
+            toast.error("Vui lòng đăng nhập để sử dụng mã giảm giá");
             return;
         }
 
-        // Simulated discount validation
-        // In a real app, this would be an API call to validate the code
-        const mockDiscounts = {
-            "WELCOME10": { percentage: 10, maxAmount: 50 },
-            "SAVE20": { percentage: 20, maxAmount: 100 },
-            "FREESHIP": { fixedAmount: 5 }
-        };
+        setIsApplyingCoupon(true);
+        try {
+            const res = await validateCoupon(
+                discountCode.trim(),
+                user.account.id,
+                formValue?.amount || 0
+            );
 
-        const foundDiscount = mockDiscounts[discountCode.toUpperCase()];
-
-        if (foundDiscount) {
-            let discountAmount = 0;
-
-            if (foundDiscount.percentage) {
-                discountAmount = (formValue.amount * foundDiscount.percentage) / 100;
-                if (foundDiscount.maxAmount && discountAmount > foundDiscount.maxAmount) {
-                    discountAmount = foundDiscount.maxAmount;
-                }
-            } else if (foundDiscount.fixedAmount) {
-                discountAmount = foundDiscount.fixedAmount;
+            if (res && res.errCode === 0) {
+                setDiscount({
+                    applied: true,
+                    amount: res.discount_amount,
+                    code: res.coupon.code,
+                    coupon_id: res.coupon.id,
+                });
+                toast.success(`Mã giảm giá "${res.coupon.code}" đã được áp dụng!`);
+            } else {
+                toast.error(res?.message || "Mã giảm giá không hợp lệ");
             }
-
-            setDiscount({
-                applied: true,
-                amount: discountAmount,
-                code: discountCode.toUpperCase()
-            });
-
-            toast.success(`Discount code "${discountCode.toUpperCase()}" applied successfully!`);
-        } else {
-            toast.error("Invalid discount code. Please try another one.");
+        } catch (err) {
+            toast.error(err?.message || "Không thể kiểm tra mã giảm giá, thử lại sau");
+        } finally {
+            setIsApplyingCoupon(false);
         }
     };
 
@@ -108,10 +107,11 @@ const Checkout = () => {
         setDiscount({
             applied: false,
             amount: 0,
-            code: ""
+            code: "",
+            coupon_id: null,
         });
         setDiscountCode("");
-        toast.info("Discount code removed");
+        toast.info("Đã xóa mã giảm giá");
     };
 
     const handleSubmit = async () => {
@@ -131,6 +131,7 @@ const Checkout = () => {
             total_amount: totalAmount,
             discount_amount: discount.amount,
             discount_code: discount.code,
+            coupon_id: discount.coupon_id,   // sent to backend to record usage
             payment_method: formData.payment,
             shipping_address: formData.address + ", " + formData.country,
         };
@@ -288,8 +289,9 @@ const Checkout = () => {
                                         <button
                                             onClick={applyDiscountCode}
                                             className="checkout-discount-button"
+                                            disabled={isApplyingCoupon}
                                         >
-                                            Apply
+                                            {isApplyingCoupon ? "Đang kiểm tra..." : "Áp dụng"}
                                         </button>
                                     </div>
                                 ) : (
@@ -362,8 +364,8 @@ const Checkout = () => {
                                             className="checkout-payment-radio"
                                         />
                                         <div className="checkout-payment-details">
-                                            <span className="checkout-payment-name">Online payment with ZaloPay</span>
-                                            <p className="checkout-payment-description">Pay securely using ZaloPay</p>
+                                            <span className="checkout-payment-name">Online payment with Stripe</span>
+                                            <p className="checkout-payment-description">Pay securely using Stripe</p>
                                         </div>
                                     </label>
                                 </div>

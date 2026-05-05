@@ -19,7 +19,7 @@
   /* max-width: 1400px; */
   margin: 0 auto;
   padding: 20px;
-  background-color: var(--blue-50);
+  /* background-color: var(--blue-50); */
   min-height: 100vh;
   font-family: 'Manrope', sans-serif;
 }
@@ -264,6 +264,30 @@
   font-size: 14px;
   color: var(--ink-700);
   cursor: pointer;
+}
+
+.filter-scrollable {
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.filter-scrollable::-webkit-scrollbar {
+  width: 4px;
+}
+
+.filter-scrollable::-webkit-scrollbar-track {
+  background: var(--blue-50);
+  border-radius: 4px;
+}
+
+.filter-scrollable::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 4px;
+}
+
+.filter-scrollable::-webkit-scrollbar-thumb:hover {
+  background: var(--blue-300);
 }
 
 .comp-search-checkbox-group input[type="checkbox"] {

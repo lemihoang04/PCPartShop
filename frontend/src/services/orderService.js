@@ -29,3 +29,12 @@ export const ApproveOrder = async (orderId) => {
         return { errCode: -1, message: error.message };
     }
 };
+
+export const UpdateOrderStatus = async (orderId, status) => {
+    try {
+        const response = await axios.post(`/orders/update-status/${orderId}`, { status });
+        return response;
+    } catch (error) {
+        return { errCode: -1, message: error.message };
+    }
+};

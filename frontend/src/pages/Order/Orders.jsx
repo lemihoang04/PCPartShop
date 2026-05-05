@@ -199,18 +199,19 @@ const Orders = () => {
                     >
                         Pending
                     </button>
-                    {/* <button
+                    <button
+                        className={`odrs__filter-btn ${isFilterActive('processing') ? 'odrs__active' : ''}`}
+                        onClick={() => setFilter('processing')}
+                    >
+                        Processing
+                    </button>
+                    <button
                         className={`odrs__filter-btn ${isFilterActive('shipped') ? 'odrs__active' : ''}`}
                         onClick={() => setFilter('shipped')}
                     >
                         Shipped
                     </button>
-                    <button
-                        className={`odrs__filter-btn ${isFilterActive('delivered') ? 'odrs__active' : ''}`}
-                        onClick={() => setFilter('delivered')}
-                    >
-                        Delivered
-                    </button> */}
+
                     <button
                         className={`odrs__filter-btn ${isFilterActive('completed') ? 'odrs__active' : ''}`}
                         onClick={() => setFilter('completed')}
@@ -309,7 +310,7 @@ const Orders = () => {
                                 {/* <button className="odrs__button odrs__secondary-button">
                                     Track Order
                                 </button> */}
-                                {(order.status === 'pending' || order.status === 'processing' || order.status === 'shipped') && (
+                                {order.status === 'pending' && (
                                     <button
                                         className="odrs__button odrs__outline-button"
                                         onClick={() => handleCancel(order)}

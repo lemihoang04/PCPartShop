@@ -118,6 +118,14 @@ const CancelOrder = async (order_id) => {
 	});
 }
 
+const GetOrderStatusHistory = async (order_id) => {
+	return axios.get(`/order/history/${order_id}`, {
+		headers: {
+			"Content-Type": "application/json",
+		},
+	});
+}
+
 // Add product rating
 const SubmitProductRating = async (ratingData) => {
 	try {
@@ -155,6 +163,7 @@ export {
 	GetOrdersData,
 	GetOrderDetail,
 	GetOrderPayment,
+	GetOrderStatusHistory,
 	CancelOrder,
 	SubmitProductRating,
 	GetProductReviews,

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import './OrderDetailModal.css';
-import { GetOrderDetail, GetOrderPayment } from '../../services/apiService';
+import { GetOrderDetail, GetOrderPayment, GetOrderStatusHistory } from '../../services/apiService';
 
 const OrderDetailModal = ({ order, onClose }) => {
     const [orderDetails, setOrderDetails] = useState(null);
     const [paymentDetails, setPaymentDetails] = useState(null);
+    const [statusHistory, setStatusHistory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -72,6 +73,15 @@ const OrderDetailModal = ({ order, onClose }) => {
                 const paymentData = paymentResponse.data;
 
                 setPaymentDetails(paymentData);
+
+                try {
+                    const historyResponse = await GetOrderStatusHistory(order.order_id);
+                    if (historyResponse.errCode === 0) {
+                        setStatusHistory(historyResponse.data || []);
+                    }
+                } catch (historyErr) {
+                    console.error('Error fetching history:', historyErr);
+                }
             } catch (err) {
                 console.error('Error fetching payment details:', err);
                 setError('Failed to load order details. Please try again later.');
@@ -245,8 +255,27 @@ const OrderDetailModal = ({ order, onClose }) => {
                                 </div>
                             </div>
                         </div> */}
-                        {/* 
-                        <div className="odtm__divider"></div> */}
+
+                        {statusHistory && statusHistory.length > 0 && (
+                            <>
+                                <div className="odtm__shipping-section">
+                                    <h4>Order Status History</h4>
+                                    <div className="odtm__shipping-timeline">
+                                        {statusHistory.map((history, index) => (
+                                            <div className="odtm__timeline-item" key={history.id || index}>
+                                                <div className={`odtm__timeline-dot ${index === 0 ? 'odtm__active' : ''}`}></div>
+                                                <div className="odtm__timeline-content">
+                                                    <h5>{history.status ? (history.status.charAt(0).toUpperCase() + history.status.slice(1)) : 'Unknown'}</h5>
+                                                    <p>{history.note || 'No additional note'}</p>
+                                                    <p className="odtm__timeline-date">{formatDate(history.created_at)}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="odtm__divider"></div>
+                            </>
+                        )}
 
                         <div className="odtm__payment-section">
                             <h4>Payment Information</h4>
