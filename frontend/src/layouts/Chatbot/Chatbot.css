@@ -19,7 +19,7 @@
     width: 54px;
     height: 54px;
     border-radius: 50%;
-    background-color: #2563eb;
+    background-color: var(--pi-primary-color);
     color: #ffffff;
     border: none;
     cursor: pointer;

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Button, Modal, Form, Dropdown, Card, Badge, Row, Col, Spinner } from "react-bootstrap";
+import { Button, Modal, Form, Dropdown, Row, Col, Spinner } from "react-bootstrap";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrash, faSearch, faPlus, faFilter, faSort, faTags } from "@fortawesome/free-solid-svg-icons";
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -45,27 +45,14 @@ const ProductManager = () => {
     "PSU"
   ];
 
-  // Category colors for visual differentiation
-  const categoryColors = {
-    "Laptop": "primary",
-    "CPU": "danger",
-    "Mainboard": "success",
-    "GPU": "warning",
-    "RAM": "info",
-    "Storage": "secondary",
-    "CPU Cooler": "dark",
-    "Case": "light",
-    "PSU": "danger"
-  };
-
   const loadProducts = async () => {
     setLoading(true);
     try {
       const data = await fetchAllProducts();
-      console.log("Loaded products:", data.length);
-      setProducts(data);
+      setProducts(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error loading products:", error);
+      toast.error("Unable to load products");
     } finally {
       setLoading(false);
     }
@@ -101,6 +88,17 @@ const ProductManager = () => {
   // Pagination logic after filtering and sorting
   const totalPages = Math.ceil(sortedProducts.length / PAGE_SIZE);
   const paginatedProducts = sortedProducts.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  useEffect(() => {
+    if (totalPages === 0 && currentPage !== 1) {
+      setCurrentPage(1);
+      return;
+    }
+
+    if (totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
   
   // Generate page numbers for pagination
   const pageNumbers = [];
@@ -130,18 +128,19 @@ const ProductManager = () => {
         price: product.price || "",
         stock: product.stock || "",
         image: product.image || "",
-        description: product.description || ""
+        description: product.description || "",
+        imageFiles: []
       });
     } else {
       setEditingProduct(null);
-      setForm({ name: "", category: "", price: "", stock: "", image: "", description: "" });
+      setForm({ name: "", category: "", price: "", stock: "", image: "", description: "", imageFiles: [] });
     }
     setShowModal(true);
   };
   const handleCloseModal = () => {
     setShowModal(false);
     setEditingProduct(null);
-    setForm({ name: "", category: "", price: "", stock: "", image: "", description: "" });
+    setForm({ name: "", category: "", price: "", stock: "", image: "", description: "", imageFiles: [] });
   };
 
   const handleChange = (e) => {
@@ -191,21 +190,19 @@ const ProductManager = () => {
       const result = await deleteProduct(productId);
       
       if (result.success) {
-        setProducts(products.filter(prod => prod.product_id !== productId));
+        setProducts(prevProducts => prevProducts.filter(prod => prod.product_id !== productId));
         
         const remainingProductsInPage = paginatedProducts.filter(prod => prod.product_id !== productId);
         if (remainingProductsInPage.length === 0 && currentPage > 1) {
           setCurrentPage(currentPage - 1);
         }
-        
-        // Show success notification (would be better with a toast)
-        alert("Product has been successfully deleted");
+        toast.success(result.message || "Product has been successfully deleted");
       } else {
-        alert(result.message || "Unable to delete product. Please try again later.");
+        toast.error(result.message || "Unable to delete product. Please try again later.");
       }
     } catch (error) {
       console.error("Error deleting product:", error);
-      alert("An error occurred while deleting the product. Please try again later.");
+      toast.error("An error occurred while deleting the product. Please try again later.");
     } finally {
       cancelDelete();
     }
@@ -263,8 +260,8 @@ const ProductManager = () => {
 
   const getImageUrl = (product) => {
     if (product.image) {
-      const images = product.image.split('; ');
-      return images[0];
+      const images = product.image.split(/[;,]/).map((item) => item.trim()).filter(Boolean);
+      return images[0] || product.image;
     }
     return "https://via.placeholder.com/200x150?text=No+Image";
   };
@@ -276,37 +273,33 @@ const ProductManager = () => {
   return (
     <div className="product-manager">
       <div className="product-dashboard">
-        {/* Header Section */}
-        <div className="dashboard-header">
-          <div className="dashboard-title">
-            <h1>Product Management</h1>
-            <p>Manage your product inventory, prices, and categories</p>
-          </div>          <div className="dashboard-actions">
-            <Button variant="outline-primary" className="advanced-add-btn me-2" onClick={() => navigate("/admin/add-product")}>
+        <div className="pm-header">
+          <div className="pm-header-left">
+            <h2 className="pm-title">Product Management</h2>
+            <span className="pm-count">{filteredProducts.length} products</span>
+          </div>
+          <div className="pm-header-actions">
+            <Button variant="outline-primary" className="pm-btn-create" onClick={() => navigate("/admin/add-product")}>
               <FontAwesomeIcon icon={faPlus} /> Add Product
             </Button>
-            {/* <Button variant="success" className="add-product-btn" onClick={() => handleShowModal()}>
-              <FontAwesomeIcon icon={faPlus} /> Quick Add
-            </Button> */}
           </div>
         </div>
 
-        {/* Filter and Search Section */}
-        <div className="filter-container">
-          <div className="search-box">
-            <FontAwesomeIcon icon={faSearch} className="search-icon" />
+        <div className="pm-toolbar">
+          <div className="pm-search-wrap">
+            <FontAwesomeIcon icon={faSearch} className="pm-search-icon" />
             <input 
               type="text" 
               placeholder="Search products..." 
               value={searchQuery} 
               onChange={(e) => setSearchQuery(e.target.value)} 
-              className="search-input"
+              className="pm-search"
             />
           </div>
 
-          <div className="filter-options">
-            <div className="filter-group">
-              <span className="filter-label">
+          <div className="pm-filters">
+            <div className="pm-filter-group">
+              <span className="pm-filter-label">
                 <FontAwesomeIcon icon={faFilter} /> Filter by:
               </span>
               <Dropdown>
@@ -327,8 +320,8 @@ const ProductManager = () => {
               </Dropdown>
             </div>
 
-            <div className="filter-group">
-              <span className="filter-label">
+            <div className="pm-filter-group">
+              <span className="pm-filter-label">
                 <FontAwesomeIcon icon={faSort} /> Sort by:
               </span>
               <Dropdown>
@@ -349,78 +342,72 @@ const ProductManager = () => {
           </div>
         </div>
 
-        {/* Stats Summary */}
-        <div className="stats-summary">
-          <div className="stat-card">
-            <h3>{products.length}</h3>
-            <p>Total Products</p>
-          </div>
-          <div className="stat-card">
-            <h3>{filteredProducts.length}</h3>
-            <p>Filtered Results</p>
-          </div>
-          <div className="stat-card">
-            <h3>{categoryFilter === "All" ? "All" : categoryFilter}</h3>
-            <p>Selected Category</p>
-          </div>
-          <div className="stat-card">
-            <h3>Page {Math.min(currentPage, totalPages) || 1}/{totalPages || 1}</h3>
-            <p>Current Page</p>
-          </div>
-        </div>
-
-        {/* Product Cards Grid */}
-        <div className="products-container">
+        <div className="pm-card">
           {loading ? (
-            <div className="loading-container">
+            <div className="pm-loading">
               <Spinner animation="border" role="status" variant="primary" />
               <p>Loading products...</p>
             </div>
           ) : paginatedProducts.length > 0 ? (
-            <Row xs={1} sm={2} md={2} lg={4} className="product-cards-grid">
-              {paginatedProducts.map((product) => (
-                <Col key={product.product_id} className="product-card-column">
-                  <Card className="product-card">
-                    <div className="card-img-container">
-                      <Card.Img variant="top" src={getImageUrl(product)} className="product-image" />
-                    </div>
-                    <Card.Body>
-                      <Badge 
-                        bg={categoryColors[product.category_name] || "info"} 
-                        className="category-badge"
-                      >
-                        {product.category_name || "Uncategorized"}
-                      </Badge>
-                      <Card.Title className="product-card-title">{product.title}</Card.Title>
-                      <Card.Text className="product-card-price">
-                        {formatPrice(product.price)}
-                      </Card.Text>
-                      <div className="card-actions">
-                        <Button 
-                          variant="outline-primary" 
-                          size="sm" 
-                          className="edit-btn"
-                          onClick={() => handleShowModal(product)}
-                        >
-                          Edit
-                        </Button>
-                        <Button 
-                          variant="outline-danger" 
-                          size="sm" 
-                          className="delete-btn"
-                          onClick={() => showDeleteConfirmation(product.product_id)}
-                        >
-                          <FontAwesomeIcon icon={faTrash} /> Delete
-                        </Button>
-                      </div>
-                    </Card.Body>
-                  </Card>
-                </Col>
-              ))}
-            </Row>
+            <div className="pm-table-wrap">
+              <table className="pm-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Image</th>
+                    <th>Name</th>
+                    <th>Category</th>
+                    <th>Price</th>
+                    <th>Stock</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedProducts.map((product) => (
+                    <tr key={product.product_id}>
+                      <td className="pm-id-cell">{product.product_id}</td>
+                      <td>
+                        <div className="pm-image-cell">
+                          <img
+                            src={getImageUrl(product)}
+                            alt={product.title}
+                            className="pm-product-image"
+                            onError={(e) => {
+                              e.currentTarget.src = "https://via.placeholder.com/120x90?text=No+Image";
+                            }}
+                          />
+                        </div>
+                      </td>
+                      <td>
+                        <div className="pm-name-cell">
+                          <span className="pm-product-title">{product.title}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`pm-category-badge pm-category-${(product.category_name || "uncategorized").toLowerCase().replace(/\s+/g, "-")}`}>
+                          {product.category_name || "Uncategorized"}
+                        </span>
+                      </td>
+                      <td className="pm-price-cell">{formatPrice(product.price)}</td>
+                      <td className="pm-stock-cell">{product.stock ?? 0}</td>
+                      <td>
+                        <div className="pm-actions-cell">
+                          <button className="pm-btn-edit" onClick={() => handleShowModal(product)} title="Edit">
+                            Edit
+                          </button>
+                          <button className="pm-btn-delete" onClick={() => showDeleteConfirmation(product.product_id)} title="Delete">
+                            <FontAwesomeIcon icon={faTrash} /> Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : (
-            <div className="no-products">
-              <div className="no-products-message">
+            <div className="pm-empty">
+              <div className="pm-empty-message">
                 <h3>No products found</h3>
                 <p>Try changing your search criteria or add new products.</p>
               </div>
@@ -428,18 +415,17 @@ const ProductManager = () => {
           )}
         </div>
 
-        {/* Pagination */}
         {filteredProducts.length > 0 && (
-          <div className="pagination-container">
+          <div className="pm-pagination">
             <button 
-              className={`pagination-btn ${currentPage === 1 ? 'disabled' : ''}`}
+              className={`pm-pagination-btn ${currentPage === 1 ? 'disabled' : ''}`}
               onClick={() => handlePageChange(1)} 
               disabled={currentPage === 1}
             >
               First
             </button>
             <button 
-              className={`pagination-btn ${currentPage === 1 ? 'disabled' : ''}`}
+              className={`pm-pagination-btn ${currentPage === 1 ? 'disabled' : ''}`}
               onClick={() => handlePageChange(Math.max(1, currentPage - 1))} 
               disabled={currentPage === 1}
             >
@@ -449,7 +435,7 @@ const ProductManager = () => {
             {pageNumbers.map(number => (
               <button
                 key={number}
-                className={`pagination-btn ${currentPage === number ? 'active' : ''}`}
+                className={`pm-pagination-btn ${currentPage === number ? 'active' : ''}`}
                 onClick={() => handlePageChange(number)}
               >
                 {number}
@@ -457,14 +443,14 @@ const ProductManager = () => {
             ))}
             
             <button 
-              className={`pagination-btn ${currentPage === totalPages ? 'disabled' : ''}`}
+              className={`pm-pagination-btn ${currentPage === totalPages ? 'disabled' : ''}`}
               onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))} 
               disabled={currentPage === totalPages}
             >
               Next
             </button>
             <button 
-              className={`pagination-btn ${currentPage === totalPages ? 'disabled' : ''}`}
+              className={`pm-pagination-btn ${currentPage === totalPages ? 'disabled' : ''}`}
               onClick={() => handlePageChange(totalPages)} 
               disabled={currentPage === totalPages}
             >
@@ -548,7 +534,8 @@ const ProductManager = () => {
                     placeholder="Enter stock quantity"
                   />
                 </Form.Group>
-              </Col>              <Col md={6}>
+              </Col>
+              <Col md={6}>
                 <Form.Group className="mb-3">
                   <Form.Label>Image URL</Form.Label>
                   <Form.Control
@@ -558,7 +545,8 @@ const ProductManager = () => {
                     onChange={handleChange}
                     placeholder="Enter image URL"
                   />
-                </Form.Group>                <Form.Group className="mb-3">
+                </Form.Group>
+                <Form.Group className="mb-3">
                   <Form.Label>Or Upload New Images</Form.Label>
                   <Form.Control
                     type="file"
@@ -576,14 +564,15 @@ const ProductManager = () => {
 
             <Form.Group className="mb-3">
               <Form.Label>Description</Form.Label>
-              <Form.Control                as="textarea"
+              <Form.Control
+                as="textarea"
                 rows={3}
                 name="description"
                 value={form.description}
                 onChange={handleChange}
                 placeholder="Enter product description"
               />
-            </Form.Group>            {/* File upload is handled in the image section above */}
+            </Form.Group>
           </Form>
         </Modal.Body>
         <Modal.Footer>

@@ -7,19 +7,10 @@ import { fetchComponentById } from '../../services/componentService';
 const ComponentSearch = () => {
   const { type } = useParams();
   const [components, setComponents] = useState([]);
-  const [filteredComponents, setFilteredComponents] = useState([]);
   const [priceRange, setPriceRange] = useState([0, 5000]);
-  const [manufacturerFilter, setManufacturerFilter] = useState({
-    AMD: true,
-    Intel: false,
-    Nvidia: false,
-    'Western Digital': false,
-    Samsung: false,
-    Corsair: false,
-    ASUS: false,
-    MSI: false,
-    Gigabyte: false,
-  }); const [currentPage, setCurrentPage] = useState(1);
+  const [manufacturerFilter, setManufacturerFilter] = useState({});
+  const [categoryFilters, setCategoryFilters] = useState({});
+  const [currentPage, setCurrentPage] = useState(1);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isFilterVisible, setIsFilterVisible] = useState(true);
@@ -113,7 +104,6 @@ const ComponentSearch = () => {
       if (!data || data.error) {
         setError(data?.error || 'Failed to load components');
         setComponents([]);
-        setFilteredComponents([]);
         return;
       }
 
@@ -153,18 +143,97 @@ const ComponentSearch = () => {
       });
 
       setComponents(parsedComponents);
-      setFilteredComponents(parsedComponents);
     } catch (err) {
       console.error('Error loading components:', err);
       setError('Failed to load components');
     }
   };
   useEffect(() => {
-    // Inside the loadComponents async function in the useEffect
-    // Actually call the function to load components
     loadComponents();
+  }, [normalizedType, window.location.search]);
 
-  }, [normalizedType, window.location.search]); // Thêm location.search vào dependencies để reload khi query params thay đổi
+  const filteredComponents = useMemo(() => {
+    let result = components;
+
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase().trim().split(/\s+/);
+      result = result.filter((component) => {
+        const title = component.title?.toLowerCase() || '';
+        return term.every((word) => title.includes(word));
+      });
+    }
+
+    result = result.filter((component) => {
+      if (component.price === undefined || component.price === null) return false;
+      const price = typeof component.price === 'number' ? component.price : parseFloat(component.price);
+      if (isNaN(price)) return false;
+      return price >= priceRange[0] && price <= priceRange[1];
+    });
+
+    const activeManufacturers = Object.keys(manufacturerFilter).filter((key) => manufacturerFilter[key]);
+    if (activeManufacturers.length > 0) {
+      result = result.filter((component) => {
+        if (!component.title) return false;
+        const componentTitle = component.title.toLowerCase();
+        return activeManufacturers.some((m) => componentTitle.includes(m.toLowerCase()));
+      });
+    }
+
+    if (Object.keys(categoryFilters).length > 0) {
+      result = result.filter((component) => {
+        for (const [key, values] of Object.entries(categoryFilters)) {
+          if (!values || values.length === 0) continue;
+          const compValue = component.attributes?.[key];
+          if (!compValue) return false;
+          if (!values.includes(String(compValue).trim())) return false;
+        }
+        return true;
+      });
+    }
+
+    return result;
+  }, [components, searchTerm, priceRange, manufacturerFilter, categoryFilters]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, priceRange, manufacturerFilter, categoryFilters]);
+
+  const getFilterableAttributes = () => {
+    switch (normalizedType) {
+      case 'CPU': return ['Socket', 'Core Count', 'Integrated Graphics'];
+      case 'GPU': return ['Chipset', 'Memory', 'Cooling'];
+      case 'Mainboard': return ['Socket/CPU', 'Form Factor', 'Memory Max'];
+      case 'RAM': return ['Modules', 'Speed', 'CAS Latency'];
+      case 'Storage': return ['Type', 'Form Factor', 'Capacity'];
+      case 'PSU': return ['Efficiency Rating', 'Modular', 'Wattage'];
+      case 'CPU Cooler': return ['Water Cooled', 'Fanless'];
+      case 'Case': return ['Type', 'Motherboard Form Factor'];
+      default: return [];
+    }
+  };
+
+  const filterOptions = useMemo(() => {
+    const options = {};
+    const attributes = getFilterableAttributes();
+    
+    attributes.forEach(attr => {
+      const uniqueValues = new Set();
+      components.forEach(comp => {
+        const val = comp.attributes?.[attr];
+        if (val && val !== 'N/A' && val !== '') {
+          uniqueValues.add(String(val).trim());
+        }
+      });
+      // Sort numbers numerically if possible
+      options[attr] = Array.from(uniqueValues).sort((a, b) => {
+        const numA = parseFloat(a);
+        const numB = parseFloat(b);
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+        return a.localeCompare(b);
+      });
+    });
+    return options;
+  }, [components, normalizedType]);
 
   const itemsPerPage = 50;
   const getRawComponentHeaders = () => {
@@ -319,82 +388,9 @@ const ComponentSearch = () => {
     });
   };
 
-  const handleSearch = (e) => {
-    const term = e.target.value
-      .toLowerCase()
-      .trim()
-      .split(/\s+/);
-    const filtered = components.filter((component) => {
-      const title = component.title.toLowerCase()
-
-      return term.every((word) => title.includes(word));
-    });
-    setFilteredComponents(filtered);
-    setCurrentPage(1);
-  };
-  const handlePriceFilter = () => {
-    // Lọc các component trong khoảng giá đã chọn
-    const filtered = components.filter(
-      (component) => {
-        // Đảm bảo component có giá hợp lệ
-        if (component.price === undefined || component.price === null) {
-          return false;
-        }
-
-        // Chuyển đổi giá thành số nếu cần
-        const price = typeof component.price === 'number'
-          ? component.price
-          : parseFloat(component.price);
-
-        // Kiểm tra xem giá có hợp lệ không (là một số)
-        if (isNaN(price)) {
-          return false;
-        }
-
-        // Kiểm tra xem giá có nằm trong khoảng không
-        return price >= priceRange[0] && price <= priceRange[1];
-      }
-    );
-
-    console.log(`Price filter applied: $${priceRange[0]} - $${priceRange[1]}`);
-    console.log(`Filtered from ${components.length} to ${filtered.length} components`);
-
-    setFilteredComponents(filtered);
-    setCurrentPage(1); // Reset về trang đầu tiên sau khi lọc
-  };
   const handleManufacturerFilter = (e) => {
     const { name, checked } = e.target;
-    const updatedFilter = { ...manufacturerFilter, [name]: checked };
-    setManufacturerFilter(updatedFilter);
-
-    // Get list of active manufacturers
-    const activeManufacturers = Object.keys(updatedFilter).filter(
-      (key) => updatedFilter[key]
-    );
-
-    // If no manufacturers are selected, show all components
-    if (activeManufacturers.length === 0) {
-      setFilteredComponents(components);
-      setCurrentPage(1);
-      return;
-    }
-
-    // Filter components based on selected manufacturers
-    const filtered = components.filter((component) => {
-      if (!component.title) return false;
-      const componentTitle = component.title.toLowerCase();
-      // Check if any of the selected manufacturers are in the title
-      return activeManufacturers.some((manufacturer) =>
-        componentTitle.includes(manufacturer.toLowerCase())
-      );
-    });
-
-    // Log for debugging
-    console.log(`Filtered by manufacturers: ${activeManufacturers.join(', ')}`);
-    console.log(`Found ${filtered.length} matching components`);
-
-    setFilteredComponents(filtered);
-    setCurrentPage(1); // Reset to first page after filtering
+    setManufacturerFilter((prev) => ({ ...prev, [name]: checked }));
   };
 
   const handleNextPage = () => {
@@ -575,7 +571,6 @@ const ComponentSearch = () => {
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
-                handleSearch(e);
               }}
             />
             {searchTerm && (
@@ -583,7 +578,6 @@ const ComponentSearch = () => {
                 className="comp-search-clear-search"
                 onClick={() => {
                   setSearchTerm('');
-                  setFilteredComponents(components);
                 }}
               >
                 ×
@@ -626,8 +620,6 @@ const ComponentSearch = () => {
                     const newMin = Math.min(value, priceRange[1] - 50);
                     setPriceRange([newMin, priceRange[1]]);
                   }}
-                  onMouseUp={handlePriceFilter} // Chỉ áp dụng bộ lọc khi người dùng thả chuột
-                  onTouchEnd={handlePriceFilter} // Cho thiết bị cảm ứng
                 />
                 <input
                   type="range"
@@ -640,8 +632,6 @@ const ComponentSearch = () => {
                     const newMax = Math.max(value, priceRange[0] + 50);
                     setPriceRange([priceRange[0], newMax]);
                   }}
-                  onMouseUp={handlePriceFilter} // Chỉ áp dụng bộ lọc khi người dùng thả chuột
-                  onTouchEnd={handlePriceFilter} // Cho thiết bị cảm ứng
                 />
               </div>
             </div>            <div className="comp-search-filter-section">
@@ -668,22 +658,44 @@ const ComponentSearch = () => {
               )}
             </div>
 
+            {Object.entries(filterOptions).map(([attr, options]) => (
+              options.length > 0 && (
+                <div className="comp-search-filter-section" key={attr}>
+                  <h3>{attr}</h3>
+                  <div className="comp-search-checkbox-group filter-scrollable">
+                    {options.map((option) => (
+                      <label key={option}>
+                        <input
+                          type="checkbox"
+                          checked={categoryFilters[attr]?.includes(option) || false}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setCategoryFilters((prev) => {
+                              const currentFilters = prev[attr] || [];
+                              return {
+                                ...prev,
+                                [attr]: checked
+                                  ? [...currentFilters, option]
+                                  : currentFilters.filter((v) => v !== option),
+                              };
+                            });
+                          }}
+                        />
+                        {option}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )
+            ))}
+
             <button
               className="comp-search-reset-filters"
               onClick={() => {
                 setPriceRange([0, 5000]);
-                setManufacturerFilter({
-                  AMD: false,
-                  Intel: false,
-                  Nvidia: false,
-                  'Western Digital': false,
-                  Samsung: false,
-                  Corsair: false,
-                  ASUS: false,
-                  MSI: false,
-                  Gigabyte: false,
-                });
-                setFilteredComponents(components);
+                setManufacturerFilter({});
+                setCategoryFilters({});
+                setSearchTerm('');
               }}
             >
               Reset Filters
