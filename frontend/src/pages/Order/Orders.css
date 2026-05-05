@@ -237,14 +237,19 @@
     color: #ff8f00;
 }
 
+.odrs__status-processing {
+    background-color: #e0e7ff;
+    color: #4338ca;
+}
+
 .odrs__status-shipped {
     background-color: #90caf9;
     color: #1976d2;
 }
 
 .odrs__status-completed {
-    background-color: #90caf9;
-    color: #1976d2;
+    background-color: #c8e6c9;
+    color: #2e7d32;
 }
 
 .odrs__status-delivered {

@@ -480,3 +480,9 @@
         height: 180px;
     }
 }
+
+.odtm__timeline-date {
+    font-size: 0.8rem !important;
+    color: #999 !important;
+    margin-top: 4px !important;
+}

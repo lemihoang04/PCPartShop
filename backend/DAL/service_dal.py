@@ -18,11 +18,12 @@ def checkout(order_data):
         # random_chars = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
         order_id = order_data.get('app_trans_id', time.strftime("%y%m%d") + "_" + str(int(time.time())))
         
-        # Get user email for order confirmation
+        # Get user email and name for order confirmation and history
         user_id = order_data['user_id']
-        cursor.execute("SELECT email FROM Users WHERE id = %s", (user_id,))
+        cursor.execute("SELECT email, name FROM Users WHERE id = %s", (user_id,))
         user_data = cursor.fetchone()
         user_email = user_data.get('email') if user_data else None
+        user_name = user_data.get('name', 'System') if user_data else 'System'
         
         # Enhanced order items with product details for the email
         enhanced_order_items = []
@@ -74,7 +75,7 @@ def checkout(order_data):
                         DELETE FROM Cart WHERE cart_id = %s
                     """, (item['cart_id'],))
                 
-        payment_status = 'completed' if order_data['payment_method'] == 'online_payment' else 'pending'
+        payment_status = 'paid' if order_data['payment_method'] == 'online_payment' else 'unpaid'
         cursor.execute("""
             INSERT INTO Payments (order_id, user_id, amount, payment_method, payment_status)
             VALUES (%s, %s, %s, %s, %s)
@@ -85,6 +86,18 @@ def checkout(order_data):
             order_data['payment_method'],
             payment_status  
         ))
+        
+        cursor.execute("""
+            INSERT INTO order_status_history (order_id, user_id, status, note, changed_by)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (
+            order_id,
+            order_data['user_id'],
+            'pending',
+            'Order placed successfully',
+            user_name
+        ))
+        
         connection.commit()
 
         # Record coupon usage if a coupon was applied
