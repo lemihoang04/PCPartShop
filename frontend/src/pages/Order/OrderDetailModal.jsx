@@ -174,7 +174,26 @@ const OrderDetailModal = ({ order, onClose }) => {
                                 {orderDetails.status ? (orderDetails.status.charAt(0).toUpperCase() + orderDetails.status.slice(1)) : 'Unknown'}
                             </div>
                         </div>
+                        {statusHistory && statusHistory.length > 0 && (
+                            <>
+                                <div className="odtm__shipping-section">
+                                    <h4>Order Status History</h4>
+                                    <div className="odtm__shipping-timeline">
+                                        {statusHistory.map((history, index) => (
+                                            <div className="odtm__timeline-item" key={history.id || index}>
+                                                <div className={`odtm__timeline-dot ${index === 0 ? 'odtm__active' : ''}`}></div>
+                                                <div className="odtm__timeline-content">
+                                                    <h5>{history.status ? (history.status.charAt(0).toUpperCase() + history.status.slice(1)) : 'Unknown'}</h5>
+                                                    <p>{history.note || 'No additional note'}</p>
+                                                    <p className="odtm__timeline-date">{formatDate(history.created_at)}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
 
+                            </>
+                        )}
                         <div className="odtm__divider"></div>
 
                         <div className="odtm__product-section">
@@ -256,26 +275,7 @@ const OrderDetailModal = ({ order, onClose }) => {
                             </div>
                         </div> */}
 
-                        {statusHistory && statusHistory.length > 0 && (
-                            <>
-                                <div className="odtm__shipping-section">
-                                    <h4>Order Status History</h4>
-                                    <div className="odtm__shipping-timeline">
-                                        {statusHistory.map((history, index) => (
-                                            <div className="odtm__timeline-item" key={history.id || index}>
-                                                <div className={`odtm__timeline-dot ${index === 0 ? 'odtm__active' : ''}`}></div>
-                                                <div className="odtm__timeline-content">
-                                                    <h5>{history.status ? (history.status.charAt(0).toUpperCase() + history.status.slice(1)) : 'Unknown'}</h5>
-                                                    <p>{history.note || 'No additional note'}</p>
-                                                    <p className="odtm__timeline-date">{formatDate(history.created_at)}</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div className="odtm__divider"></div>
-                            </>
-                        )}
+
 
                         <div className="odtm__payment-section">
                             <h4>Payment Information</h4>

@@ -373,6 +373,29 @@ def get_compatible_psu(total_tdp):
         print(f"Error in get_compatible_psu: {e}")
         return jsonify({"error": str(e)}), 500
 
+# ---------- Generic Compatibility Endpoint ----------
+@product_blueprint.route("/compatible/<string:component_type>", methods=["GET"])
+def get_compatible_components(component_type):
+    """
+    Generic API endpoint for fetching compatible components.
+    
+    Args:
+        component_type (str): One of 'cpu', 'cpu_cooler', 'mainboard', 'ram', 'case', 'psu', 'storage'
+    
+    Query Parameters:
+        filter (str): Filter value (socket name, memory type, wattage, form factor, etc.)
+    
+    Returns:
+        JSON response with compatible components or error message.
+    """
+    try:
+        filter_value = request.args.get('filter')
+        components, status = dal_get_compatible_components(component_type, filter_value)
+        return jsonify(components), status
+    except Exception as e:
+        print(f"Error in get_compatible_components ({component_type}): {e}")
+        return jsonify({"error": str(e)}), 500
+
 @product_blueprint.route("/product/<int:product_id>", methods=["DELETE"])
 def delete_product(product_id):
     """

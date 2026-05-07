@@ -19,11 +19,12 @@
     border-radius: 12px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
     width: 100%;
-    max-width: 800px;
-    max-height: 90vh;
+    max-width: 700px;
+    max-height: 80vh;
     overflow-y: auto;
     position: relative;
     animation: odtm__modal-fade-in 0.3s ease-out;
+    top: 20px;
 }
 
 @keyframes odtm__modal-fade-in {

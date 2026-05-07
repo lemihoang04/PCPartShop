@@ -4,23 +4,17 @@ import json
 from pathlib import Path
 from typing import Annotated, Any, Dict, List, Optional, TypedDict
 
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
 from langchain_core.messages import AIMessage, SystemMessage
 from langchain_core.tools import tool
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
 
+from context.init_models import db, get_llm
+
 # =====================================================
 # CONFIG
 # =====================================================
-
-BASE_DIR = Path(__file__).resolve().parent
-COLLECTION_NAME = "pc_products"
-PERSIST_DIR = str(BASE_DIR / "chroma_db")
-MODEL_NAME = os.getenv("GOOGLE_MODEL", "gemma-4-26b-a4b-it")
 
 CATEGORY_KEYWORDS = {
     "cpu": ["cpu", "vi xu ly", "vi xử lý", "chip"],
@@ -42,33 +36,47 @@ class AgentState(TypedDict):
 
 
 # =====================================================
-# INIT MODELS
-# =====================================================
-
-def get_llm() -> ChatGoogleGenerativeAI:
-    google_api_key = os.getenv("GOOGLE_API_KEY")
-    if not google_api_key:
-        raise ValueError("Thiếu GOOGLE_API_KEY trong biến môi trường.")
-    
-
-    return ChatGoogleGenerativeAI(
-        api_key=google_api_key,
-        model=MODEL_NAME,
-        temperature=0.05,
-    )
-
-
-embedding = HuggingFaceEmbeddings(model_name="BAAI/bge-m3")
-db = Chroma(
-    persist_directory=PERSIST_DIR,
-    collection_name=COLLECTION_NAME,
-    embedding_function=embedding,
-)
-
-
-# =====================================================
 # HELPERS
 # =====================================================
+
+def build_filter(
+    product_type: Optional[str] = None,
+    min_price: Optional[int] = None,
+    max_price: Optional[int] = None
+) -> Optional[Dict[str, Any]]:
+
+    conditions = []
+
+    # category
+    if product_type:
+        conditions.append({
+            "category": product_type.strip().lower()
+        })
+
+    # price >=
+    if min_price is not None:
+        conditions.append({
+            "price": {"$gte": min_price}
+        })
+
+    # price <=
+    if max_price is not None:
+        conditions.append({
+            "price": {"$lte": max_price}
+        })
+
+    # không có filter
+    if not conditions:
+        return None
+
+    # chỉ 1 điều kiện → không cần $and
+    if len(conditions) == 1:
+        return conditions[0]
+
+    # nhiều điều kiện → dùng $and
+    return {
+        "$and": conditions
+    }
 
 def detect_category(text: str) -> Optional[str]:
     text_low = text.lower()
@@ -82,27 +90,26 @@ def detect_category(text: str) -> Optional[str]:
 def detect_budget(text: str) -> Optional[int]:
     text_low = text.lower().replace(",", ".")
 
-    million_patterns = [
-        r"(\d+(?:\.\d+)?)\s*triệu",
-        r"(\d+(?:\.\d+)?)\s*tr\b",
-        r"(\d+(?:\.\d+)?)\s*củ",
-    ]
-    for pattern in million_patterns:
-        match = re.search(pattern, text_low)
-        if match:
-            return int(float(match.group(1)) * 1_000_000)
+    # 20.5 triệu, 20tr5
+    match = re.search(r"(\d+(?:\.\d+)?)\s*(triệu|tr|củ)", text_low)
+    if match:
+        return int(float(match.group(1)) * 1_000_000)
 
-    thousand_pattern = r"(\d+(?:\.\d+)?)\s*k\b"
-    match = re.search(thousand_pattern, text_low)
+    # 20tr5
+    match = re.search(r"(\d+)tr(\d+)", text_low)
+    if match:
+        return int((int(match.group(1)) + int(match.group(2)) / 10) * 1_000_000)
+
+    # 500k
+    match = re.search(r"(\d+(?:\.\d+)?)\s*k\b", text_low)
     if match:
         return int(float(match.group(1)) * 1_000)
 
-    vnd_pattern = r"(\d{1,3}(?:[\.,]\d{3})+)\s*(?:vnd|đ|dong)?"
-    match = re.search(vnd_pattern, text_low)
+    # 20,000,000
+    match = re.search(r"(\d{1,3}(?:[\.,]\d{3})+)", text_low)
     if match:
         cleaned = re.sub(r"[^0-9]", "", match.group(1))
-        if cleaned:
-            return int(cleaned)
+        return int(cleaned)
 
     return None
 
@@ -215,8 +222,8 @@ def ranked_search(query: str, filters: Optional[Dict[str, Any]], k: int = 8) -> 
 
     queries = [
         query,
-        f"san pham phu hop cho nhu cau: {query}",
-        f"linh kien pc: {query}",
+        f"sản phẩm phù hợp cho nhu cầu {query}",
+        f"linh kiện pc {query}",
     ]
 
     for q in queries:
@@ -304,13 +311,13 @@ def build_pc_recommendation(budget: int, priority: str = "balance") -> str:
     category_budget = {key: int(budget * ratio) for key, ratio in allocation.items()}
 
     query_hint = {
-        "cpu": "cpu hieu nang tot, on dinh nhiet, gia hop ly",
-        "mainboard": "mainboard tuong thich cpu, do ben tot",
-        "gpu": "gpu manh cho gaming 1080p/2k",
-        "ram": "ram 16gb hoac 32gb do tre tot",
-        "storage": "ssd nvme toc do cao",
-        "psu": "psu chat luong 80 plus, cong suat du",
-        "case": "case airflow tot, de lap rap",
+        "cpu": "cpu hiệu năng tốt, ổn định nhiệt, giá hợp lý",
+        "mainboard": "mainboard tương thích cpu, độ bền tốt",
+        "gpu": "gpu mạnh cho gaming 1080p/2k",
+        "ram": "ram 16gb hoặc 32gb độ trễ tốt",
+        "storage": "ssd nvme tốc độ cao",
+        "psu": "psu chất lượng 80 plus, công suất đủ",
+        "case": "case airflow tốt, dễ lắp ráp",
     }
 
     categories = ["cpu", "mainboard", "gpu", "ram", "storage", "psu", "case"]
@@ -337,9 +344,9 @@ def build_pc_recommendation(budget: int, priority: str = "balance") -> str:
 
     selected_parts = dedupe_docs(selected_parts)
     if not selected_parts:
-        return "Khong tim duoc cau hinh phu hop voi ngan sach hien tai."
+        return "Không tìm được cấu hình phù hợp với ngân sách hiện tại."
 
-    lines = [f"De xuat cau hinh theo ngan sach {vnd(budget)}:"]
+    lines = [f"Đề xuất cấu hình theo ngân sách {vnd(budget)}:"]
     for idx, doc in enumerate(selected_parts, start=1):
         product_id = doc_uid(doc)
         product_link = f"/product-info/{product_id}"
@@ -363,7 +370,7 @@ def build_pc_recommendation(budget: int, priority: str = "balance") -> str:
 # =====================================================
 
 @tool
-def search_products_by_keyword(keyword: str, limit: int = 5) -> str:
+def search_products_by_keyword(keyword: str, limit: int = 10) -> str:
     """Tim san pham theo tu khoa trong mo ta/ten san pham."""
     keyword = (keyword or "").strip()
     if not keyword:
@@ -378,7 +385,7 @@ def search_products_by_keyword(keyword: str, limit: int = 5) -> str:
 
 
 @tool
-def search_products_by_type(product_type: str, limit: int = 5) -> str:
+def search_products_by_type(product_type: str, limit: int = 10) -> str:
     """Tim san pham theo loai linh kien."""
     product_type = (product_type or "").strip().lower()
     if not product_type:
@@ -393,23 +400,52 @@ def search_products_by_type(product_type: str, limit: int = 5) -> str:
 
 
 @tool
-def search_products_by_budget(max_price: int, product_type: str = "", limit: int = 8) -> str:
-    """Tim san pham theo ngan sach, co the loc them theo loai linh kien."""
-    if max_price <= 0:
+def search_products_by_budget(target_price: int, keyword: str = "", product_type: str = "", limit: int = 5) -> str:
+    """
+    Tìm sản phẩm gần với ngân sách mục tiêu của người dùng (target_price) và keyword.
+    """
+
+    if target_price <= 0:
         return "Ngân sách phải lớn hơn 0."
 
-    filters: Dict[str, Any] = {}
-    if product_type:
-        filters["category"] = product_type.strip().lower()
+    min_price = int(target_price * 0.8)
+    max_price = int(target_price * 1.1)
 
-    docs = ranked_search(f"sản phẩm giá {max_price}", filters or None, k=max(1, min(limit, 20)))
-    docs = [doc for doc in docs if (doc_price(doc) or 0) <= max_price] or docs
-    docs = docs[: max(1, min(limit, 20))]
+    filters = build_filter(
+        product_type=product_type,
+        min_price=min_price,
+        max_price=max_price
+    )
+
+    query = f"{keyword}"
+
+    docs = ranked_search(query, filters or None, k=max(limit * 3, 20))
+
     if not docs:
-        return "Không tìm thấy sản phẩm phù hợp với ngân sách đã cho."
+        return "Không tìm thấy sản phẩm."
+
+    # filtered_docs = [
+    #     doc for doc in docs
+    #     if min_price <= (doc_price(doc) or 0) <= max_price
+    # ]
+
+    # if not filtered_docs:
+    #     docs = sorted(
+    #         docs,
+    #         key=lambda d: abs((doc_price(d) or 0) - target_price)
+    #     )
+    # else:
+    #     docs = sorted(
+    #         filtered_docs,
+    #         key=lambda d: abs((doc_price(d) or 0) - target_price)
+    #     )
+
+    docs = docs[: max(1, min(limit, 20))]
+
+    if not docs:
+        return "Không tìm thấy sản phẩm phù hợp với ngân sách."
 
     return build_context_block(docs)
-
 
 @tool
 def recommend_pc_build(budget: int, priority: str = "balance") -> str:

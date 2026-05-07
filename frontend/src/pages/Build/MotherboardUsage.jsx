@@ -978,20 +978,6 @@ const MotherboardUsage = ({ motherboard, rams, cpu, storages, gpus, components }
       </div>
 
       <div className="motherboard-footer">
-        <div className="compatibility-rating">
-          <div className="rating-label">Overall Compatibility</div>
-          <div className="rating-stars">
-            {[1, 2, 3, 4, 5].map(star => (
-              <span key={star} className={`star ${star <= overallRating.starRating ? 'filled' : ''}`}>
-                ★
-              </span>
-            ))}
-          </div>
-          <div className={`rating-text ${overallRating.ratingClass}`}>
-            {overallRating.ratingText} ({overallRating.score.toFixed(0)}%)
-          </div>
-        </div>
-
         {/* Power consumption summary */}
         <div className="power-summary">
           <div className="power-item">

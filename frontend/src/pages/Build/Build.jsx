@@ -12,7 +12,8 @@ import {
   FaBolt,
   FaDesktop,
   FaShoppingCart,
-  FaVideo
+  FaVideo,
+  FaTrash
 } from 'react-icons/fa';
 
 // Helper function to parse memory capacity and convert to GB
@@ -367,86 +368,45 @@ const Build = () => {
     setCompatibilityIssues(issues);
   }, [components]);
 
+  // Compatibility config: which component depends on which, and what attribute to pass
+  const COMPAT_CONFIG = {
+    'cpu':        { depends: 'Mainboard', attr: 'Socket/CPU',              param: 'cpu_socket' },
+    'cpu Cooler': { depends: 'cpu',       attr: 'Socket',                  param: 'cpu_socket' },
+    'Mainboard':  { depends: 'cpu',       attr: 'Socket',                  param: 'cpu_socket' },
+    'ram':        { depends: 'Mainboard', attr: 'Memory Type',             param: 'memory_type' },
+    'case':       { depends: 'Mainboard', attr: 'Form Factor',             param: 'form_factor' },
+    'gpu':        { depends: 'case',      attr: 'Maximum Video Card Length', param: 'max_gpu_length', numeric: true },
+  };
+
   const handleCategoryClick = (componentId) => {
-    // Navigate to ComponentSearch with component type
-    if (componentId === 'cpu Cooler') {
-      // Kiểm tra nếu CPU đã được chọn
-      const selectedCpu = components.find((component) => component.id === 'cpu')?.selected;
+    const path = `/components/${encodeURIComponent(componentId)}`;
 
-      // Nếu CPU đã được chọn, điều hướng đến CPU Cooler với brand AMD
-      if (selectedCpu) {
-        console.log('Selected CPU:', selectedCpu['attributes']['Socket']);
-        // Điều hướng đến CPU Cooler với Socket 
-        navigate(`/components/cpu%20cooler?cpu_socket=${selectedCpu['attributes']['Socket']}`);
-      } else {
-        // Điều hướng đến CPU Cooler thông thường
-        navigate(`/components/cpu%20cooler`);
+    // PSU uses totalWattage directly
+    if (componentId === 'psu') {
+      navigate(`${path}?wattage=${totalWattage}`);
+      return;
+    }
+
+    // Check if this component has a compatibility dependency
+    const config = COMPAT_CONFIG[componentId];
+    if (config) {
+      const dep = components.find(c => c.id === config.depends)?.selected;
+      if (dep) {
+        let value = dep.attributes?.[config.attr];
+        if (value) {
+          // Parse numeric values (e.g. "315 mm / 12.402" → "315") for numeric filters
+          if (config.numeric) {
+            const match = value.toString().match(/(\d+)/);
+            value = match ? parseInt(match[1]) : value;
+          }
+          navigate(`${path}?${config.param}=${value}`);
+          return;
+        }
       }
     }
-    else if (componentId === 'cpu') {
-      // Check if CPU Cooler has been selected
-      const selectedMainboard = components.find((component) => component.id === 'Mainboard')?.selected;
 
-      if (selectedMainboard) {
-
-        navigate(`/components/cpu?cpu_socket=${selectedMainboard['attributes']['Socket/CPU']}`);
-      } else {
-        // Navigate to regular CPU selection
-        navigate(`/components/cpu`);
-      }
-    }
-    else if (componentId === 'Mainboard') {
-      // Check if CPU has been selected
-      const selectedCpu = components.find((component) => component.id === 'cpu')?.selected;
-
-      // If CPU is selected, navigate to Mainboard with socket filter
-      if (selectedCpu) {
-        console.log('Selected CPU:', selectedCpu['attributes']['Socket']);
-        // Navigate to Mainboard with Socket parameter
-        navigate(`/components/mainboard?cpu_socket=${selectedCpu['attributes']['Socket']}`);
-      } else {
-        // Navigate to regular Mainboard selection
-        navigate(`/components/mainboard`);
-      }
-    }
-    else if (componentId === 'ram') {
-      // Check if Mainboard has been selected
-      const selectedMainboard = components.find((component) => component.id === 'Mainboard')?.selected;
-
-      // If Mainboard is selected, navigate to RAM with memory type filter
-      if (selectedMainboard) {
-        console.log('Selected Mainboard:', selectedMainboard['attributes']['Memory Type']);
-        // Navigate to RAM with Memory Type parameter
-        navigate(`/components/ram?memory_type=${selectedMainboard['attributes']['Memory Type']}`);
-      } else {
-        // Navigate to regular RAM selection
-        navigate(`/components/ram`);
-      }
-    }
-    else if (componentId === 'storage') {
-      navigate(`/components/storage`);
-    }
-    else if (componentId === 'case') {
-      // Check if Mainboard has been selected
-      const selectedMainboard = components.find((component) => component.id === 'Mainboard')?.selected;
-
-      // If Mainboard is selected, navigate to Case with form factor filter
-      if (selectedMainboard) {
-        console.log('Selected Mainboard:', selectedMainboard['attributes']['Form Factor']);
-        // Navigate to Case with Form Factor parameter
-        navigate(`/components/case?form_factor=${selectedMainboard['attributes']['Form Factor']}`);
-      } else {
-        // Navigate to regular Case selection
-        navigate(`/components/case`);
-      }
-    }
-    else if (componentId === 'psu') {
-
-      navigate(`/components/psu?wattage=${totalWattage}`);
-    }
-    else {
-      navigate(`/components/${componentId}`);
-    }
+    // Default: navigate without filters
+    navigate(path);
   };
   // Save state to sessionStorage each time components change
   useEffect(() => {
@@ -795,7 +755,7 @@ const Build = () => {
             onClick={clearAllComponents}
             style={{ marginLeft: '10px', backgroundColor: '#ff6b6b' }}
           >
-            🗑️ Clear All
+            <FaTrash style={{ marginRight: '6px' }} /> Clear All
           </button>
         )}
       </div>
@@ -848,41 +808,45 @@ const Build = () => {
     return `$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
-  // Function to calculate estimated wattage
+  // Function to calculate estimated wattage (synced with MotherboardUsage)
   function calculateWattage() {
     let totalWattage = 0;
 
-    // CPU wattage (typically 65-125W)
     const cpu = components.find(c => c.id === 'cpu')?.selected;
     const cpuCooler = components.find(c => c.id === 'cpu Cooler')?.selected;
     const mainboard = components.find(c => c.id === 'Mainboard')?.selected;
     const rams = components.find(c => c.id === 'ram')?.selected || [];
     const storages = components.find(c => c.id === 'storage')?.selected || [];
+    const gpus = components.find(c => c.id === 'gpu')?.selected || [];
 
-    // Function to calculate total price of all components
+    // CPU power consumption
+    if (cpu) {
+      const tdpValue = cpu.attributes?.['TDP'];
+      if (tdpValue) {
+        const wattage = parseInt(tdpValue.toString().replace(/\D/g, '')) || 95;
+        totalWattage += wattage;
+      } else {
+        totalWattage += 95; // Default CPU power
+      }
+    }
 
-    // Mainboard wattage
+    // Motherboard base power consumption
     if (mainboard) {
       totalWattage += 50;
     }
 
-    // CPU Cooler wattage
+    // CPU Cooler power consumption
     if (cpuCooler) {
       totalWattage += 15;
     }
 
-    // CPU wattage
-    if (cpu) {
-      const tdpValue = cpu['attributes']['TDP'] ? parseInt(cpu['attributes']['TDP']) : NaN;
-      totalWattage += isNaN(tdpValue) ? 95 : tdpValue;
-    }
-
-    // RAM wattage - 30W per RAM module
+    // RAM power consumption (approximately 3-5W per module)
     rams.forEach(ram => {
-      totalWattage += 30;
+      const moduleCount = getModuleCount(ram);
+      totalWattage += moduleCount * 4; // 4W per RAM module
     });
 
-    // Storage wattage - 10W per storage device
+    // Storage power consumption
     storages.forEach(storage => {
       const interfaceType = storage.attributes?.["Interface"] || '';
       if (interfaceType.includes('M.2')) {
@@ -898,11 +862,27 @@ const Build = () => {
       }
     });
 
-    // GPU wattage (using TDP values)
-    const gpus = components.find(c => c.id === 'gpu')?.selected || [];
+    // GPU power consumption
     gpus.forEach(gpu => {
-      totalWattage += parseInt(gpu['attributes']['TDP']) || 150;
+      const tdpValue = gpu.attributes?.['TDP'] || gpu.attributes?.['Power Consumption'];
+      if (tdpValue) {
+        const wattage = parseInt(tdpValue.toString().replace(/\D/g, '')) || 150;
+        totalWattage += wattage;
+      } else {
+        // Estimate based on memory if TDP not available
+        const memory = parseInt(gpu.attributes?.["Memory"] || '0');
+        if (memory >= 16) {
+          totalWattage += 300; // High-end GPU
+        } else if (memory >= 8) {
+          totalWattage += 220; // Mid-range GPU
+        } else if (memory >= 4) {
+          totalWattage += 150; // Entry-level GPU
+        } else {
+          totalWattage += 75; // Basic GPU
+        }
+      }
     });
+
     return totalWattage;
   }
 

@@ -83,9 +83,10 @@ const ProductInfo = () => {
   const [filterStar, setFilterStar] = useState(0); // 0 = all
   const stockCount = Number(productInfo?.stock ?? 0);
   const isOutOfStock = stockCount <= 0;
+  const isPriceNotAvailable = Number(productInfo?.price || 0) === 0;
 
   useEffect(() => {
-    if (isOutOfStock) {
+    if (isOutOfStock || isPriceNotAvailable) {
       setQuantity(0);
       return;
     }
@@ -97,7 +98,7 @@ const ProductInfo = () => {
     if (quantity > stockCount) {
       setQuantity(stockCount);
     }
-  }, [isOutOfStock, stockCount, quantity]);
+  }, [isOutOfStock, isPriceNotAvailable, stockCount, quantity]);
 
   // Fetch product reviews
   const fetchReviews = useCallback(async (pid) => {
@@ -193,7 +194,7 @@ const ProductInfo = () => {
   };
 
   const increaseQuantity = () => {
-    if (isOutOfStock) return;
+    if (isOutOfStock || isPriceNotAvailable) return;
     setQuantity((currentQuantity) => Math.min(currentQuantity + 1, stockCount));
   };
 
@@ -205,6 +206,10 @@ const ProductInfo = () => {
     if (!(user && user.isAuthenticated)) {
       toast.error("You must be logged in to add products to the cart!");
       navigate('/login');
+      return;
+    }
+    if (isPriceNotAvailable) {
+      toast.error("Price is not available. Cannot add to cart.");
       return;
     }
     if (isOutOfStock) {
@@ -228,6 +233,10 @@ const ProductInfo = () => {
   // Handle the buy now action
   const handleBuyNow = () => {
     if (!productInfo) return;
+    if (isPriceNotAvailable) {
+      toast.error("Price is not available. Cannot buy now.");
+      return;
+    }
     if (isOutOfStock) {
       toast.error("This product is out of stock.");
       return;
@@ -326,7 +335,7 @@ const ProductInfo = () => {
               <button
                 onClick={decreaseQuantity}
                 className="pi-quantity-btn pi-quantity-btn-left"
-                disabled={isOutOfStock || quantity <= 1}
+                disabled={isOutOfStock || isPriceNotAvailable || quantity <= 1}
               >
                 -
               </button>
@@ -334,7 +343,7 @@ const ProductInfo = () => {
                 type="number"
                 value={quantity}
                 onChange={(e) => {
-                  if (isOutOfStock) {
+                  if (isOutOfStock || isPriceNotAvailable) {
                     setQuantity(0);
                     return;
                   }
@@ -342,15 +351,15 @@ const ProductInfo = () => {
                   const nextQuantity = Math.max(1, parseInt(e.target.value, 10) || 1);
                   setQuantity(Math.min(nextQuantity, stockCount));
                 }}
-                min={isOutOfStock ? "0" : "1"}
+                min={isOutOfStock || isPriceNotAvailable ? "0" : "1"}
                 max={stockCount || undefined}
                 className="pi-quantity-input"
-                disabled={isOutOfStock}
+                disabled={isOutOfStock || isPriceNotAvailable}
               />
               <button
                 onClick={increaseQuantity}
                 className="pi-quantity-btn pi-quantity-btn-right"
-                disabled={isOutOfStock || quantity >= stockCount}
+                disabled={isOutOfStock || isPriceNotAvailable || quantity >= stockCount}
               >
                 +
               </button>
@@ -360,16 +369,16 @@ const ProductInfo = () => {
               <button
                 onClick={handleAddToCart}
                 className="pi-add-to-cart-btn"
-                disabled={isOutOfStock}
+                disabled={isOutOfStock || isPriceNotAvailable}
               >
                 <FaShoppingCart /> Add to Cart
               </button>
               <button
                 onClick={handleBuyNow}
                 className="pi-buy-now-btn"
-                disabled={isOutOfStock}
+                disabled={isOutOfStock || isPriceNotAvailable}
               >
-                {isOutOfStock ? "Out of Stock" : "Buy Now"}
+                {isPriceNotAvailable ? "Price N/A" : (isOutOfStock ? "Out of Stock" : "Buy Now")}
               </button>
             </div>
 

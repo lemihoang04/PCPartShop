@@ -306,26 +306,19 @@ def dal_get_component_by_id(product_id):
         if not product:
             return {"error": "Component not found"}, 404
             
-        # Get attributes as formatted JSON string
+        # Get attributes as key-value pairs
         attributes_query = """
-        SELECT 
-            CONCAT('{', GROUP_CONCAT(CONCAT('"', attribute_name, '":"', attribute_value, '"')), '}') AS attributes
-        FROM 
-            product_attributes
-        WHERE 
-            product_id = %s
+        SELECT attribute_name, attribute_value
+        FROM product_attributes
+        WHERE product_id = %s
         """
         cursor.execute(attributes_query, (product_id,))
-        attributes_result = cursor.fetchone()
+        attribute_rows = cursor.fetchall()
         
-        # Parse attributes JSON string if available
+        # Build attributes dict from rows
         attributes = {}
-        if attributes_result and attributes_result['attributes']:
-            try:
-                import json
-                attributes = json.loads(attributes_result['attributes'])
-            except json.JSONDecodeError as e:
-                print(f"Error parsing attributes JSON: {e}")
+        for row in attribute_rows:
+            attributes[row['attribute_name']] = row['attribute_value']
         
         # Combine product info with attributes
         result = {**product, 'attributes': attributes}
@@ -756,6 +749,135 @@ def dal_Case_vs_Mainboard(form_factor):
     finally:
         db.close()
 
+
+# ---------- Generic Compatibility Filter ----------
+COMPATIBILITY_RULES = {
+    'cpu': {
+        'category_id': 12,
+        'filter_attr': 'Socket',
+        'match_type': 'like'
+    },
+    'cpu_cooler': {
+        'category_id': 11,
+        'filter_attr': 'CPU Socket',
+        'match_type': 'like'
+    },
+    'mainboard': {
+        'category_id': 14,
+        'filter_attr': 'Socket/CPU',
+        'match_type': 'like'
+    },
+    'ram': {
+        'category_id': 16,
+        'filter_attr': 'Speed',
+        'match_type': 'like'
+    },
+    'case': {
+        'category_id': 10,
+        'filter_attr': 'Motherboard Form Factor',
+        'match_type': 'like'
+    },
+    'psu': {
+        'category_id': 15,
+        'filter_attr': 'Wattage',
+        'match_type': 'gte'
+    },
+    'storage': {
+        'category_id': 17,
+        'filter_attr': None,
+        'match_type': 'none'
+    },
+    'gpu': {
+        'category_id': 13,
+        'filter_attr': 'Length',
+        'match_type': 'lte'
+    }
+}
+
+def dal_get_compatible_components(component_type, filter_value=None):
+    """
+    Generic function to get compatible components based on a config-driven rule set.
+
+    Args:
+        component_type (str): One of 'cpu', 'cpu_cooler', 'mainboard', 'ram', 'case', 'psu', 'storage'
+        filter_value (str|int|None): The filter value (socket name, memory type, wattage, etc.)
+
+    Returns:
+        tuple: (products, status_code)
+    """
+    rule = COMPATIBILITY_RULES.get(component_type)
+    if not rule:
+        return {'error': f'Invalid component type: {component_type}'}, 400
+
+    db = get_db_connection()
+    if not db:
+        return {'error': 'Database connection failed'}, 500
+
+    try:
+        if rule['match_type'] == 'none' or not filter_value:
+            # No filtering — return all products of this category
+            query = """
+                SELECT DISTINCT p.product_id
+                FROM products p
+                WHERE p.category_id = %s
+            """
+            df = pd.read_sql_query(query, db, params=(rule['category_id'],))
+
+        elif rule['match_type'] == 'gte':
+            # Numeric >= comparison (PSU wattage)
+            required = int(float(filter_value)) * 1.2
+            query = """
+                SELECT DISTINCT pa.product_id
+                FROM product_attributes pa
+                JOIN products p ON pa.product_id = p.product_id
+                WHERE p.category_id = %s
+                  AND pa.attribute_name = %s
+                  AND CAST(REGEXP_REPLACE(pa.attribute_value, '[^0-9]', '') AS UNSIGNED) >= %s
+                ORDER BY CAST(REGEXP_REPLACE(pa.attribute_value, '[^0-9]', '') AS UNSIGNED) ASC
+            """
+            df = pd.read_sql_query(query, db, params=(
+                rule['category_id'], rule['filter_attr'], required
+            ))
+
+        elif rule['match_type'] == 'lte':
+            # Numeric <= comparison (GPU length vs Case max video card length)
+            max_length = int(float(filter_value))
+            query = """
+                SELECT DISTINCT pa.product_id
+                FROM product_attributes pa
+                JOIN products p ON pa.product_id = p.product_id
+                WHERE p.category_id = %s
+                  AND pa.attribute_name = %s
+                  AND CAST(REGEXP_REPLACE(pa.attribute_value, '[^0-9]', '') AS UNSIGNED) <= %s
+                ORDER BY CAST(REGEXP_REPLACE(pa.attribute_value, '[^0-9]', '') AS UNSIGNED) ASC
+            """
+            df = pd.read_sql_query(query, db, params=(
+                rule['category_id'], rule['filter_attr'], max_length
+            ))
+
+        else:
+            # LIKE match (socket, memory type, form factor)
+            query = """
+                SELECT DISTINCT pa.product_id
+                FROM product_attributes pa
+                JOIN products p ON pa.product_id = p.product_id
+                WHERE p.category_id = %s
+                  AND pa.attribute_name = %s
+                  AND pa.attribute_value LIKE %s
+            """
+            df = pd.read_sql_query(query, db, params=(
+                rule['category_id'], rule['filter_attr'], f"%{filter_value}%"
+            ))
+
+        product_ids = df['product_id'].tolist()
+        if not product_ids:
+            return [], 200
+        return dal_get_products_by_ids(product_ids)
+
+    except Exception as e:
+        return {'error': str(e)}, 500
+    finally:
+        db.close()
 
 
 def dal_get_components_by_attributes(type, attributes=None):

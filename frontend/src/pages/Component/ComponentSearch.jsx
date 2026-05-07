@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { fetchCompatibleCPUs, fetchCompatibleCpuCoolers, fetchCompatibleMainboards, fetchComponents, fetchCompatibleRam, fetchCompatibleStorage, fetchCompatibleCases, fetchCompatiblePSU } from '../../services/componentService';
+import { fetchComponents, fetchCompatibleComponents } from '../../services/componentService';
 import './ComponentSearch.css';
 import { fetchComponentById } from '../../services/componentService';
 
@@ -42,6 +42,7 @@ const ComponentSearch = () => {
       let memory_type = null;
       let form_factor = null;
       let totalWattage = null;
+      let maxGpuLength = null;
       // Chuyển đổi query params thành bộ lọc
       for (const [key, value] of searchParams.entries()) {
         if (key === 'cpu_socket') {
@@ -58,7 +59,10 @@ const ComponentSearch = () => {
         else if (key === 'wattage') {
           totalWattage = value;
         }
-        else if (key !== 'type') { // Bỏ qua tham số 'type' nếu có
+        else if (key === 'max_gpu_length') {
+          maxGpuLength = value;
+        }
+        else if (key !== 'type') {
           queryFilters[key] = value;
         }
 
@@ -68,35 +72,26 @@ const ComponentSearch = () => {
 
       let data;
 
-      // Sử dụng API phù hợp dựa trên loại component và socket CPU
-      if (normalizedType === 'CPU' && cpuSocket) {
-        console.log(`Fetching compatible CPUs for socket: ${cpuSocket}`);
-        data = await fetchCompatibleCPUs(cpuSocket);
-      }
-      else if (normalizedType === 'CPU Cooler' && cpuSocket) {
-        data = await fetchCompatibleCpuCoolers(cpuSocket);
-      }
-      else if (normalizedType === 'Mainboard' && cpuSocket) {
-        console.log(`Fetching compatible Mainboard for socket: ${cpuSocket}`);
-        data = await fetchCompatibleMainboards(cpuSocket);
-      }
-      else if (normalizedType === 'RAM' && memory_type) {
-        console.log(`Fetching compatible RAM for memory type: ${memory_type}`);
-        data = await fetchCompatibleRam(memory_type);
-      }
-      else if (normalizedType === 'Storage') {
-        data = await fetchCompatibleStorage();
-      }
-      else if (normalizedType === 'Case' && form_factor) {
-        console.log(`Fetching compatible Cases for form factor: ${form_factor}`);
-        data = await fetchCompatibleCases(form_factor);
-      }
-      else if (normalizedType === 'PSU' && totalWattage) {
-        console.log(`Fetching compatible PSU for total wattage: ${totalWattage}`);
-        data = await fetchCompatiblePSU(totalWattage);
-      }
-      else {
-        // Sử dụng API lấy component thông thường
+      // Map component types to their compatibility keys and filter values
+      const COMPAT_MAP = {
+        'CPU':        { key: 'cpu',        filter: cpuSocket },
+        'CPU Cooler': { key: 'cpu_cooler', filter: cpuSocket },
+        'Mainboard':  { key: 'mainboard',  filter: cpuSocket },
+        'RAM':        { key: 'ram',        filter: memory_type },
+        'Storage':    { key: 'storage',    filter: null },
+        'Case':       { key: 'case',       filter: form_factor },
+        'PSU':        { key: 'psu',        filter: totalWattage },
+        'GPU':        { key: 'gpu',        filter: maxGpuLength },
+      };
+
+      const compat = COMPAT_MAP[normalizedType];
+
+      if (compat && (compat.filter || normalizedType === 'Storage')) {
+        // Use the generic compatibility endpoint
+        console.log(`Fetching compatible ${normalizedType} with filter: ${compat.filter}`);
+        data = await fetchCompatibleComponents(compat.key, compat.filter);
+      } else {
+        // Default: fetch all components of this type
         data = await fetchComponents(normalizedType, queryFilters);
       }
 
