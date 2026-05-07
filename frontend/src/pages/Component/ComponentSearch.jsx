@@ -43,6 +43,7 @@ const ComponentSearch = () => {
       let form_factor = null;
       let totalWattage = null;
       let maxGpuLength = null;
+      let minGpuLength = null;
       // Chuyển đổi query params thành bộ lọc
       for (const [key, value] of searchParams.entries()) {
         if (key === 'cpu_socket') {
@@ -62,6 +63,9 @@ const ComponentSearch = () => {
         else if (key === 'max_gpu_length') {
           maxGpuLength = value;
         }
+        else if (key === 'min_gpu_length') {
+          minGpuLength = value;
+        }
         else if (key !== 'type') {
           queryFilters[key] = value;
         }
@@ -72,24 +76,39 @@ const ComponentSearch = () => {
 
       let data;
 
-      // Map component types to their compatibility keys and filter values
+      // Collect all possible compatibility filters
+      const compatFilters = {
+        cpu_socket: cpuSocket,
+        memory_type: memory_type,
+        form_factor: form_factor,
+        wattage: totalWattage,
+        max_gpu_length: maxGpuLength,
+        min_gpu_length: minGpuLength
+      };
+      
+      // Clean up null values
+      Object.keys(compatFilters).forEach(key => {
+        if (compatFilters[key] == null) delete compatFilters[key];
+      });
+
+      // Map component types to their backend keys
       const COMPAT_MAP = {
-        'CPU':        { key: 'cpu',        filter: cpuSocket },
-        'CPU Cooler': { key: 'cpu_cooler', filter: cpuSocket },
-        'Mainboard':  { key: 'mainboard',  filter: cpuSocket },
-        'RAM':        { key: 'ram',        filter: memory_type },
-        'Storage':    { key: 'storage',    filter: null },
-        'Case':       { key: 'case',       filter: form_factor },
-        'PSU':        { key: 'psu',        filter: totalWattage },
-        'GPU':        { key: 'gpu',        filter: maxGpuLength },
+        'CPU':        { key: 'cpu' },
+        'CPU Cooler': { key: 'cpu_cooler' },
+        'Mainboard':  { key: 'mainboard' },
+        'RAM':        { key: 'ram' },
+        'Storage':    { key: 'storage' },
+        'Case':       { key: 'case' },
+        'PSU':        { key: 'psu' },
+        'GPU':        { key: 'gpu' },
       };
 
       const compat = COMPAT_MAP[normalizedType];
 
-      if (compat && (compat.filter || normalizedType === 'Storage')) {
+      if (compat && (Object.keys(compatFilters).length > 0 || normalizedType === 'Storage')) {
         // Use the generic compatibility endpoint
-        console.log(`Fetching compatible ${normalizedType} with filter: ${compat.filter}`);
-        data = await fetchCompatibleComponents(compat.key, compat.filter);
+        console.log(`Fetching compatible ${normalizedType} with filters:`, compatFilters);
+        data = await fetchCompatibleComponents(compat.key, compatFilters);
       } else {
         // Default: fetch all components of this type
         data = await fetchComponents(normalizedType, queryFilters);

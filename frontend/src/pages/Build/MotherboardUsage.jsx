@@ -58,6 +58,18 @@ function getModuleCount(ram) {
   return 1;
 }
 
+function getModuleCapacity(ram) {
+  if (!ram || !ram.attributes || !ram.attributes["Modules"]) return 'N/A';
+
+  const modulesStr = ram.attributes["Modules"];
+  // Extract capacity part (e.g., '32GB' from '2 x 32GB')
+  const match = modulesStr.match(/(\d+\s*[GMK]B)/i);
+  if (match && match[1]) {
+    return match[1].replace(/\s+/g, '');
+  }
+  return modulesStr;
+}
+
 function categorizeGPUs(gpus) {
   const result = {
     x16GPUs: [],
@@ -687,13 +699,7 @@ const MotherboardUsage = ({ motherboard, rams, cpu, storages, gpus, components }
   };
 
   const isPCIeSlotCovered = (slotIndex, slotType) => {
-    if (slotType === 'x16' && gpus.length > 0) {
-      for (let i = 0; i < gpus.length; i++) {
-        if (i === slotIndex || i + 1 === slotIndex) {
-          return true;
-        }
-      }
-    }
+    // Disabled the covered logic per user request
     return false;
   };
 
@@ -803,7 +809,7 @@ const MotherboardUsage = ({ motherboard, rams, cpu, storages, gpus, components }
                     <div className="component-name">
                       {getSafeName(ramModules[index], "RAM")}
                       <div className="component-specs">
-                        {ramModules[index].attributes?.["Modules"] || 'N/A'}
+                        {getModuleCapacity(ramModules[index])}
                       </div>
                     </div>
                   </div>

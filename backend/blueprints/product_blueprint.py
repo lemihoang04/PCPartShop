@@ -380,17 +380,19 @@ def get_compatible_components(component_type):
     Generic API endpoint for fetching compatible components.
     
     Args:
-        component_type (str): One of 'cpu', 'cpu_cooler', 'mainboard', 'ram', 'case', 'psu', 'storage'
+        component_type (str): One of 'cpu', 'cpu_cooler', 'mainboard', 'ram', 'case', 'psu', 'storage', 'gpu'
     
     Query Parameters:
-        filter (str): Filter value (socket name, memory type, wattage, form factor, etc.)
+        Supports any filter defined in COMPATIBILITY_RULES (e.g., cpu_socket, memory_type, form_factor, max_gpu_length)
+        filter (str): Legacy filter value
     
     Returns:
         JSON response with compatible components or error message.
     """
     try:
-        filter_value = request.args.get('filter')
-        components, status = dal_get_compatible_components(component_type, filter_value)
+        filters = request.args.to_dict()
+        legacy_filter = filters.pop('filter', None)
+        components, status = dal_get_compatible_components(component_type, filters=filters, legacy_filter=legacy_filter)
         return jsonify(components), status
     except Exception as e:
         print(f"Error in get_compatible_components ({component_type}): {e}")

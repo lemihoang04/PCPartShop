@@ -121,6 +121,37 @@ function categorizeStorageDevices(storages) {
   return result;
 }
 
+// Function to categorize GPUs based on interface and memory
+function categorizeGPUs(gpus) {
+  const result = {
+    x16GPUs: [],
+    x8GPUs: [],
+    x4GPUs: []
+  };
+
+  gpus.forEach(gpu => {
+    if (!gpu || !gpu.attributes) return;
+
+    const interface_ = gpu.attributes["Interface"] || '';
+    const memoryGB = parseInt(gpu.attributes["Memory"] || '0');
+
+    // High-end GPUs typically need x16
+    if (memoryGB >= 8 || interface_.includes('x16')) {
+      result.x16GPUs.push(gpu);
+    }
+    // Mid-range GPUs can use x8
+    else if (memoryGB >= 4 || interface_.includes('x8')) {
+      result.x8GPUs.push(gpu);
+    }
+    // Low-end GPUs can use x4 or x1
+    else {
+      result.x4GPUs.push(gpu);
+    }
+  });
+
+  return result;
+}
+
 const Build = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -352,12 +383,51 @@ const Build = () => {
 
     // Check GPU compatibility
     if (motherboard && gpus.length > 0) {
-      const availablePcieX16Slots = motherboard.attributes?.["PCIe x16 Slots"] || 0;
+      const availablePcieX16Slots = parseInt(motherboard.attributes?.["PCIe x16 Slots"] || '0');
+      const availablePcieX1Slots = parseInt(motherboard.attributes?.["PCIe x1 Slots"] || '0');
+      const { x16GPUs, x8GPUs, x4GPUs } = categorizeGPUs(gpus);
+      
+      const totalGPUs = gpus.length;
 
-      if (gpus.length > availablePcieX16Slots) {
+      // Check if high-end GPUs can fit in x16 slots
+      if (x16GPUs.length > availablePcieX16Slots) {
         issues.push({
           type: 'problem',
-          message: `The number of GPUs (${gpus.length}) exceeds the available PCIe x16 slots (${availablePcieX16Slots}).`
+          message: `High-end GPUs require x16 slots: ${x16GPUs.length} GPUs for ${availablePcieX16Slots} x16 slots.`
+        });
+        isCompatible = false;
+      }
+
+      // Check total GPU count vs available slots
+      const totalSlots = availablePcieX16Slots + availablePcieX1Slots;
+      if (totalGPUs > totalSlots) {
+        issues.push({
+          type: 'problem',
+          message: `Too many GPUs: ${totalGPUs} GPUs for ${totalSlots} total PCIe slots.`
+        });
+        isCompatible = false;
+      }
+    }
+
+    // Check PSU compatibility
+    const psu = components.find(c => c.id === 'psu')?.selected;
+    if (psu) {
+      const systemWattage = calculateWattage();
+      let psuWattage = 0;
+      
+      const wattageFromTitle = psu.title?.match(/(\d+)W/i);
+      const wattageFromAttrs = psu.attributes?.["Wattage"] || psu.attributes?.["Power"];
+
+      if (wattageFromAttrs) {
+        psuWattage = parseInt(wattageFromAttrs.toString().replace(/\D/g, '')) || 0;
+      } else if (wattageFromTitle) {
+        psuWattage = parseInt(wattageFromTitle[1]) || 0;
+      }
+
+      if (psuWattage > 0 && psuWattage < systemWattage) {
+        issues.push({
+          type: 'problem',
+          message: `The selected PSU (${psuWattage}W) does not provide enough power for the estimated system load (${systemWattage}W).`
         });
         isCompatible = false;
       }
@@ -370,43 +440,73 @@ const Build = () => {
 
   // Compatibility config: which component depends on which, and what attribute to pass
   const COMPAT_CONFIG = {
-    'cpu':        { depends: 'Mainboard', attr: 'Socket/CPU',              param: 'cpu_socket' },
-    'cpu Cooler': { depends: 'cpu',       attr: 'Socket',                  param: 'cpu_socket' },
-    'Mainboard':  { depends: 'cpu',       attr: 'Socket',                  param: 'cpu_socket' },
-    'ram':        { depends: 'Mainboard', attr: 'Memory Type',             param: 'memory_type' },
-    'case':       { depends: 'Mainboard', attr: 'Form Factor',             param: 'form_factor' },
-    'gpu':        { depends: 'case',      attr: 'Maximum Video Card Length', param: 'max_gpu_length', numeric: true },
+    'cpu': [
+      { depends: 'Mainboard', attr: 'Socket/CPU', param: 'cpu_socket' }
+    ],
+    'cpu Cooler': [
+      { depends: 'cpu', attr: 'Socket', param: 'cpu_socket' },
+      { depends: 'Mainboard', attr: 'Socket/CPU', param: 'cpu_socket' }
+    ],
+    'Mainboard': [
+      { depends: 'cpu', attr: 'Socket', param: 'cpu_socket' },
+      { depends: 'ram', attr: 'Speed', param: 'memory_type', extractPattern: /(DDR\d)/ },
+      { depends: 'case', attr: 'Motherboard Form Factor', param: 'form_factor' }
+    ],
+    'ram': [
+      { depends: 'Mainboard', attr: 'Memory Type', param: 'memory_type' }
+    ],
+    'case': [
+      { depends: 'Mainboard', attr: 'Form Factor', param: 'form_factor' },
+      // case needs min_gpu_length >= gpu's Length
+      { depends: 'gpu', attr: 'Length', param: 'min_gpu_length', numeric: true }
+    ],
+    'gpu': [
+      { depends: 'case', attr: 'Maximum Video Card Length', param: 'max_gpu_length', numeric: true }
+    ],
   };
 
   const handleCategoryClick = (componentId) => {
-    const path = `/components/${encodeURIComponent(componentId)}`;
+    let path = `/components/${encodeURIComponent(componentId)}`;
+    const queryParams = new URLSearchParams();
 
     // PSU uses totalWattage directly
     if (componentId === 'psu') {
-      navigate(`${path}?wattage=${totalWattage}`);
+      queryParams.append('wattage', totalWattage);
+      navigate(`${path}?${queryParams.toString()}`);
       return;
     }
 
-    // Check if this component has a compatibility dependency
-    const config = COMPAT_CONFIG[componentId];
-    if (config) {
-      const dep = components.find(c => c.id === config.depends)?.selected;
-      if (dep) {
-        let value = dep.attributes?.[config.attr];
-        if (value) {
-          // Parse numeric values (e.g. "315 mm / 12.402" → "315") for numeric filters
-          if (config.numeric) {
-            const match = value.toString().match(/(\d+)/);
-            value = match ? parseInt(match[1]) : value;
+    // Check if this component has compatibility dependencies
+    const configs = COMPAT_CONFIG[componentId];
+    if (configs) {
+      configs.forEach(config => {
+        const depComponent = components.find(c => c.id === config.depends);
+        if (!depComponent) return;
+
+        // Handle multiple selections (like RAM or GPU) or single selections
+        const deps = depComponent.multiple ? (depComponent.selected || []) : (depComponent.selected ? [depComponent.selected] : []);
+
+        deps.forEach(dep => {
+          let value = dep.attributes?.[config.attr];
+          if (value) {
+            // Extract regex pattern if specified
+            if (config.extractPattern) {
+              const match = value.toString().match(config.extractPattern);
+              if (match) value = match[1];
+            }
+            // Parse numeric values (e.g. "315 mm / 12.402" → "315") for numeric filters
+            if (config.numeric) {
+              const match = value.toString().match(/(\d+)/);
+              value = match ? parseInt(match[1]) : value;
+            }
+            queryParams.append(config.param, value);
           }
-          navigate(`${path}?${config.param}=${value}`);
-          return;
-        }
-      }
+        });
+      });
     }
 
-    // Default: navigate without filters
-    navigate(path);
+    const queryString = queryParams.toString();
+    navigate(queryString ? `${path}?${queryString}` : path);
   };
   // Save state to sessionStorage each time components change
   useEffect(() => {
@@ -613,7 +713,10 @@ const Build = () => {
                         </td>
                       )}
                       <td className="selection">
-                        <div className="selected-component">
+                        <div 
+                          className="selected-component"
+                          onClick={() => navigate(`/product-info/${item.product_id || item.id}`)}
+                        >
                           <img src={item.image} alt={item.name} />
                           <span>
                             {component.id === 'ram' ? formatRAMDisplayText(item) : item.title}
@@ -660,7 +763,10 @@ const Build = () => {
                   </td>
                   <td className="selection">
                     {component.selected ? (
-                      <div className="selected-component">
+                      <div 
+                        className="selected-component"
+                        onClick={() => navigate(`/product-info/${component.selected.product_id || component.selected.id}`)}
+                      >
                         <img src={component.selected.image} alt={component.selected.name} />
                         <span>{component.selected.title}</span>
                       </div>

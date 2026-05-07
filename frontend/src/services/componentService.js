@@ -77,11 +77,22 @@ const fetchComponentById = async (componentId) => {
  * @param {string|number|null} filterValue - Filter value (socket, memory type, wattage, etc.)
  * @returns {Promise<Array|Object>} - Components array or error object
  */
-const fetchCompatibleComponents = async (componentType, filterValue = null) => {
+const fetchCompatibleComponents = async (componentType, filters = null) => {
   try {
     let url = `/compatible/${componentType}`;
-    if (filterValue != null) {
-      url += `?filter=${encodeURIComponent(filterValue)}`;
+    if (filters && typeof filters === 'object') {
+      const queryParams = new URLSearchParams();
+      for (const [key, value] of Object.entries(filters)) {
+        if (value != null) {
+          queryParams.append(key, value);
+        }
+      }
+      const queryString = queryParams.toString();
+      if (queryString) {
+        url += `?${queryString}`;
+      }
+    } else if (filters != null) {
+      url += `?filter=${encodeURIComponent(filters)}`;
     }
 
     console.log(`Fetching compatible ${componentType} from: ${url}`);

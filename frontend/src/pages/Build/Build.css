@@ -152,6 +152,7 @@
   border: 1px solid #dbeaf9;
   position: relative;
   transition: all 0.2s;
+  cursor: pointer;
 }
 
 .selected-component::before {

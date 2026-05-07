@@ -754,59 +754,68 @@ def dal_Case_vs_Mainboard(form_factor):
 COMPATIBILITY_RULES = {
     'cpu': {
         'category_id': 12,
-        'filter_attr': 'Socket',
-        'match_type': 'like'
+        'rules': {
+            'cpu_socket': {'attr': 'Socket', 'match_type': 'like'}
+        }
     },
     'cpu_cooler': {
         'category_id': 11,
-        'filter_attr': 'CPU Socket',
-        'match_type': 'like'
+        'rules': {
+            'cpu_socket': {'attr': 'CPU Socket', 'match_type': 'like'}
+        }
     },
     'mainboard': {
         'category_id': 14,
-        'filter_attr': 'Socket/CPU',
-        'match_type': 'like'
+        'rules': {
+            'cpu_socket': {'attr': 'Socket/CPU', 'match_type': 'like'},
+            'memory_type': {'attr': 'Memory Type', 'match_type': 'like'}
+        }
     },
     'ram': {
         'category_id': 16,
-        'filter_attr': 'Speed',
-        'match_type': 'like'
+        'rules': {
+            'memory_type': {'attr': 'Speed', 'match_type': 'like'}
+        }
     },
     'case': {
         'category_id': 10,
-        'filter_attr': 'Motherboard Form Factor',
-        'match_type': 'like'
+        'rules': {
+            'form_factor': {'attr': 'Motherboard Form Factor', 'match_type': 'like'},
+            'min_gpu_length': {'attr': 'Maximum Video Card Length', 'match_type': 'gte'}
+        }
     },
     'psu': {
         'category_id': 15,
-        'filter_attr': 'Wattage',
-        'match_type': 'gte'
+        'rules': {
+            'wattage': {'attr': 'Wattage', 'match_type': 'gte'}
+        }
     },
     'storage': {
         'category_id': 17,
-        'filter_attr': None,
-        'match_type': 'none'
+        'rules': {}
     },
     'gpu': {
         'category_id': 13,
-        'filter_attr': 'Length',
-        'match_type': 'lte'
+        'rules': {
+            'max_gpu_length': {'attr': 'Length', 'match_type': 'lte'}
+        }
     }
 }
 
-def dal_get_compatible_components(component_type, filter_value=None):
+def dal_get_compatible_components(component_type, filters=None, legacy_filter=None):
     """
-    Generic function to get compatible components based on a config-driven rule set.
+    Generic function to get compatible components based on multiple filter parameters.
 
     Args:
-        component_type (str): One of 'cpu', 'cpu_cooler', 'mainboard', 'ram', 'case', 'psu', 'storage'
-        filter_value (str|int|None): The filter value (socket name, memory type, wattage, etc.)
+        component_type (str): One of 'cpu', 'cpu_cooler', 'mainboard', 'ram', 'case', 'psu', 'storage', 'gpu'
+        filters (dict): Dictionary of filter parameters (e.g., {'cpu_socket': 'AM4', 'memory_type': 'DDR4'})
+        legacy_filter (str): Fallback filter value if no filters dict is provided (for backward compatibility)
 
     Returns:
         tuple: (products, status_code)
     """
-    rule = COMPATIBILITY_RULES.get(component_type)
-    if not rule:
+    rule_config = COMPATIBILITY_RULES.get(component_type)
+    if not rule_config:
         return {'error': f'Invalid component type: {component_type}'}, 400
 
     db = get_db_connection()
@@ -814,60 +823,65 @@ def dal_get_compatible_components(component_type, filter_value=None):
         return {'error': 'Database connection failed'}, 500
 
     try:
-        if rule['match_type'] == 'none' or not filter_value:
+        category_id = rule_config['category_id']
+        rules = rule_config.get('rules', {})
+        
+        applied_filters = []
+        if filters:
+            for param, value in filters.items():
+                if param in rules and value:
+                    applied_filters.append((rules[param], value))
+        elif legacy_filter:
+            if len(rules) == 1:
+                applied_filters.append((list(rules.values())[0], legacy_filter))
+            elif component_type == 'psu':
+                applied_filters.append((rules['wattage'], legacy_filter))
+            elif component_type == 'case':
+                applied_filters.append((rules['form_factor'], legacy_filter))
+
+        if not applied_filters:
             # No filtering — return all products of this category
             query = """
                 SELECT DISTINCT p.product_id
                 FROM products p
                 WHERE p.category_id = %s
             """
-            df = pd.read_sql_query(query, db, params=(rule['category_id'],))
-
-        elif rule['match_type'] == 'gte':
-            # Numeric >= comparison (PSU wattage)
-            required = int(float(filter_value)) * 1.2
-            query = """
-                SELECT DISTINCT pa.product_id
-                FROM product_attributes pa
-                JOIN products p ON pa.product_id = p.product_id
-                WHERE p.category_id = %s
-                  AND pa.attribute_name = %s
-                  AND CAST(REGEXP_REPLACE(pa.attribute_value, '[^0-9]', '') AS UNSIGNED) >= %s
-                ORDER BY CAST(REGEXP_REPLACE(pa.attribute_value, '[^0-9]', '') AS UNSIGNED) ASC
-            """
-            df = pd.read_sql_query(query, db, params=(
-                rule['category_id'], rule['filter_attr'], required
-            ))
-
-        elif rule['match_type'] == 'lte':
-            # Numeric <= comparison (GPU length vs Case max video card length)
-            max_length = int(float(filter_value))
-            query = """
-                SELECT DISTINCT pa.product_id
-                FROM product_attributes pa
-                JOIN products p ON pa.product_id = p.product_id
-                WHERE p.category_id = %s
-                  AND pa.attribute_name = %s
-                  AND CAST(REGEXP_REPLACE(pa.attribute_value, '[^0-9]', '') AS UNSIGNED) <= %s
-                ORDER BY CAST(REGEXP_REPLACE(pa.attribute_value, '[^0-9]', '') AS UNSIGNED) ASC
-            """
-            df = pd.read_sql_query(query, db, params=(
-                rule['category_id'], rule['filter_attr'], max_length
-            ))
+            df = pd.read_sql_query(query, db, params=(category_id,))
 
         else:
-            # LIKE match (socket, memory type, form factor)
-            query = """
-                SELECT DISTINCT pa.product_id
-                FROM product_attributes pa
-                JOIN products p ON pa.product_id = p.product_id
-                WHERE p.category_id = %s
-                  AND pa.attribute_name = %s
-                  AND pa.attribute_value LIKE %s
+            joins = ""
+            conditions = "p.category_id = %s"
+            params = [category_id]
+            order_by = ""
+            
+            for idx, (rule, val) in enumerate(applied_filters):
+                alias = f"pa{idx}"
+                joins += f" JOIN product_attributes {alias} ON p.product_id = {alias}.product_id"
+                
+                if rule['match_type'] == 'gte':
+                    required = int(float(val))
+                    if component_type == 'psu' and rule['attr'] == 'Wattage':
+                        required = int(float(val) * 1.2)
+                        order_by = f" ORDER BY CAST(REGEXP_SUBSTR({alias}.attribute_value, '[0-9]+') AS UNSIGNED) ASC"
+                    conditions += f" AND {alias}.attribute_name = %s AND CAST(REGEXP_SUBSTR({alias}.attribute_value, '[0-9]+') AS UNSIGNED) >= %s"
+                    params.extend([rule['attr'], required])
+                elif rule['match_type'] == 'lte':
+                    max_val = int(float(val))
+                    conditions += f" AND {alias}.attribute_name = %s AND CAST(REGEXP_SUBSTR({alias}.attribute_value, '[0-9]+') AS UNSIGNED) <= %s"
+                    params.extend([rule['attr'], max_val])
+                    order_by = f" ORDER BY CAST(REGEXP_SUBSTR({alias}.attribute_value, '[0-9]+') AS UNSIGNED) ASC"
+                else:
+                    conditions += f" AND {alias}.attribute_name = %s AND {alias}.attribute_value LIKE %s"
+                    params.extend([rule['attr'], f"%{val}%"])
+                    
+            query = f"""
+                SELECT DISTINCT p.product_id
+                FROM products p
+                {joins}
+                WHERE {conditions}
+                {order_by}
             """
-            df = pd.read_sql_query(query, db, params=(
-                rule['category_id'], rule['filter_attr'], f"%{filter_value}%"
-            ))
+            df = pd.read_sql_query(query, db, params=tuple(params))
 
         product_ids = df['product_id'].tolist()
         if not product_ids:
