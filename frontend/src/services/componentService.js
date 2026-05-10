@@ -120,25 +120,9 @@ const fetchCompatibleComponents = async (componentType, filters = null) => {
   }
 };
 
-// Backward-compatible wrappers (delegate to generic function)
-const fetchCompatibleCPUs = (cpuSocket) => fetchCompatibleComponents('cpu', cpuSocket);
-const fetchCompatibleCpuCoolers = (cpuSocket) => fetchCompatibleComponents('cpu_cooler', cpuSocket);
-const fetchCompatibleMainboards = (cpuSocket) => fetchCompatibleComponents('mainboard', cpuSocket);
-const fetchCompatibleRam = (memoryType) => fetchCompatibleComponents('ram', memoryType);
-const fetchCompatibleStorage = () => fetchCompatibleComponents('storage');
-const fetchCompatibleCases = (formFactor) => fetchCompatibleComponents('case', formFactor);
-const fetchCompatiblePSU = (totalTDP) => fetchCompatibleComponents('psu', totalTDP);
 
 export {
   fetchComponents,
   fetchComponentById,
-  fetchCompatibleComponents,
-  // Backward-compatible exports
-  fetchCompatibleCPUs,
-  fetchCompatibleCpuCoolers,
-  fetchCompatibleMainboards,
-  fetchCompatibleRam,
-  fetchCompatibleStorage,
-  fetchCompatibleCases,
-  fetchCompatiblePSU
+  fetchCompatibleComponents
 };

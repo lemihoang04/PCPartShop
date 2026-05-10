@@ -127,10 +127,14 @@ const Header = () => {
             <i className="nav-icon fas fa-laptop"></i>
             <span>Laptops</span>
           </div>
-          <div className="nav-item" onClick={() => goTo('/home')}>
+          <div className="nav-item" onClick={() => goTo('/shared-builds')}>
+            <i className="nav-icon fas fa-share-alt"></i>
+            <span>Shared Builds</span>
+          </div>
+          {/* <div className="nav-item" onClick={() => goTo('/home')}>
             <i className="nav-icon fas fa-headset"></i>
             <span>Support</span>
-          </div>
+          </div> */}
         </div>
 
         <div className="user-actions">

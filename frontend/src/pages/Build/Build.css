@@ -587,3 +587,455 @@
     justify-content: center;
   }
 }
+
+/* ────────────────────────────────────────────
+   Header Actions (Save Build / History buttons)
+──────────────────────────────────────────── */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.save-build-btn,
+.history-btn {
+  display: flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.save-build-btn {
+  background: rgba(255, 255, 255, 0.22);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.save-build-btn:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.history-btn {
+  background: rgba(0, 0, 0, 0.12);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.history-btn:hover,
+.history-btn.active {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* Save Build button in checkout section */
+.save-build-btn-bottom {
+  display: flex;
+  align-items: center;
+  background: #f0f6ff;
+  color: #0e67c2;
+  border: 1.5px solid #1f93ff;
+  padding: 10px 22px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  transition: all 0.2s;
+}
+
+.save-build-btn-bottom:hover {
+  background: #dbeaf9;
+}
+
+/* ────────────────────────────────────────────
+   Build History Panel
+──────────────────────────────────────────── */
+.build-history-panel {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #f5f8fc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.history-header h3 {
+  margin: 0;
+  font-size: 15px;
+  color: #16253a;
+  display: flex;
+  align-items: center;
+}
+
+.close-history-btn {
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.close-history-btn:hover {
+  background: #e2e8f0;
+  color: #16253a;
+}
+
+.history-loading,
+.history-error,
+.history-empty {
+  padding: 20px 16px;
+  text-align: center;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.history-error {
+  color: #dc2626;
+  background: #fef2f2;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.2s;
+}
+
+.history-item:last-child {
+  border-bottom: none;
+}
+
+.history-item:hover {
+  background: #f8fafc;
+}
+
+.history-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-item-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 14px;
+  color: #16253a;
+  margin-bottom: 4px;
+}
+
+.visibility-icon {
+  font-size: 12px;
+}
+
+.visibility-icon.public {
+  color: #22c55e;
+}
+
+.visibility-icon.private {
+  color: #f59e0b;
+}
+
+.history-item-meta {
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.history-item-desc {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 480px;
+}
+
+.history-item-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: 12px;
+}
+
+.history-view-btn {
+  padding: 6px 14px;
+  background: #1f93ff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.history-view-btn:hover {
+  background: #0e67c2;
+}
+
+.history-delete-btn {
+  padding: 6px 10px;
+  background: #fef2f2;
+  color: #ef4444;
+  border: 1px solid #fca5a5;
+  border-radius: 5px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+}
+
+.history-delete-btn:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
+}
+
+/* ────────────────────────────────────────────
+   Save Build Modal
+──────────────────────────────────────────── */
+.save-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  backdrop-filter: blur(2px);
+}
+
+.save-modal {
+  background: white;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  animation: modalSlideIn 0.22s ease;
+}
+
+@keyframes modalSlideIn {
+  from { opacity: 0; transform: translateY(-16px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)     scale(1); }
+}
+
+.save-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #1f93ff, #0e67c2);
+  color: white;
+}
+
+.save-modal-header h2 {
+  margin: 0;
+  font-size: 17px;
+  display: flex;
+  align-items: center;
+}
+
+.modal-close-btn {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 5px;
+  transition: background 0.2s;
+}
+
+.modal-close-btn:hover {
+  background: rgba(255,255,255,0.35);
+}
+
+.save-modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.save-modal-body label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 2px;
+}
+
+.required {
+  color: #ef4444;
+}
+
+.save-modal-body input,
+.save-modal-body textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.save-modal-body input:focus,
+.save-modal-body textarea:focus {
+  outline: none;
+  border-color: #1f93ff;
+  box-shadow: 0 0 0 3px rgba(31, 147, 255, 0.12);
+}
+
+.visibility-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.toggle-options {
+  display: flex;
+  gap: 8px;
+}
+
+.toggle-opt {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.toggle-opt.selected {
+  border-color: #1f93ff;
+  background: #eff6ff;
+  color: #1f93ff;
+}
+
+.toggle-opt:hover:not(.selected) {
+  border-color: #94a3b8;
+  background: #f1f5f9;
+}
+
+.save-error {
+  color: #dc2626;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.save-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.cancel-btn {
+  padding: 8px 18px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 6px;
+  background: white;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+  border-color: #94a3b8;
+  color: #334155;
+}
+
+.confirm-save-btn {
+  padding: 8px 22px;
+  background: #1f93ff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.confirm-save-btn:hover:not(:disabled) {
+  background: #0e67c2;
+}
+
+.confirm-save-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* Success state */
+.save-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 30px 20px;
+  text-align: center;
+}
+
+.success-check {
+  font-size: 40px;
+  color: #22c55e;
+}
+
+.save-success p {
+  color: #334155;
+  font-size: 14px;
+  margin: 0;
+}
+
+.modal-done-btn {
+  padding: 8px 24px;
+  background: #22c55e;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.modal-done-btn:hover {
+  background: #16a34a;
+}

@@ -1,5 +1,7 @@
-import { useNavigate, useLocation } from 'react-router-dom';
-import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useContext } from 'react';
+import { UserContext } from "../../context/UserProvider";
+import { toast } from 'react-toastify';
 import './Build.css';
 import MotherboardUsage from './MotherboardUsage';
 import {
@@ -13,8 +15,15 @@ import {
   FaDesktop,
   FaShoppingCart,
   FaVideo,
-  FaTrash
+  FaTrash,
+  FaSave,
+  FaHistory,
+  FaTimes,
+  FaLock,
+  FaGlobe,
+  FaTrashAlt
 } from 'react-icons/fa';
+import { savePCBuild, getBuildHistory, deleteBuild, getBuildBySlug } from '../../services/buildpcService';
 
 // Helper function to parse memory capacity and convert to GB
 function parseMemoryToGB(memoryString) {
@@ -155,6 +164,24 @@ function categorizeGPUs(gpus) {
 const Build = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, fetchUser } = useContext(UserContext);
+  const { slug } = useParams();
+
+  // ── Save Build modal state ──
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [saveBuildName, setSaveBuildName] = useState('');
+  const [saveBuildDesc, setSaveBuildDesc] = useState('');
+  const [saveBuildPublic, setSaveBuildPublic] = useState(true);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [saveSuccess, setSaveSuccess] = useState('');
+
+  // ── Build History panel state ──
+  const [showHistory, setShowHistory] = useState(false);
+  const [buildHistory, setBuildHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState('');
+  const historyRef = useRef(null);
   const [components, setComponents] = useState(() => {
     // Restore state from sessionStorage if available
     try {
@@ -308,6 +335,72 @@ const Build = () => {
     };
   }, []); // Empty dependency array means this runs once on mount
 
+  // Load build by slug if present in URL
+  const loadBuildFromSlug = async (buildSlug) => {
+    try {
+      const res = await getBuildBySlug(buildSlug);
+      if (res && res.items) {
+        // Initialize default structure
+        const defaultComponents = [
+          { id: 'cpu', name: 'CPU', selected: null, multiple: false, icon: <FaMicrochip /> },
+          { id: 'cpu Cooler', name: 'CPU Cooler', selected: null, multiple: false, icon: <FaFan /> },
+          { id: 'Mainboard', name: 'Mainboard', selected: null, multiple: false, icon: <FaDesktop /> },
+          { id: 'ram', name: 'RAM', selected: [], multiple: true, icon: <FaMemory /> },
+          { id: 'storage', name: 'Storage', selected: [], multiple: true, icon: <FaHdd /> },
+          { id: 'gpu', name: 'GPU', selected: [], multiple: true, icon: <FaVideo /> },
+          { id: 'case', name: 'Case', selected: null, multiple: false, icon: <FaCube /> },
+          { id: 'psu', name: 'PSU', selected: null, multiple: false, icon: <FaBolt /> },
+        ];
+
+        // Map items from database to defaultComponents
+        const loadedComponents = defaultComponents.map(component => {
+          const matchingItems = res.items.filter(item => item.category_name === component.name);
+          if (component.multiple) {
+            return {
+              ...component,
+              selected: matchingItems.map(item => ({
+                product_id: item.product_id,
+                title: item.title,
+                price: item.price,
+                image: item.image,
+                category_name: item.category_name,
+                category_id: item.category_id,
+                attributes: item.attributes || {}
+              }))
+            };
+          } else {
+            const match = matchingItems[0];
+            return {
+              ...component,
+              selected: match ? {
+                product_id: match.product_id,
+                title: match.title,
+                price: match.price,
+                image: match.image,
+                category_name: match.category_name,
+                category_id: match.category_id,
+                attributes: match.attributes || {}
+              } : null
+            };
+          }
+        });
+
+        setComponents(loadedComponents);
+        toast.success(`Loaded build: ${res.build_name}`);
+      }
+    } catch (err) {
+      console.error("Error loading build by slug:", err);
+      toast.error(err?.error || "Failed to load build.");
+    }
+  };
+
+  useEffect(() => {
+    if (slug) {
+      loadBuildFromSlug(slug);
+    }
+  }, [slug]);
+
+
   // Update compatibility issues whenever components change
   useEffect(() => {
     const issues = [];
@@ -386,7 +479,7 @@ const Build = () => {
       const availablePcieX16Slots = parseInt(motherboard.attributes?.["PCIe x16 Slots"] || '0');
       const availablePcieX1Slots = parseInt(motherboard.attributes?.["PCIe x1 Slots"] || '0');
       const { x16GPUs, x8GPUs, x4GPUs } = categorizeGPUs(gpus);
-      
+
       const totalGPUs = gpus.length;
 
       // Check if high-end GPUs can fit in x16 slots
@@ -414,7 +507,7 @@ const Build = () => {
     if (psu) {
       const systemWattage = calculateWattage();
       let psuWattage = 0;
-      
+
       const wattageFromTitle = psu.title?.match(/(\d+)W/i);
       const wattageFromAttrs = psu.attributes?.["Wattage"] || psu.attributes?.["Power"];
 
@@ -600,6 +693,115 @@ const Build = () => {
     );
   };
 
+  // ── Collect items from current components for saving ──
+  const collectBuildItems = () => {
+    const items = [];
+    components.forEach(component => {
+      if (component.multiple && component.selected && component.selected.length > 0) {
+        component.selected.forEach(item => {
+          if (item && item.product_id && item.category_id) {
+            items.push({
+              product_id: item.product_id,
+              category_id: item.category_id,
+              quantity: 1,
+            });
+          }
+        });
+      } else if (!component.multiple && component.selected) {
+        const sel = component.selected;
+        if (sel && sel.product_id && sel.category_id) {
+          items.push({
+            product_id: sel.product_id,
+            category_id: sel.category_id,
+            quantity: 1,
+          });
+        }
+      }
+    });
+    return items;
+  };
+
+  const handleOpenSaveModal = () => {
+    if (!user || !user.account.id) {
+      toast.error('Vui lòng đăng nhập để lưu cấu hình!');
+      return;
+    }
+    const items = collectBuildItems();
+    if (items.length === 0) {
+      alert('Please select at least one component before saving.');
+      return;
+    }
+    setSaveError('');
+    setSaveSuccess('');
+    setSaveBuildName('');
+    setSaveBuildDesc('');
+    setSaveBuildPublic(true);
+    setShowSaveModal(true);
+  };
+
+  const handleSaveBuild = async () => {
+    if (!saveBuildName.trim()) {
+      setSaveError('Build name is required.');
+      return;
+    }
+    const items = collectBuildItems();
+    if (items.length === 0) {
+      setSaveError('No components selected.');
+      return;
+    }
+    setSaveLoading(true);
+    setSaveError('');
+    try {
+      const res = await savePCBuild({
+        build_name: saveBuildName.trim(),
+        description: saveBuildDesc,
+        is_public: saveBuildPublic,
+        items,
+      });
+      setSaveSuccess(`Build saved! Slug: ${res.slug}`);
+      // Refresh history if open
+      if (showHistory) loadBuildHistory();
+    } catch (err) {
+      setSaveError(err?.error || 'Failed to save build. Are you logged in?');
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
+  const loadBuildHistory = async () => {
+    setHistoryLoading(true);
+    setHistoryError('');
+    try {
+      const res = await getBuildHistory();
+      setBuildHistory(res || []);
+    } catch (err) {
+      setHistoryError(err?.error || 'Failed to load history. Are you logged in?');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const handleToggleHistory = () => {
+    if (!user || !user.account.id) {
+      toast.error('Vui lòng đăng nhập để xem lịch sử cấu hình!');
+      return;
+    }
+    if (!showHistory) {
+      loadBuildHistory();
+    }
+    setShowHistory(prev => !prev);
+  };
+
+  const handleDeleteBuild = async (buildId) => {
+    if (!window.confirm('Delete this build?')) return;
+    try {
+      await deleteBuild(buildId);
+      setBuildHistory(prev => prev.filter(b => b.id !== buildId));
+    } catch (err) {
+      alert(err?.error || 'Failed to delete build.');
+    }
+  };
+
   const handleBuyNow = () => {
     // Check if there are any components selected
     const hasSelectedComponents = components.some(component =>
@@ -657,11 +859,72 @@ const Build = () => {
           <span className="label">Compatibility Check:</span>
           <span className="notes">See <a href="#notes">details</a> below.</span>
         </div>
-        <div className="wattage">
-          <span className="icon"><FaBolt /></span>
-          <span>Power Required: {calculateWattage()}W</span>
+        <div className="header-actions">
+          <div className="wattage">
+            <span className="icon"><FaBolt /></span>
+            <span>Power Required: {calculateWattage()}W</span>
+          </div>
+          <button className="save-build-btn" onClick={handleOpenSaveModal} title="Save this build">
+            <FaSave style={{ marginRight: '6px' }} />
+            Save Build
+          </button>
+          <button
+            className={`history-btn ${showHistory ? 'active' : ''}`}
+            onClick={handleToggleHistory}
+            title="View saved builds"
+          >
+            <FaHistory style={{ marginRight: '6px' }} />
+            History
+          </button>
         </div>
       </div>
+
+      {/* ── Build History Panel ── */}
+      {showHistory && (
+        <div className="build-history-panel" ref={historyRef}>
+          <div className="history-header">
+            <h3><FaHistory style={{ marginRight: '8px' }} />Saved Builds</h3>
+            <button className="close-history-btn" onClick={() => setShowHistory(false)}><FaTimes /></button>
+          </div>
+          {historyLoading && <div className="history-loading">Loading...</div>}
+          {historyError && <div className="history-error">{historyError}</div>}
+          {!historyLoading && !historyError && buildHistory.length === 0 && (
+            <div className="history-empty">No saved builds yet. Start building and save!</div>
+          )}
+          {!historyLoading && buildHistory.map(build => (
+            <div key={build.id} className="history-item">
+              <div className="history-item-info">
+                <div className="history-item-name">
+                  {build.is_public ? <FaGlobe className="visibility-icon public" /> : <FaLock className="visibility-icon private" />}
+                  {build.build_name}
+                </div>
+                <div className="history-item-meta">
+                  <span>{build.component_count} component{build.component_count !== 1 ? 's' : ''}</span>
+                  <span>·</span>
+                  <span>{new Date(build.created_at).toLocaleDateString()}</span>
+                </div>
+                {build.description && <div className="history-item-desc">{build.description}</div>}
+              </div>
+              <div className="history-item-actions">
+                <button
+                  className="history-view-btn"
+                  onClick={() => navigate(`/build/${build.slug}`)}
+                  title="View build"
+                >
+                  View
+                </button>
+                <button
+                  className="history-delete-btn"
+                  onClick={() => handleDeleteBuild(build.id)}
+                  title="Delete build"
+                >
+                  <FaTrashAlt />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <table className="components-table">
         <thead>
@@ -713,7 +976,7 @@ const Build = () => {
                         </td>
                       )}
                       <td className="selection">
-                        <div 
+                        <div
                           className="selected-component"
                           onClick={() => navigate(`/product-info/${item.product_id || item.id}`)}
                         >
@@ -763,7 +1026,7 @@ const Build = () => {
                   </td>
                   <td className="selection">
                     {component.selected ? (
-                      <div 
+                      <div
                         className="selected-component"
                         onClick={() => navigate(`/product-info/${component.selected.product_id || component.selected.id}`)}
                       >
@@ -850,6 +1113,10 @@ const Build = () => {
         <div className="total-label">Total:</div>
         <div className="total-price">{renderPrice(totalPrice)}</div>
       </div>      <div className="checkout-section">
+        <button className="save-build-btn-bottom" onClick={handleOpenSaveModal}>
+          <FaSave style={{ marginRight: '6px' }} />
+          Save Build
+        </button>
         <button className="amazon-buy-btn" onClick={handleBuyNow}>
           <span className="checkout-icon"><FaShoppingCart /></span>
           Buy Complete Build
@@ -904,8 +1171,83 @@ const Build = () => {
         components={components}
       />
 
+      {/* ── Save Build Modal ── */}
+      {showSaveModal && (
+        <div className="save-modal-overlay" onClick={() => setShowSaveModal(false)}>
+          <div className="save-modal" onClick={e => e.stopPropagation()}>
+            <div className="save-modal-header">
+              <h2><FaSave style={{ marginRight: '8px' }} />Save Build</h2>
+              <button className="modal-close-btn" onClick={() => setShowSaveModal(false)}><FaTimes /></button>
+            </div>
+
+            {saveSuccess ? (
+              <div className="save-success">
+                <FaCheck className="success-check" />
+                <p>{saveSuccess}</p>
+                <button className="modal-done-btn" onClick={() => setShowSaveModal(false)}>Done</button>
+              </div>
+            ) : (
+              <>
+                <div className="save-modal-body">
+                  <label htmlFor="build-name">Build Name <span className="required">*</span></label>
+                  <input
+                    id="build-name"
+                    type="text"
+                    value={saveBuildName}
+                    onChange={e => setSaveBuildName(e.target.value)}
+                    placeholder="e.g. My Gaming Rig"
+                    maxLength={255}
+                    autoFocus
+                  />
+
+                  <label htmlFor="build-desc">Description</label>
+                  <textarea
+                    id="build-desc"
+                    value={saveBuildDesc}
+                    onChange={e => setSaveBuildDesc(e.target.value)}
+                    placeholder="Optional notes about this build..."
+                    rows={3}
+                  />
+
+                  <div className="visibility-toggle">
+                    <label>Visibility</label>
+                    <div className="toggle-options">
+                      <button
+                        className={`toggle-opt ${saveBuildPublic ? 'selected' : ''}`}
+                        onClick={() => setSaveBuildPublic(true)}
+                      >
+                        <FaGlobe style={{ marginRight: '4px' }} /> Public
+                      </button>
+                      <button
+                        className={`toggle-opt ${!saveBuildPublic ? 'selected' : ''}`}
+                        onClick={() => setSaveBuildPublic(false)}
+                      >
+                        <FaLock style={{ marginRight: '4px' }} /> Private
+                      </button>
+                    </div>
+                  </div>
+
+                  {saveError && <div className="save-error">{saveError}</div>}
+                </div>
+                <div className="save-modal-footer">
+                  <button className="cancel-btn" onClick={() => setShowSaveModal(false)}>Cancel</button>
+                  <button
+                    className="confirm-save-btn"
+                    onClick={handleSaveBuild}
+                    disabled={saveLoading}
+                  >
+                    {saveLoading ? 'Saving...' : 'Save Build'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
     </div>
   );
+
 
   // Helper function to format price
   function renderPrice(price) {

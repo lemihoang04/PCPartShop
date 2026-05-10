@@ -17,7 +17,11 @@ import ChangePassword from "../pages/ChangePass/ChangePass";
 import LaptopSearch from "../pages/laptop/LaptopSearch"
 import ComponentSearch from "../pages/Component/ComponentSearch"
 import Orders from "../pages/Order/Orders";
+import SharedBuild from "../pages/SharedBuild/SharedBuild";
+import SharedBuildDetail from "../pages/SharedBuild/SharedBuildDetail";
 import CheckPayment from "../pages/Private/CheckPayment/CheckPayment";
+
+
 import FailPayment from "../pages/Private/failPayment/failPayment";
 import ForgetPassword from "../pages/ForgetPassword/ForgetPassword";
 import ScrollToTop from "../components/ScrollToTop";
@@ -69,7 +73,12 @@ const AppRoutes = () => {
                             }
                         />
                         <Route path="/laptops" element={<LaptopSearch />} />
+                        <Route path="/shared-builds" element={<SharedBuild />} />
+                        <Route path="/shared-build/:slug" element={<SharedBuildDetail />} />
                         <Route path="/build" element={<Build />} />
+
+
+                        <Route path="/build/:slug" element={<Build />} />
                         <Route
                             path="/checkout"
                             element={
