@@ -5,6 +5,8 @@ from DAL.buildpc_dal import (
     dal_get_build_by_slug,
     dal_delete_build,
     dal_get_shared_builds,
+    dal_get_build_comments,
+    dal_add_build_comment
 )
 
 buildpc_blueprint = Blueprint("buildpc", __name__)
@@ -100,3 +102,33 @@ def delete_build(build_id):
 
     result, status = dal_delete_build(build_id, user_id)
     return jsonify(result), status
+
+# ---------------------------------------------------------------------------
+# GET /build/<int:build_id>/comments
+# Returns comments for a build
+# ---------------------------------------------------------------------------
+@buildpc_blueprint.route("/build/<int:build_id>/comments", methods=["GET"])
+def get_build_comments(build_id):
+    result, status = dal_get_build_comments(build_id)
+    return jsonify(result), status
+
+# ---------------------------------------------------------------------------
+# POST /build/<int:build_id>/comments
+# Adds a comment to a build
+# ---------------------------------------------------------------------------
+@buildpc_blueprint.route("/build/<int:build_id>/comments", methods=["POST"])
+def add_build_comment(build_id):
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Authentication required"}), 401
+    
+    data = request.get_json()
+    content = data.get("content", "").strip()
+    parent_comment_id = data.get("parent_comment_id")
+
+    if not content:
+        return jsonify({"error": "Comment content cannot be empty"}), 400
+
+    result, status = dal_add_build_comment(build_id, user_id, content, parent_comment_id)
+    return jsonify(result), status
+

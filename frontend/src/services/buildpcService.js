@@ -76,3 +76,36 @@ export const getSharedBuilds = async () => {
   }
 };
 
+/**
+ * Fetch comments for a specific build.
+ * @param {number} buildId
+ */
+export const getBuildComments = async (buildId) => {
+  try {
+    const response = await axios.get(`/build/${buildId}/comments`);
+    return response;
+  } catch (error) {
+    console.error("Error fetching build comments:", error);
+    throw error?.response?.data ?? error;
+  }
+};
+
+/**
+ * Add a comment to a specific build.
+ * @param {number} buildId
+ * @param {string} content
+ * @param {number|null} parent_comment_id
+ */
+export const addBuildComment = async (buildId, content, parent_comment_id = null) => {
+  try {
+    const response = await axios.post(`/build/${buildId}/comments`, {
+      content,
+      parent_comment_id
+    });
+    return response;
+  } catch (error) {
+    console.error("Error adding build comment:", error);
+    throw error?.response?.data ?? error;
+  }
+};
+

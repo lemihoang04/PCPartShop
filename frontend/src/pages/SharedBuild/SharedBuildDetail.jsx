@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getBuildBySlug } from '../../services/buildpcService';
+import { getBuildBySlug, getBuildComments, addBuildComment } from '../../services/buildpcService';
+import { UserContext } from '../../context/UserProvider';
 import './SharedBuildDetail.css';
-import { 
-  FaMicrochip, 
-  FaVideo, 
-  FaMemory, 
-  FaHdd, 
-  FaCube, 
-  FaBolt, 
-  FaTools, 
-  FaUser, 
+import {
+  FaMicrochip,
+  FaVideo,
+  FaMemory,
+  FaHdd,
+  FaCube,
+  FaBolt,
+  FaTools,
+  FaUser,
   FaCalendarAlt,
   FaArrowLeft,
   FaDollarSign,
@@ -73,9 +74,40 @@ const BuildImageGallery = ({ images }) => {
 const SharedBuildDetail = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
+  const { user } = React.useContext(UserContext);
   const [build, setBuild] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [comments, setComments] = useState([]);
+  const [commentText, setCommentText] = useState('');
+  const [replyTo, setReplyTo] = useState(null); // holds the comment id being replied to
+  const [submittingComment, setSubmittingComment] = useState(false);
+
+  const loadComments = async (buildId) => {
+    try {
+      const res = await getBuildComments(buildId);
+      // Assuming interceptor unwraps, otherwise res.data
+      setComments(Array.isArray(res) ? res : res.data || []);
+    } catch (err) {
+      console.error('Error fetching comments:', err);
+    }
+  };
+
+  const handleAddComment = async () => {
+    if (!commentText.trim()) return;
+    try {
+      setSubmittingComment(true);
+      await addBuildComment(build.id, commentText, replyTo);
+      setCommentText('');
+      setReplyTo(null);
+      await loadComments(build.id);
+    } catch (err) {
+      console.error('Error adding comment:', err);
+      alert('Không thể thêm bình luận. Vui lòng đăng nhập hoặc thử lại sau.');
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
 
   useEffect(() => {
     const fetchBuildDetails = async () => {
@@ -84,6 +116,7 @@ const SharedBuildDetail = () => {
         const response = await getBuildBySlug(slug);
         if (response) {
           setBuild(response);
+          await loadComments(response.id);
         } else {
           setError('Không tìm thấy cấu hình này.');
         }
@@ -202,11 +235,11 @@ const SharedBuildDetail = () => {
   return (
     <div className="sbd-product-page">
       {/* Back button link */}
-      <div className="sbd-breadcrumb-row">
+      {/* <div className="sbd-breadcrumb-row">
         <button className="sbd-back-text-btn" onClick={() => navigate('/shared-builds')}>
           <FaArrowLeft /> Quay lại danh sách shared builds
         </button>
-      </div>
+      </div> */}
 
       <div className="sbd-product-container">
         {/* Left Side: Images column loaded starting with Case */}
@@ -218,7 +251,7 @@ const SharedBuildDetail = () => {
         <section className="sbd-product-details">
           <div className="sbd-product-header">
             <h1 className="sbd-product-title">{build.build_name}</h1>
-            
+
             <div className="sbd-build-meta-row">
               <span className="sbd-author">
                 <FaUser className="sbd-icon-inline" /> {build.creator_name || 'Cộng đồng'}
@@ -246,7 +279,7 @@ const SharedBuildDetail = () => {
 
           {/* Call-to-action Action Bar redirects to Build Page with slug */}
           <div className="sbd-product-actions">
-            <button 
+            <button
               className="sbd-use-build-btn"
               onClick={() => navigate(`/build/${build.slug}`)}
             >
@@ -258,7 +291,7 @@ const SharedBuildDetail = () => {
           <div className="sbd-six-specs-section">
             <h2 className="sbd-specs-title">Thông số cấu hình cốt lõi</h2>
             <div className="sbd-six-specs-grid">
-              
+
               <div className="sbd-grid-spec-item">
                 <div className="sbd-grid-icon-box">
                   <FaMicrochip className="sbd-grid-icon" />
@@ -324,63 +357,129 @@ const SharedBuildDetail = () => {
         </section>
       </div>
 
-      {/* Structured Components Table List (replaces Similar Products) */}
-      <section className="sbd-components-table-section">
-        <h2 className="sbd-section-title">Danh sách chi tiết linh kiện</h2>
-        <div className="sbd-table-wrapper">
-          <table className="sbd-components-table">
-            <thead>
-              <tr>
-                <th style={{ width: '18%' }}>Loại linh kiện</th>
-                <th style={{ width: '10%', textAlign: 'center' }}>Hình ảnh</th>
-                <th>Tên sản phẩm</th>
-                <th style={{ width: '10%', textAlign: 'center' }}>Số lượng</th>
-                <th style={{ width: '15%', textAlign: 'right' }}>Đơn giá</th>
-                <th style={{ width: '15%', textAlign: 'right' }}>Thành tiền</th>
-              </tr>
-            </thead>
-            <tbody>
-              {build.items.map((item) => {
-                const price = parseFloat(item.price) || 0;
-                const qty = parseInt(item.quantity) || 1;
-                const subtotal = price * qty;
-                const itemImg = item.image ? item.image.split('; ')[0] : 'https://via.placeholder.com/150x150?text=No+Image';
+      <div className="sbd-bottom-grid">
+        {/* Structured Components Table List (replaces Similar Products) */}
+        <section className="sbd-components-table-section">
+          <h2 className="sbd-section-title">Danh sách chi tiết linh kiện</h2>
+          <div className="sbd-table-wrapper">
+            <table className="sbd-components-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '18%' }}>Loại linh kiện</th>
+                  <th style={{ width: '10%', textAlign: 'center' }}>Hình ảnh</th>
+                  <th>Tên sản phẩm</th>
+                  <th style={{ width: '10%', textAlign: 'center' }}>Số lượng</th>
+                  <th style={{ width: '15%', textAlign: 'right' }}>Đơn giá</th>
+                  <th style={{ width: '15%', textAlign: 'right' }}>Thành tiền</th>
+                </tr>
+              </thead>
+              <tbody>
+                {build.items.map((item) => {
+                  const price = parseFloat(item.price) || 0;
+                  const qty = parseInt(item.quantity) || 1;
+                  const subtotal = price * qty;
+                  const itemImg = item.image ? item.image.split('; ')[0] : 'https://via.placeholder.com/150x150?text=No+Image';
 
-                return (
-                  <tr key={item.item_id}>
-                    <td className="sbd-col-category">
-                      <span className="sbd-category-badge">{item.category_name}</span>
-                    </td>
-                    <td className="sbd-col-img">
-                      <div className="sbd-product-table-img" onClick={() => navigate(`/product-info/${item.product_id}`)}>
-                        <img src={itemImg} alt={item.title} />
-                      </div>
-                    </td>
-                    <td className="sbd-col-title">
-                      <div 
-                        className="sbd-product-table-link"
-                        onClick={() => navigate(`/product-info/${item.product_id}`)}
-                      >
-                        {item.title} <FaExternalLinkAlt className="sbd-link-icon" />
-                      </div>
-                    </td>
-                    <td className="sbd-col-qty">{qty}</td>
-                    <td className="sbd-col-price">${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                    <td className="sbd-col-subtotal">${subtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan="4"></td>
-                <td className="sbd-table-footer-label">Tổng cộng:</td>
-                <td className="sbd-table-footer-value">${buildData.totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </section>
+                  return (
+                    <tr key={item.item_id}>
+                      <td className="sbd-col-category">
+                        <span className="sbd-category-badge">{item.category_name}</span>
+                      </td>
+                      <td className="sbd-col-img">
+                        <div className="sbd-product-table-img" onClick={() => navigate(`/product-info/${item.product_id}`)}>
+                          <img src={itemImg} alt={item.title} />
+                        </div>
+                      </td>
+                      <td className="sbd-col-title">
+                        <div
+                          className="sbd-product-table-link"
+                          onClick={() => navigate(`/product-info/${item.product_id}`)}
+                        >
+                          {item.title} <FaExternalLinkAlt className="sbd-link-icon" />
+                        </div>
+                      </td>
+                      <td className="sbd-col-qty">{qty}</td>
+                      <td className="sbd-col-price">${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td className="sbd-col-subtotal">${subtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan="4"></td>
+                  <td className="sbd-table-footer-label">Tổng cộng:</td>
+                  <td className="sbd-table-footer-value">${buildData.totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </section>
+
+        {/* Comments Section */}
+        <section className="sbd-comments-section">
+          <h2 className="sbd-section-title">Bình luận</h2>
+          
+          <div className="sbd-comments-list">
+            {comments.length === 0 ? (
+              <p className="sbd-no-comments">Chưa có bình luận nào. Hãy là người đầu tiên!</p>
+            ) : (
+              comments.map(comment => (
+                <div 
+                  key={comment.id} 
+                  className={`sbd-comment-item ${comment.parent_comment_id ? 'sbd-comment-reply' : ''}`}
+                >
+                  <div className="sbd-comment-avatar">
+                    {comment.user_name ? comment.user_name.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                  <div className="sbd-comment-content-wrapper">
+                    <div className="sbd-comment-header">
+                      <span className="sbd-comment-author">{comment.user_name || 'Anonymous'}</span>
+                      <span className="sbd-comment-date">{new Date(comment.created_at).toLocaleString('vi-VN')}</span>
+                    </div>
+                    <p className="sbd-comment-text">{comment.content}</p>
+                    <button 
+                      className="sbd-comment-reply-btn"
+                      onClick={() => setReplyTo(comment.parent_comment_id ? comment.parent_comment_id : comment.id)}
+                    >
+                      Trả lời
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="sbd-comment-input-area">
+            {user && user.isAuthenticated ? (
+              <>
+                {replyTo && (
+                  <div className="sbd-replying-indicator">
+                    Đang trả lời bình luận...
+                    <button onClick={() => setReplyTo(null)}>Hủy</button>
+                  </div>
+                )}
+                <textarea
+                  className="sbd-comment-textarea"
+                  placeholder="Nhập bình luận của bạn..."
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  rows="3"
+                ></textarea>
+                <button 
+                  className="sbd-comment-submit-btn" 
+                  onClick={handleAddComment}
+                  disabled={submittingComment || !commentText.trim()}
+                >
+                  {submittingComment ? 'Đang gửi...' : 'Gửi bình luận'}
+                </button>
+              </>
+            ) : (
+              <p className="sbd-login-prompt">Vui lòng <a onClick={() => navigate('/login')}>đăng nhập</a> để bình luận.</p>
+            )}
+          </div>
+        </section>
+      </div>
     </div>
   );
 };

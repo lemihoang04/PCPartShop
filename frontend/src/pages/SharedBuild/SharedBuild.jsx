@@ -513,10 +513,6 @@ const SharedBuild = () => {
                       </span>
                     </div>
 
-                    <p className="sb-build-desc" title={build.description}>
-                      {build.description || 'Không có mô tả chi tiết cho cấu hình này.'}
-                    </p>
-
                     {/* Specifications List */}
                     <div className="sb-build-specs-list">
                       <div className="sb-spec-item" title={build.specs.cpuName}>

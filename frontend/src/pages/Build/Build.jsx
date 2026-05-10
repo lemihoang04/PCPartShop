@@ -908,7 +908,7 @@ const Build = () => {
               <div className="history-item-actions">
                 <button
                   className="history-view-btn"
-                  onClick={() => navigate(`/build/${build.slug}`)}
+                  onClick={() => navigate(`/shared-build/${build.slug}`)}
                   title="View build"
                 >
                   View

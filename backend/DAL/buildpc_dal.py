@@ -168,8 +168,10 @@ def dal_get_build_by_slug(slug: str):
                 b.is_public,
                 b.user_id,
                 b.created_at,
-                b.updated_at
+                b.updated_at,
+                u.name AS creator_name
             FROM pc_builds b
+            LEFT JOIN users u ON b.user_id = u.id
             WHERE b.slug = %s
             """,
             (slug,),
@@ -377,3 +379,50 @@ def dal_get_shared_builds():
         cursor.close()
         db.close()
 
+def dal_get_build_comments(build_id):
+    db = get_db_connection()
+    if not db:
+        return {"error": "Database connection failed"}, 500
+
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            """
+            SELECT c.id, c.build_id, c.user_id, c.parent_comment_id, c.content, c.created_at, u.name as user_name
+            FROM pc_build_comments c
+            JOIN users u ON c.user_id = u.id
+            WHERE c.build_id = %s
+            ORDER BY c.created_at ASC
+            """,
+            (build_id,)
+        )
+        comments = cursor.fetchall()
+        return comments, 200
+    except Exception as e:
+        return {"error": str(e)}, 500
+    finally:
+        cursor.close()
+        db.close()
+
+def dal_add_build_comment(build_id, user_id, content, parent_comment_id=None):
+    db = get_db_connection()
+    if not db:
+        return {"error": "Database connection failed"}, 500
+
+    cursor = db.cursor()
+    try:
+        cursor.execute(
+            """
+            INSERT INTO pc_build_comments (build_id, user_id, content, parent_comment_id)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (build_id, user_id, content, parent_comment_id)
+        )
+        db.commit()
+        return {"message": "Comment added successfully", "comment_id": cursor.lastrowid}, 201
+    except Exception as e:
+        db.rollback()
+        return {"error": str(e)}, 500
+    finally:
+        cursor.close()
+        db.close()
