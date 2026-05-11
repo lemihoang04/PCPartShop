@@ -26,8 +26,8 @@ def get_order_by_id(order_id):
     cursor = connection.cursor(dictionary=True)
     try:
         cursor.execute("""
-            SELECT * FROM `Order` WHERE id = %s
-        """, (order_id,))
+            SELECT * FROM `Order` WHERE id = %s OR order_id = %s LIMIT 1
+        """, (order_id, order_id))
         order = cursor.fetchone()
         return order
     except Error as e:

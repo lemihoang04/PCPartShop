@@ -1,18 +1,31 @@
 import React, { useState, useContext, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserContext } from "../../context/UserProvider";
+import { NotificationContext } from "../../context/NotificationProvider";
 import { LogOutUser } from "../../services/userService";
 import { toast } from "react-toastify";
 import './Header.css';
 
 const Header = () => {
   const { user, logoutUser } = useContext(UserContext);
+  const {
+    notifications,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    clearAllNotifications
+  } = useContext(NotificationContext);
+
   const [isProductsOpen, setIsProductsOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+  
   const productsRef = useRef(null);
   const dropdownRef = useRef(null);
+  const notifRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -37,6 +50,13 @@ const Header = () => {
       ) {
         setIsDropdownOpen(false);
       }
+      if (
+        notifRef.current &&
+        !notifRef.current.contains(event.target) &&
+        !event.target.closest('.notif-menu')
+      ) {
+        setIsNotifOpen(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -47,16 +67,66 @@ const Header = () => {
 
   const toggleProducts = () => {
     setIsProductsOpen(!isProductsOpen);
+    setIsDropdownOpen(false);
+    setIsNotifOpen(false);
   };
 
   const toggleDropdown = () => {
     setIsDropdownOpen(!isDropdownOpen);
+    setIsProductsOpen(false);
+    setIsNotifOpen(false);
+  };
+
+  const toggleNotif = () => {
+    setIsNotifOpen(!isNotifOpen);
+    setIsProductsOpen(false);
+    setIsDropdownOpen(false);
   };
 
   const closeAllMenus = () => {
     setIsProductsOpen(false);
     setIsDropdownOpen(false);
+    setIsNotifOpen(false);
     setIsMobileNavOpen(false);
+  };
+
+  const handleMarkAllReadClick = (e) => {
+    e.stopPropagation();
+    markAllAsRead();
+  };
+
+  const handleClearAllClick = (e) => {
+    e.stopPropagation();
+    clearAllNotifications();
+  };
+
+  const handleNotificationClick = (item) => {
+    if (!item.is_read) {
+      markAsRead(item.id);
+    }
+    if (item.type === 'order') {
+      goTo('/orders');
+    }
+    setIsNotifOpen(false);
+  };
+
+  const formatTime = (dateStr) => {
+    try {
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffMins = Math.floor(diffMs / 60000);
+      
+      if (diffMins < 1) return "Just now";
+      if (diffMins < 60) return `${diffMins}m ago`;
+      
+      const diffHrs = Math.floor(diffMins / 60);
+      if (diffHrs < 24) return `${diffHrs}h ago`;
+      
+      return date.toLocaleDateString();
+    } catch (e) {
+      return dateStr;
+    }
   };
 
   const handleLogout = async () => {
@@ -140,6 +210,89 @@ const Header = () => {
         <div className="user-actions">
           {user && user.isAuthenticated ? (
             <>
+              {/* Notification Bell Icon */}
+              <div
+                className="action-item notification-icon"
+                onClick={toggleNotif}
+                ref={notifRef}
+              >
+                <i className="fas fa-bell"></i>
+                {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
+
+                {isNotifOpen && (
+                  <div className="notif-menu" onClick={(e) => e.stopPropagation()}>
+                    <div className="notif-header">
+                      <span className="notif-title">Notifications</span>
+                      {unreadCount > 0 && (
+                        <button className="notif-action-btn mark-all" onClick={handleMarkAllReadClick}>
+                          Mark all as read
+                        </button>
+                      )}
+                    </div>
+                    <div className="notif-body">
+                      {notifications.length === 0 ? (
+                        <div className="notif-empty">
+                          <i className="far fa-bell empty-icon"></i>
+                          <span>No notifications yet</span>
+                        </div>
+                      ) : (
+                        notifications.map((item) => (
+                          <div
+                            key={item.id}
+                            className={`notif-item ${!item.is_read ? 'unread' : ''}`}
+                            onClick={() => handleNotificationClick(item)}
+                          >
+                            <div className="notif-item-icon">
+                              {item.type === 'order' ? (
+                                <i className="fas fa-box order-icon"></i>
+                              ) : (
+                                <i className="fas fa-info-circle info-icon"></i>
+                              )}
+                            </div>
+                            <div className="notif-item-content">
+                              <h4 className="notif-item-title">{item.title}</h4>
+                              <p className="notif-item-text">{item.content}</p>
+                              <span className="notif-item-time">{formatTime(item.created_at)}</span>
+                            </div>
+                            <div className="notif-item-actions">
+                              {!item.is_read && (
+                                <button
+                                  className="notif-btn mark-read"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    markAsRead(item.id);
+                                  }}
+                                  title="Mark as read"
+                                >
+                                  <i className="fas fa-check"></i>
+                                </button>
+                              )}
+                              <button
+                                className="notif-btn delete-notif"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteNotification(item.id);
+                                }}
+                                title="Delete"
+                              >
+                                <i className="fas fa-trash-alt"></i>
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    {notifications.length > 0 && (
+                      <div className="notif-footer">
+                        <button className="notif-clear-btn" onClick={handleClearAllClick}>
+                          Clear all
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div className="action-item cart-icon" onClick={() => goTo('/cart')}>
                 <i className="fas fa-shopping-cart"></i>
                 <span className="cart-badge">{cartCount}</span>

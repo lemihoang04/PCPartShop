@@ -1,5 +1,6 @@
 import mysql.connector
 import os
+from flask_socketio import SocketIO
 
 DATABASE_CONFIG = {
     'user': 'root',
@@ -15,6 +16,10 @@ ZALOPAY_CONFIG = {
     "create_order_endpoint": "https://sb-openapi.zalopay.vn/v2/create",
     "query_order_endpoint": "https://sb-openapi.zalopay.vn/v2/query",
 }
+
+socketio = SocketIO(
+    cors_allowed_origins="http://localhost:3000"
+)
 
 # File upload configuration
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'temp_uploads')

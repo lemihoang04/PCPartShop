@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from DAL.order_dal import *
-
+from DAL.notification_dal import *
+from config import socketio
 order_blueprint = Blueprint('order', __name__)
 
 @order_blueprint.route('/orders/<int:user_id>', methods=['GET'])
@@ -73,6 +74,26 @@ def api_update_order_status(order_id):
             return jsonify({"errCode": 1, "message": "Missing order_id or status"}), 400
         affected = update_order_status(order_id, next_status)
         if affected > 0:
+            order = get_order_by_id(order_id)
+            user_id = order.get('user_id')
+            title = "Order Updated"
+            message = (
+                f"Your order #{order_id} "
+                f"is now {next_status}"
+            )
+            notification_type = 'order'
+            reference_id = order_id
+            notification_id = create_notification(user_id, title, message, notification_type, reference_id)
+            # Emit notification event
+            socketio.emit('new_notification', {
+                'id': notification_id,
+                'title': title,
+                'message': message,
+                'type': notification_type,
+                'reference_id': reference_id
+            },
+            to=str(user_id)
+            )
             return jsonify({"errCode": 0, "message": "Order status updated successfully"}), 200
         else:
             return jsonify({"errCode": 1, "message": "Order not found"}), 404

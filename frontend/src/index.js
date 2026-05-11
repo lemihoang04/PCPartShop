@@ -4,11 +4,14 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import UserProvider from "./context/UserProvider";
+import { NotificationProvider } from './context/NotificationProvider';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <UserProvider>
-    <App />
+    <NotificationProvider>
+      <App />
+    </NotificationProvider>
   </UserProvider>
 );
 
