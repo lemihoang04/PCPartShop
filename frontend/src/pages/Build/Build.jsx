@@ -363,6 +363,7 @@ const Build = () => {
                 title: item.title,
                 price: item.price,
                 image: item.image,
+                stock: item.stock,
                 category_name: item.category_name,
                 category_id: item.category_id,
                 attributes: item.attributes || {}
@@ -377,6 +378,7 @@ const Build = () => {
                 title: match.title,
                 price: match.price,
                 image: match.image,
+                stock: match.stock,
                 category_name: match.category_name,
                 category_id: match.category_id,
                 attributes: match.attributes || {}
@@ -499,6 +501,119 @@ const Build = () => {
           message: `Too many GPUs: ${totalGPUs} GPUs for ${totalSlots} total PCIe slots.`
         });
         isCompatible = false;
+      }
+    }
+
+    // Check Case and Motherboard Form Factor
+    const case_ = components.find(c => c.id === 'case')?.selected;
+    if (case_ && motherboard) {
+      const caseMbSupportStr = case_.attributes?.["Motherboard Form Factor"];
+      const mbFormFactorStr = motherboard.attributes?.["Form Factor"];
+      
+      if (caseMbSupportStr && mbFormFactorStr) {
+        if (!caseMbSupportStr.toLowerCase().includes(mbFormFactorStr.toLowerCase())) {
+          issues.push({
+            type: 'problem',
+            message: `Case does not support the Motherboard's form factor (${mbFormFactorStr}).`
+          });
+          isCompatible = false;
+        }
+      }
+    }
+
+    // Check Case and GPU Length
+    if (case_ && gpus.length > 0) {
+      const caseMaxGpuLengthStr = case_.attributes?.["Maximum Video Card Length"];
+      let caseMaxGpuLength = 0;
+      if (caseMaxGpuLengthStr) {
+        const match = caseMaxGpuLengthStr.match(/(\d+)/);
+        if (match) caseMaxGpuLength = parseInt(match[1]);
+      }
+
+      if (caseMaxGpuLength > 0) {
+        gpus.forEach(gpu => {
+          const gpuLengthStr = gpu.attributes?.["Length"];
+          if (gpuLengthStr) {
+            const match = gpuLengthStr.match(/(\d+)/);
+            if (match) {
+              const gpuLength = parseInt(match[1]);
+              if (gpuLength > caseMaxGpuLength) {
+                issues.push({
+                  type: 'problem',
+                  message: `GPU Length (${gpuLength}mm) exceeds the Case's maximum supported length (${caseMaxGpuLength}mm).`
+                });
+                isCompatible = false;
+              }
+            }
+          }
+        });
+      }
+    }
+
+    // Check CPU and Motherboard Socket compatibility
+    const cpu = components.find(c => c.id === 'cpu')?.selected;
+    if (cpu && motherboard) {
+      const cpuSocket = cpu.attributes?.["Socket"];
+      const mbSocket = motherboard.attributes?.["Socket/CPU"];
+      if (cpuSocket && mbSocket && cpuSocket !== mbSocket) {
+        issues.push({
+          type: 'problem',
+          message: `CPU Socket (${cpuSocket}) is incompatible with Motherboard Socket (${mbSocket}).`
+        });
+        isCompatible = false;
+      }
+    }
+
+    // Check CPU Cooler and CPU/Motherboard Socket compatibility
+    const cpuCooler = components.find(c => c.id === 'cpu Cooler')?.selected;
+    if (cpuCooler) {
+      const coolerSocketsStr = cpuCooler.attributes?.["Socket"] || cpuCooler.attributes?.["CPU Socket"];
+      const targetSocket = cpu?.attributes?.["Socket"] || motherboard?.attributes?.["Socket/CPU"];
+      
+      if (coolerSocketsStr && targetSocket) {
+        if (!coolerSocketsStr.includes(targetSocket)) {
+          issues.push({
+            type: 'problem',
+            message: `CPU Cooler does not support the required socket (${targetSocket}).`
+          });
+          isCompatible = false;
+        }
+      }
+    }
+
+    // Check Motherboard and RAM memory type
+    if (motherboard && rams.length > 0) {
+      const mbMemTypeStr = motherboard.attributes?.["Memory Type"];
+      let mbMemType = null;
+      if (mbMemTypeStr) {
+        const mbMemTypeMatch = mbMemTypeStr.match(/(DDR\d)/i);
+        if (mbMemTypeMatch) mbMemType = mbMemTypeMatch[1].toUpperCase();
+      }
+
+      if (mbMemType) {
+        let ramMismatch = false;
+        let mismatchedRamType = '';
+        rams.forEach(ram => {
+          const ramSpeedStr = ram.attributes?.["Speed"] || ram.attributes?.["Memory Type"];
+          if (ramSpeedStr) {
+            const ramMemTypeMatch = ramSpeedStr.match(/(DDR\d)/i);
+            if (ramMemTypeMatch) {
+              const ramMemType = ramMemTypeMatch[1].toUpperCase();
+              if (ramMemType !== mbMemType) {
+                ramMismatch = true;
+                mismatchedRamType = ramMemType;
+              }
+            }
+          }
+        });
+        
+        if (ramMismatch) {
+          issues.push({
+            type: 'problem',
+            message: `Selected RAM (${mismatchedRamType}) is incompatible with the Motherboard's memory type (${mbMemType}).`
+          });
+          isCompatible = false;
+        }
       }
     }
 
@@ -931,6 +1046,7 @@ const Build = () => {
           <tr>
             <th className="component-col">Component</th>
             <th className="selection-col">Selection</th>
+            <th className="availability-col">Availability</th>
             <th className="price-col">Price</th>
             <th className="action-col">Action</th>
           </tr>
@@ -958,6 +1074,7 @@ const Build = () => {
                           Choose {component.name}
                         </button>
                       </td>
+                      <td className="availability">—</td>
                       <td className="price">—</td>
                       <td className="actions"></td>
                     </tr>
@@ -986,6 +1103,11 @@ const Build = () => {
                           </span>
                         </div>
                       </td>
+                      <td className={`availability ${item.stock > 0 ? 'in-stock' : 'out-of-stock'}`}>
+                        <span className="availability-badge">
+                          {item.stock > 0 ? 'In stock' : 'Out of stock'}
+                        </span>
+                      </td>
                       <td className="price">{renderPrice(item.price)}</td>
                       <td className="actions">
                         <div className="action-buttons">
@@ -1004,7 +1126,7 @@ const Build = () => {
                   {/* Only show "Add Another" button when at least one component is selected */}
                   {component.selected.length > 0 && (
                     <tr className="add-another-row">
-                      <td colSpan="4" className="add-another-cell">
+                      <td colSpan="5" className="add-another-cell">
                         <button
                           className="add-another-btn"
                           onClick={() => handleCategoryClick(component.id)}
@@ -1041,6 +1163,13 @@ const Build = () => {
                         Choose {component.name}
                       </button>
                     )}
+                  </td>
+                  <td className={`availability ${component.selected ? (component.selected.stock > 0 ? 'in-stock' : 'out-of-stock') : ''}`}>
+                    {component.selected ? (
+                      <span className="availability-badge">
+                        {component.selected.stock > 0 ? 'In stock' : 'Out of stock'}
+                      </span>
+                    ) : '—'}
                   </td>
                   <td className="price">
                     {component.selected ? renderPrice(component.selected.price) : '—'}
@@ -1113,10 +1242,10 @@ const Build = () => {
         <div className="total-label">Total:</div>
         <div className="total-price">{renderPrice(totalPrice)}</div>
       </div>      <div className="checkout-section">
-        <button className="save-build-btn-bottom" onClick={handleOpenSaveModal}>
+        {/* <button className="save-build-btn-bottom" onClick={handleOpenSaveModal}>
           <FaSave style={{ marginRight: '6px' }} />
           Save Build
-        </button>
+        </button> */}
         <button className="amazon-buy-btn" onClick={handleBuyNow}>
           <span className="checkout-icon"><FaShoppingCart /></span>
           Buy Complete Build

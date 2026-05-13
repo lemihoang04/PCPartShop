@@ -1,9 +1,14 @@
 import React, { useState, useEffect, useContext } from "react";
 import { toast } from "react-toastify";
-import { PaymentZaloPay, PaymentStripe, CheckOut } from "../../services/apiService.js";
+import { PaymentZaloPay, PaymentStripe, CheckOut, checkOutStock } from "../../services/apiService.js";
 import { validateCoupon } from "../../services/couponService.js";
 import { UserContext } from "../../context/UserProvider";
 import { useLocation, useNavigate } from "react-router-dom";
+import {
+    FaUser, FaEnvelope, FaPhone, FaGlobe, FaMapMarkerAlt,
+    FaTags, FaCreditCard, FaMoneyBillWave, FaArrowRight,
+    FaExclamationTriangle, FaTimes, FaShoppingBag
+} from "react-icons/fa";
 import "./Checkout.css";
 
 const Checkout = () => {
@@ -12,6 +17,7 @@ const Checkout = () => {
     const { user, fetchUser } = useContext(UserContext);
     const formValue = location.state?.formValue || null;
     const [isLoading, setIsLoading] = useState(false);
+    const [outOfStockModal, setOutOfStockModal] = useState({ open: false, items: [] });
 
     useEffect(() => {
         if (formValue === null) {
@@ -51,9 +57,8 @@ const Checkout = () => {
     }, [user]);
 
     useEffect(() => {
-        // Update total amount when discount changes
         if (formValue) {
-            const newTotal = formValue.amount - discount.amount;
+            const newTotal = Number(formValue.amount) - discount.amount;
             setTotalAmount(newTotal > 0 ? newTotal : 0);
         }
     }, [discount, formValue]);
@@ -63,8 +68,8 @@ const Checkout = () => {
         setFormData({ ...formData, [name]: value });
     };
 
-    const handlePaymentChange = (e) => {
-        setFormData({ ...formData, payment: e.target.id });
+    const handlePaymentChange = (method) => {
+        setFormData({ ...formData, payment: method });
     };
 
     const applyDiscountCode = async () => {
@@ -115,36 +120,63 @@ const Checkout = () => {
     };
 
     const handleSubmit = async () => {
+        if (!formData.name.trim() || !formData.email.trim() || !formData.phone.trim() || !formData.address.trim()) {
+            toast.error("Please fill in all billing details.");
+            return;
+        }
+
         if (!formData.payment) {
             toast.error("Please select a payment method.");
             return;
         }
+
+        setIsLoading(true);
+
+        // ── Check out-of-stock before processing order ──
+        try {
+            const checkOutStockRes = await checkOutStock(formValue.items);
+            if (checkOutStockRes.errCode === 1) {
+                setOutOfStockModal({ open: true, items: checkOutStockRes.outOfStock || [] });
+                setIsLoading(false);
+                return;
+            } else if (checkOutStockRes.errCode !== 0) {
+                toast.error("Stock check failed. Please try again.");
+                setIsLoading(false);
+                return;
+            }
+        } catch (error) {
+            console.error('Error checking stock during checkout:', error);
+            toast.error("Unable to verify stock. Please try again.");
+            setIsLoading(false);
+            return;
+        }
+
         const orderData = {
             user_id: user.account.id,
             order_items: formValue.items.map((item) => ({
                 cart_id: item.cart_id,
                 product_id: item.product_id,
                 quantity: item.quantity,
-                total_price: item.price * item.quantity,
+                total_price: Number(item.price) * item.quantity,
             })),
             isBuyNow: formValue.isBuyNow,
             total_amount: totalAmount,
             discount_amount: discount.amount,
             discount_code: discount.code,
-            coupon_id: discount.coupon_id,   // sent to backend to record usage
+            coupon_id: discount.coupon_id,
             payment_method: formData.payment,
             shipping_address: formData.address + ", " + formData.country,
         };
+
         if (formData.payment === "pay_later") {
-            setIsLoading(true);
             try {
                 const response = await CheckOut(orderData);
                 if (response && response.errCode === 0) {
-                    toast.success("Order placed successfully. You will pay when you receive the goods.");
+                    toast.success("Order placed successfully! Redirecting to orders page...");
                     fetchUser();
-                    setTimeout(() => navigate("/orders"), 2000); // Extended to 2 seconds to show the spinner
+                    setTimeout(() => navigate("/orders"), 2000);
                 } else {
-                    toast.error(response.message);
+                    toast.error(response.message || "Failed to place order.");
                     setIsLoading(false);
                 }
             } catch (error) {
@@ -153,7 +185,6 @@ const Checkout = () => {
             }
         } else if (formData.payment === "online_payment") {
             localStorage.setItem("pendingOrderData", JSON.stringify(orderData));
-            setIsLoading(true);
             try {
                 let res = await PaymentStripe({
                     name: formData.name,
@@ -162,7 +193,7 @@ const Checkout = () => {
                 if (res && res.checkout_url) {
                     window.location.href = res.checkout_url;
                 } else {
-                    toast.error("Payment Failed");
+                    toast.error("Payment initialization failed.");
                     setIsLoading(false);
                 }
             } catch (e) {
@@ -172,216 +203,259 @@ const Checkout = () => {
         }
     };
 
-    // Input field component for consistent styling
-    const FormInput = ({ label, name, type = "text", placeholder, value, required = true }) => (
-        <div className="checkout-form-group">
-            <label className="checkout-label">
-                {label} {required && <span className="checkout-required">*</span>}
-            </label>
-            <input
-                type={type}
-                name={name}
-                placeholder={placeholder}
-                value={value}
-                onChange={handleChange}
-                required={required}
-                className="checkout-input"
-            />
-        </div>
-    );
-
     return (
-        <div className="checkout-wrapper">
+        <div className="cko__wrapper">
             {isLoading && (
-                <div className="checkout-loading-overlay">
-                    <div className="checkout-spinner"></div>
-                    <p className="checkout-loading-text">Processing your order...</p>
+                <div className="cko__loading-overlay">
+                    <div className="cko__spinner"></div>
+                    <p className="cko__loading-text">Processing your order securely...</p>
                 </div>
             )}
-            <div className="checkout-container">
-                <div className="checkout-header">
-                    <h1 className="checkout-title">Checkout</h1>
-                    <p className="checkout-subtitle">Complete your purchase securely</p>
+
+            <div className="cko__container">
+                <div className="cko__header">
+                    <FaShoppingBag className="cko__header-icon" />
+                    <div>
+                        <h1 className="cko__title">Secure Checkout</h1>
+                        <p className="cko__subtitle">Review your shipping info and complete your purchase</p>
+                    </div>
                 </div>
 
-                <div className="checkout-content">
+                <div className="cko__content">
                     {/* Billing Details */}
-                    <div className="checkout-billing">
-                        <h2 className="checkout-section-title">Billing Details</h2>
+                    <div className="cko__billing">
+                        <h2 className="cko__section-title">Shipping & Billing</h2>
 
-                        <FormInput
-                            label="Full Name"
-                            name="name"
-                            placeholder="Enter your full name"
-                            value={formData.name}
-                        />
+                        <div className="cko__form-grid">
+                            <div className="cko__form-group">
+                                <label className="cko__label"><FaUser className="cko__input-icon" /> Full Name <span className="cko__required">*</span></label>
+                                <input
+                                    type="text"
+                                    name="name"
+                                    placeholder="Enter your full name"
+                                    value={formData.name}
+                                    onChange={handleChange}
+                                    required
+                                    className="cko__input"
+                                />
+                            </div>
 
-                        <FormInput
-                            label="Email Address"
-                            type="email"
-                            name="email"
-                            placeholder="Enter your email address"
-                            value={formData.email}
-                        />
+                            <div className="cko__form-group">
+                                <label className="cko__label"><FaEnvelope className="cko__input-icon" /> Email Address <span className="cko__required">*</span></label>
+                                <input
+                                    type="email"
+                                    name="email"
+                                    placeholder="Enter your email address"
+                                    value={formData.email}
+                                    onChange={handleChange}
+                                    required
+                                    className="cko__input"
+                                />
+                            </div>
 
-                        <FormInput
-                            label="Phone Number"
-                            type="tel"
-                            name="phone"
-                            placeholder="Enter your phone number"
-                            value={formData.phone}
-                        />
+                            <div className="cko__form-group">
+                                <label className="cko__label"><FaPhone className="cko__input-icon" /> Phone Number <span className="cko__required">*</span></label>
+                                <input
+                                    type="tel"
+                                    name="phone"
+                                    placeholder="Enter your phone number"
+                                    value={formData.phone}
+                                    onChange={handleChange}
+                                    required
+                                    className="cko__input"
+                                />
+                            </div>
 
-                        <FormInput
-                            label="Country"
-                            name="country"
-                            value={formData.country}
-                        />
+                            <div className="cko__form-group">
+                                <label className="cko__label"><FaGlobe className="cko__input-icon" /> Country</label>
+                                <input
+                                    type="text"
+                                    name="country"
+                                    value={formData.country}
+                                    disabled
+                                    className="cko__input cko__input--disabled"
+                                />
+                            </div>
 
-                        <FormInput
-                            label="Street Address"
-                            name="address"
-                            placeholder="Enter your complete address"
-                            value={formData.address}
-                        />
+                            <div className="cko__form-group cko__form-group--full">
+                                <label className="cko__label"><FaMapMarkerAlt className="cko__input-icon" /> Street Address <span className="cko__required">*</span></label>
+                                <input
+                                    type="text"
+                                    name="address"
+                                    placeholder="Enter your complete street address"
+                                    value={formData.address}
+                                    onChange={handleChange}
+                                    required
+                                    className="cko__input"
+                                />
+                            </div>
+                        </div>
                     </div>
 
                     {/* Order Summary */}
-                    <div className="checkout-summary">
-                        <div className="checkout-summary-header">
-                            <h2 className="checkout-section-title">Order Summary</h2>
+                    <div className="cko__summary">
+                        <h2 className="cko__section-title">Order Summary</h2>
+
+                        <div className="cko__products-list">
+                            {formValue?.items.map((item) => (
+                                <div className="cko__product-item" key={item.cart_id || item.product_id}>
+                                    <div className="cko__product-info">
+                                        <span className="cko__product-name">{item.title}</span>
+                                        <span className="cko__product-quantity">x{item.quantity}</span>
+                                    </div>
+                                    <span className="cko__product-price">${(Number(item.price) * item.quantity).toFixed(2)}</span>
+                                </div>
+                            ))}
                         </div>
 
-                        <div className="checkout-summary-content">
-                            {/* Products */}
-                            <div className="checkout-products">
-                                <div className="checkout-products-header">
-                                    <span>PRODUCT</span>
-                                    <span>TOTAL</span>
-                                </div>
+                        {/* Discount Code Section */}
+                        <div className="cko__discount">
+                            <h3 className="cko__discount-title"><FaTags className="cko__discount-icon" /> Promo Code</h3>
 
-                                <div className="checkout-products-list">
-                                    {formValue?.items.map((item) => (
-                                        <div className="checkout-product-item" key={item.id}>
-                                            <div className="checkout-product-info">
-                                                <span className="checkout-product-name">{item.title}</span>
-                                                <span className="checkout-product-quantity">x{item.quantity}</span>
-                                            </div>
-                                            <span className="checkout-product-price">${(item.price * item.quantity).toFixed(2)}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Discount Code Section */}
-                            <div className="checkout-discount">
-                                <h3 className="checkout-discount-title">Discount Code</h3>
-
-                                {!discount.applied ? (
-                                    <div className="checkout-discount-input-group">
-                                        <input
-                                            type="text"
-                                            placeholder="Enter discount code"
-                                            value={discountCode}
-                                            onChange={(e) => setDiscountCode(e.target.value)}
-                                            className="checkout-discount-input"
-                                        />
-                                        <button
-                                            onClick={applyDiscountCode}
-                                            className="checkout-discount-button"
-                                            disabled={isApplyingCoupon}
-                                        >
-                                            {isApplyingCoupon ? "Đang kiểm tra..." : "Áp dụng"}
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="checkout-discount-applied">
-                                        <div className="checkout-discount-info">
-                                            <span className="checkout-discount-code">{discount.code}</span>
-                                            <span className="checkout-discount-value">-${discount.amount.toFixed(2)}</span>
-                                        </div>
-                                        <button
-                                            onClick={removeDiscount}
-                                            className="checkout-discount-remove"
-                                        >
-                                            Remove
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Totals */}
-                            <div className="checkout-totals">
-                                <div className="checkout-subtotal">
-                                    <span>Subtotal</span>
-                                    <span>${Number(formValue?.amount).toFixed(2)}</span>
-                                </div>
-
-                                {discount.applied && (
-                                    <div className="checkout-discount-row">
-                                        <span>Discount</span>
-                                        <span>-${discount.amount.toFixed(2)}</span>
-                                    </div>
-                                )}
-
-                                <div className="checkout-total">
-                                    <span>Total</span>
-                                    <span>${Number(totalAmount).toFixed(2)}</span>
-                                </div>
-                            </div>
-
-                            {/* Payment Methods */}
-                            <div className="checkout-payment-methods">
-                                <h3 className="checkout-payment-title">Payment Method</h3>
-
-                                <div className="checkout-payment-options">
-                                    <label
-                                        className={`checkout-payment-option ${formData.payment === "pay_later" ? "selected" : ""}`}
+                            {!discount.applied ? (
+                                <div className="cko__discount-input-group">
+                                    <input
+                                        type="text"
+                                        placeholder="Enter coupon code"
+                                        value={discountCode}
+                                        onChange={(e) => setDiscountCode(e.target.value)}
+                                        className="cko__discount-input"
+                                    />
+                                    <button
+                                        onClick={applyDiscountCode}
+                                        className="cko__discount-button"
+                                        disabled={isApplyingCoupon}
                                     >
+                                        {isApplyingCoupon ? "Checking..." : "Apply"}
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="cko__discount-applied">
+                                    <div className="cko__discount-info">
+                                        <span className="cko__discount-code">{discount.code}</span>
+                                        <span className="cko__discount-value">-${discount.amount.toFixed(2)}</span>
+                                    </div>
+                                    <button
+                                        onClick={removeDiscount}
+                                        className="cko__discount-remove"
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Totals */}
+                        <div className="cko__totals">
+                            <div className="cko__total-row">
+                                <span>Subtotal</span>
+                                <span>${Number(formValue?.amount).toFixed(2)}</span>
+                            </div>
+
+                            {discount.applied && (
+                                <div className="cko__total-row cko__total-row--discount">
+                                    <span>Discount ({discount.code})</span>
+                                    <span>-${discount.amount.toFixed(2)}</span>
+                                </div>
+                            )}
+
+                            <div className="cko__total-row cko__total-row--final">
+                                <span>Total Amount</span>
+                                <span>${Number(totalAmount).toFixed(2)}</span>
+                            </div>
+                        </div>
+
+                        {/* Payment Methods */}
+                        <div className="cko__payment-methods">
+                            <h3 className="cko__payment-title"><FaCreditCard className="cko__payment-title-icon" /> Payment Method</h3>
+
+                            <div className="cko__payment-options">
+                                <label
+                                    className={`cko__payment-option${formData.payment === "pay_later" ? " cko__payment-option--selected" : ""}`}
+                                    onClick={() => handlePaymentChange("pay_later")}
+                                >
+                                    <div className="cko__option-header">
                                         <input
                                             type="radio"
                                             name="payment"
-                                            id="pay_later"
                                             checked={formData.payment === "pay_later"}
-                                            onChange={handlePaymentChange}
-                                            className="checkout-payment-radio"
+                                            onChange={() => { }}
+                                            className="cko__payment-radio"
                                         />
-                                        <div className="checkout-payment-details">
-                                            <span className="checkout-payment-name">Pay later (Cash on Delivery)</span>
-                                            <p className="checkout-payment-description">Pay with cash when your order is delivered</p>
-                                        </div>
-                                    </label>
+                                        <span className="cko__payment-name"><FaMoneyBillWave className="cko__method-icon" /> Cash on Delivery (COD)</span>
+                                    </div>
+                                    <p className="cko__payment-desc">Pay cash securely when your order is delivered.</p>
+                                </label>
 
-                                    <label
-                                        className={`checkout-payment-option ${formData.payment === "online_payment" ? "selected" : ""}`}
-                                    >
+                                <label
+                                    className={`cko__payment-option${formData.payment === "online_payment" ? " cko__payment-option--selected" : ""}`}
+                                    onClick={() => handlePaymentChange("online_payment")}
+                                >
+                                    <div className="cko__option-header">
                                         <input
                                             type="radio"
                                             name="payment"
-                                            id="online_payment"
                                             checked={formData.payment === "online_payment"}
-                                            onChange={handlePaymentChange}
-                                            className="checkout-payment-radio"
+                                            onChange={() => { }}
+                                            className="cko__payment-radio"
                                         />
-                                        <div className="checkout-payment-details">
-                                            <span className="checkout-payment-name">Online payment with Stripe</span>
-                                            <p className="checkout-payment-description">Pay securely using Stripe</p>
-                                        </div>
-                                    </label>
-                                </div>
+                                        <span className="cko__payment-name"><FaCreditCard className="cko__method-icon" /> Pay online via Stripe</span>
+                                    </div>
+                                    <p className="cko__payment-desc">Pay instantly using credit or debit cards securely via Stripe.</p>
+                                </label>
                             </div>
-
-                            {/* Place Order Button */}
-                            <button
-                                onClick={handleSubmit}
-                                className="checkout-submit-button"
-                            >
-                                PLACE ORDER
-                            </button>
                         </div>
+
+                        {/* Submit Button */}
+                        <button
+                            onClick={handleSubmit}
+                            className="cko__submit-btn"
+                        >
+                            Place Order <FaArrowRight className="cko__btn-arrow" />
+                        </button>
                     </div>
                 </div>
             </div>
+
+            {/* ── Out-of-Stock Modal ── */}
+            {outOfStockModal.open && (
+                <div className="cko__modal-overlay" onClick={() => setOutOfStockModal({ open: false, items: [] })}>
+                    <div className="cko__modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="cko__modal-header">
+                            <FaExclamationTriangle className="cko__modal-icon" />
+                            <h3>Some products are out of stock</h3>
+                            <button
+                                className="cko__modal-close"
+                                onClick={() => setOutOfStockModal({ open: false, items: [] })}
+                            >
+                                <FaTimes />
+                            </button>
+                        </div>
+                        <p className="cko__modal-desc">
+                            We apologize, but some components in your order just became unavailable or have insufficient stock. Please modify your cart to continue.
+                        </p>
+                        <ul className="cko__modal-list">
+                            {outOfStockModal.items.map((oos) => (
+                                <li key={oos.product_id} className="cko__modal-item">
+                                    <span className="cko__modal-item-name">{oos.title}</span>
+                                    <span className="cko__modal-item-stock">
+                                        Requested: <strong>{oos.requested_quantity}</strong> &nbsp;·&nbsp; Available: <strong>{oos.available_stock}</strong>
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                        <button
+                            className="cko__modal-btn"
+                            onClick={() => {
+                                setOutOfStockModal({ open: false, items: [] });
+                                navigate("/cart");
+                            }}
+                        >
+                            Back to Cart
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -5,19 +5,12 @@ import json
 import logging
 import requests
 from werkzeug.utils import secure_filename
-from DAL.cloudinary_utils import upload_image_to_cloudinary, create_thumbnail_url
+from DAL.cloudinary_utils import upload_image_to_cloudinary
 import traceback
 import re
 
 # Thiết lập logging
 logger = logging.getLogger(__name__)
-
-try:
-    from DAL.component_patch import dal_get_components_by_attributes as patched_dal_get_components_by_attributes
-    print("Successfully imported patched dal_get_components_by_attributes function")
-except ImportError as e:
-    print(f"Failed to import patched function: {e}")
-    patched_dal_get_components_by_attributes = None
 
 product_blueprint = Blueprint('product', __name__)
 
@@ -149,72 +142,8 @@ def get_components_by_type(type):
     try:
         print(f"Received request for components of type: {type}")
         
-        # First try to get category info directly from the database
-        db = get_db_connection()
-        if not db:
-            return jsonify({"error": "Database connection failed"}), 500
-            
-        cursor = db.cursor(dictionary=True)
-        try:
-            # Find matching category by name (case insensitive)
-            cursor.execute("""
-                SELECT category_id, category_name 
-                FROM categories 
-                WHERE LOWER(category_name) = LOWER(%s)
-            """, (type,))
-            
-            category = cursor.fetchone()
-            
-            if category:
-                print(f"Found matching category: {category['category_name']} (ID: {category['category_id']})")
-                type_to_use = category['category_name']  # Use exact case from database
-            else:
-                print(f"No matching category found for '{type}', using fallback method")
-                # Fallback to standard types list
-                valid_types = ['Storage', 'PSU', 'Mainboard', 'GPU', 'CPU', 'RAM', 'CPU Cooler', 'Case', 'CPU_Cooler']
-                standardized_type = None
-                
-                # Try to match against valid types in a case-insensitive way
-                for valid_type in valid_types:
-                    if valid_type.lower() == type.lower():
-                        standardized_type = valid_type
-                        print(f"Matched {type} to standardized type: {standardized_type}")
-                        break
-                
-                # Use standardized type if found, otherwise use original
-                type_to_use = standardized_type if standardized_type else type
-        finally:
-            cursor.close()
-            db.close()
-          # Kiểm tra xem có query parameters không
-        if request.args:
-            # Có query parameters - lọc theo thuộc tính
-            attributes = {}
-            for key, value in request.args.items():
-                attributes[key] = value
-
-            print(f"Filtering {type_to_use} with attributes: {attributes}")
-            
-            # Use patched version if available, fall back to original
-            if patched_dal_get_components_by_attributes:
-                print("Using patched function for component filtering")
-                components, status = patched_dal_get_components_by_attributes(type_to_use, attributes)
-            else:
-                components, status = dal_get_components_by_attributes(type_to_use, attributes)
-        else:
-            # Không có query parameters - lấy tất cả components theo type
-            print(f"Getting all components of type: {type_to_use}")
-            try:
-                # Use patched version if available, fall back to original
-                if patched_dal_get_components_by_attributes:
-                    print("Using patched function for component listing")
-                    components, status = patched_dal_get_components_by_attributes(type_to_use)
-                else:
-                    components, status = dal_get_components_by_attributes(type_to_use)
-            except Exception as e:
-                print(f"Error in dal_get_components_by_attributes: {e}")
-                # Fallback to simpler method if attribute filtering fails
-                components, status = dal_get_components_by_type(type_to_use)        # Phần code sau đây sẽ chạy sau khi đã gán giá trị cho components và status
+        components, status = dal_get_components_by_type(type)
+        
         if status == 200:
             return jsonify(components), 200
         else:

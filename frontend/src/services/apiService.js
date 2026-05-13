@@ -150,6 +150,18 @@ const GetProductReviews = async (product_id) => {
 	}
 }
 
+// Check if a specific order item has been reviewed
+const GetOrderReviewStatus = async (order_id, product_id) => {
+	try {
+		const params = product_id ? `?product_id=${product_id}` : '';
+		const response = await axios.get(`/order/${order_id}/reviewed${params}`);
+		return response;
+	} catch (error) {
+		console.error("Error checking order review status:", error);
+		return { is_reviewed: false };
+	}
+}
+
 export {
 	loadCart,
 	addToCart,
@@ -167,4 +179,5 @@ export {
 	CancelOrder,
 	SubmitProductRating,
 	GetProductReviews,
+	GetOrderReviewStatus,
 };

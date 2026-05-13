@@ -3,7 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../context/UserProvider";
 import { toast } from 'react-toastify';
 import { loadCart, removeFromCart, checkOutStock } from '../../services/apiService';
-import './Cart.css'; // Đổi tên file CSS
+import {
+    FaTrash, FaMinus, FaPlus, FaShoppingCart,
+    FaExclamationTriangle, FaTimes, FaArrowRight
+} from 'react-icons/fa';
+import './Cart.css';
 
 const CartPage = () => {
     const navigate = useNavigate();
@@ -11,6 +15,7 @@ const CartPage = () => {
     const { user, fetchUser } = useContext(UserContext);
     const [selectedItems, setSelectedItems] = useState([]);
     const [isCheckingOut, setIsCheckingOut] = useState(false);
+    const [outOfStockModal, setOutOfStockModal] = useState({ open: false, items: [] });
 
     useEffect(() => {
         if (user && user.account.id) {
@@ -27,16 +32,13 @@ const CartPage = () => {
                     toast.error("Failed to load cart items.");
                 }
             };
-
             loadCartData();
         }
     }, [user]);
 
     const handleCheckboxChange = (id) => {
         setSelectedItems((prev) =>
-            prev.includes(id)
-                ? prev.filter((itemId) => itemId !== id)
-                : [...prev, id]
+            prev.includes(id) ? prev.filter((itemId) => itemId !== id) : [...prev, id]
         );
     };
 
@@ -45,10 +47,7 @@ const CartPage = () => {
             toast.error("Please select at least one item to proceed to checkout.");
             return;
         }
-
-        if (isCheckingOut) {
-            return;
-        }
+        if (isCheckingOut) return;
 
         setIsCheckingOut(true);
 
@@ -59,14 +58,16 @@ const CartPage = () => {
 
         try {
             const checkOutStockRes = await checkOutStock(formValue.items);
-            if (checkOutStockRes.data && checkOutStockRes.errCode === 0) {
+            if (checkOutStockRes.errCode === 0) {
                 setTimeout(() => {
-                    navigate("/checkout", {
-                        state: { formValue }
-                    });
-                }, 1000);
+                    navigate("/checkout", { state: { formValue } });
+                }, 500);
+            } else if (checkOutStockRes.errCode === 1) {
+                // Some items are out of stock — show modal
+                setOutOfStockModal({ open: true, items: checkOutStockRes.outOfStock || [] });
+                setIsCheckingOut(false);
             } else {
-                toast.error("Stock check failed. Please review your cart items.");
+                toast.error("Stock check failed. Please try again.");
                 setIsCheckingOut(false);
             }
         } catch (error) {
@@ -80,21 +81,16 @@ const CartPage = () => {
         try {
             const response = await removeFromCart(cart_id);
             if (response && response.errCode === 0) {
-                setCartItems((prevCartItems) =>
-                    prevCartItems.filter((item) => item.cart_id !== cart_id)
-                );
-
-                // Keep selected items in sync with removed cart entry.
+                setCartItems((prev) => prev.filter((item) => item.cart_id !== cart_id));
                 setSelectedItems((prev) => prev.filter((id) => id !== cart_id));
-
-                toast.success("Item removed from the cart.");
+                toast.success("Item removed from cart.");
                 fetchUser();
             } else {
-                toast.error("Failed to delete items.");
+                toast.error("Failed to remove item.");
             }
         } catch (error) {
             console.error('Error deleting item:', error);
-            toast.error("Failed to delete items.");
+            toast.error("Failed to remove item.");
         }
     };
 
@@ -106,15 +102,13 @@ const CartPage = () => {
         }
     };
 
-    // Calculate subtotal dynamically
     const calculateSubtotal = () => {
         return cartItems
             .filter((item) => selectedItems.includes(item.cart_id))
-            .reduce((total, item) => total + item.price * item.quantity, 0)
+            .reduce((total, item) => total + Number(item.price) * item.quantity, 0)
             .toFixed(2);
     };
 
-    // Handle quantity change
     const handleQuantityChange = (product_id, delta) => {
         setCartItems(
             cartItems.map((item) => {
@@ -127,31 +121,53 @@ const CartPage = () => {
         );
     };
 
+    const allSelected = cartItems.length > 0 && selectedItems.length === cartItems.length;
+
     return (
         <div className="crt__container">
             <div className="crt__content">
-                {/* Cart Items (Left Side) */}
-                <div className="crt__items-container">
-                    <h2 className="crt__title">Shopping Cart</h2>
 
-                    <div className="crt__select-all">
-                        <button
-                            className="crt__select-all-btn"
-                            onClick={handleSelectToggle}
-                        >
-                            {selectedItems.length === cartItems.length ? "Deselect all items" : "Select all items"}
-                        </button>
+                {/* ── Left: Cart Items ── */}
+                <div className="crt__items-container">
+                    <div className="crt__header">
+                        <FaShoppingCart className="crt__header-icon" />
+                        <h2 className="crt__title">Shopping Cart</h2>
+                        {cartItems.length > 0 && (
+                            <span className="crt__item-count">{cartItems.length} item{cartItems.length !== 1 ? 's' : ''}</span>
+                        )}
                     </div>
+
+                    {cartItems.length > 0 && (
+                        <div className="crt__select-all">
+                            <label className="crt__select-label">
+                                <input
+                                    type="checkbox"
+                                    className="crt__checkbox"
+                                    checked={allSelected}
+                                    onChange={handleSelectToggle}
+                                />
+                                <span>Select all items</span>
+                            </label>
+                        </div>
+                    )}
 
                     {cartItems.length === 0 ? (
                         <div className="crt__empty">
+                            <FaShoppingCart className="crt__empty-icon" />
                             <h3>Your cart is empty</h3>
                             <p>Browse our products and add something you like!</p>
+                            <button className="crt__shop-btn" onClick={() => navigate('/products')}>
+                                Start Shopping <FaArrowRight />
+                            </button>
                         </div>
                     ) : (
                         <div className="crt__items-list">
                             {cartItems.map((item) => (
-                                <div key={item.cart_id} className="crt__item">
+                                <div
+                                    key={item.cart_id}
+                                    className={`crt__item${selectedItems.includes(item.cart_id) ? ' crt__item--selected' : ''}`}
+                                >
+                                    {/* Checkbox */}
                                     <div className="crt__item-checkbox">
                                         <input
                                             type="checkbox"
@@ -160,75 +176,95 @@ const CartPage = () => {
                                             onChange={() => handleCheckboxChange(item.cart_id)}
                                         />
                                     </div>
+
+                                    {/* Image */}
                                     <div className="crt__item-image">
                                         <img
                                             src={item.image ? item.image.split("; ")[0] : "default-image.jpg"}
                                             alt={item.title}
+                                            onClick={() => navigate(`/product-info/${item.product_id}`)}
                                         />
                                     </div>
+
+                                    {/* Details */}
                                     <div className="crt__item-details">
                                         <h3
                                             className="crt__item-name"
-                                            onClick={() => navigate(`/product-info/${item.product_id}`)}>{item.title}</h3>
-                                        <div className="crt__item-actions">
+                                            onClick={() => navigate(`/product-info/${item.product_id}`)}
+                                        >
+                                            {item.title}
+                                        </h3>
+
+                                        <div className="crt__item-bottom">
+                                            {/* Quantity control */}
                                             <div className="crt__quantity-control">
                                                 <button
-                                                    className="crt__quantity-btn crt__quantity-decrease"
+                                                    className="crt__quantity-btn"
                                                     onClick={() => handleQuantityChange(item.product_id, -1)}
+                                                    disabled={item.quantity <= 1}
                                                 >
-                                                    -
+                                                    <FaMinus />
                                                 </button>
                                                 <span className="crt__quantity-value">{item.quantity}</span>
                                                 <button
-                                                    className="crt__quantity-btn crt__quantity-increase"
+                                                    className="crt__quantity-btn"
                                                     onClick={() => handleQuantityChange(item.product_id, 1)}
                                                 >
-                                                    +
+                                                    <FaPlus />
                                                 </button>
                                             </div>
-                                            <div className="crt__item-links">
-                                                <button onClick={() => handleDeleteClick(item.cart_id)} className="crt__action-btn crt__delete-btn">Delete</button>
-                                                <button className="crt__action-btn">Compare</button>
-                                                <button className="crt__action-btn">Share</button>
-                                            </div>
+
+                                            {/* Delete */}
+                                            <button
+                                                className="crt__delete-btn"
+                                                onClick={() => handleDeleteClick(item.cart_id)}
+                                                title="Remove item"
+                                            >
+                                                <FaTrash />
+                                                <span>Remove</span>
+                                            </button>
                                         </div>
                                     </div>
+
+                                    {/* Price */}
                                     <div className="crt__item-price">
-                                        <span>${(item.price * item.quantity).toFixed(2)}</span>
+                                        <span className="crt__price-total">${(Number(item.price) * item.quantity).toFixed(2)}</span>
+                                        {item.quantity > 1 && (
+                                            <span className="crt__price-unit">${Number(item.price).toFixed(2)} each</span>
+                                        )}
                                     </div>
                                 </div>
                             ))}
                         </div>
                     )}
-
-                    {cartItems.length > 0 && (
-                        <div className="crt__subtotal-mobile">
-                            <h3>
-                                {selectedItems.length !== 0 ? `Subtotal (${selectedItems.length} items): $${calculateSubtotal()}` : "No items selected"}
-                            </h3>
-                        </div>
-                    )}
                 </div>
 
-                {/* Checkout Section (Right Side) */}
+                {/* ── Right: Order Summary ── */}
                 {cartItems.length > 0 && (
                     <div className="crt__checkout-container">
                         <div className="crt__checkout-card">
                             <h3 className="crt__checkout-title">Order Summary</h3>
+
                             <div className="crt__checkout-details">
                                 <div className="crt__checkout-row">
-                                    <span>Items ({selectedItems.length}):</span>
-                                    <span>${calculateSubtotal()}</span>
+                                    <span>Items selected</span>
+                                    <span className="crt__checkout-val">{selectedItems.length} / {cartItems.length}</span>
                                 </div>
                                 <div className="crt__checkout-row">
-                                    <span>Shipping:</span>
-                                    <span>TBD</span>
+                                    <span>Subtotal</span>
+                                    <span className="crt__checkout-val">${calculateSubtotal()}</span>
                                 </div>
-                                <div className="crt__checkout-total">
-                                    <span>Total:</span>
-                                    <span>${calculateSubtotal()}</span>
+                                <div className="crt__checkout-row">
+                                    <span>Shipping</span>
+                                    <span className="crt__checkout-val crt__checkout-tbd">TBD</span>
                                 </div>
                             </div>
+
+                            <div className="crt__checkout-total">
+                                <span>Estimated Total</span>
+                                <span>${calculateSubtotal()}</span>
+                            </div>
+
                             <button
                                 className="crt__checkout-btn"
                                 onClick={handleCheckoutClick}
@@ -237,16 +273,60 @@ const CartPage = () => {
                                 {isCheckingOut ? (
                                     <span className="crt__checkout-btn-content">
                                         <span className="crt__checkout-spinner" aria-hidden="true"></span>
-                                        Checking stock...
+                                        Checking stock…
                                     </span>
                                 ) : (
-                                    "Proceed to checkout"
+                                    <span className="crt__checkout-btn-content">
+                                        Proceed to Checkout
+                                        <FaArrowRight />
+                                    </span>
                                 )}
                             </button>
+
+                            {selectedItems.length === 0 && (
+                                <p className="crt__checkout-hint">Select items above to continue</p>
+                            )}
                         </div>
                     </div>
                 )}
             </div>
+
+            {/* ── Out-of-Stock Modal ── */}
+            {outOfStockModal.open && (
+                <div className="crt__modal-overlay" onClick={() => setOutOfStockModal({ open: false, items: [] })}>
+                    <div className="crt__modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="crt__modal-header">
+                            <FaExclamationTriangle className="crt__modal-icon" />
+                            <h3>Some items are out of stock</h3>
+                            <button
+                                className="crt__modal-close"
+                                onClick={() => setOutOfStockModal({ open: false, items: [] })}
+                            >
+                                <FaTimes />
+                            </button>
+                        </div>
+                        <p className="crt__modal-desc">
+                            The following items don't have enough stock to fulfill your order. Please update the quantities or remove them before proceeding.
+                        </p>
+                        <ul className="crt__modal-list">
+                            {outOfStockModal.items.map((oos) => (
+                                <li key={oos.product_id} className="crt__modal-item">
+                                    <span className="crt__modal-item-name">{oos.title}</span>
+                                    <span className="crt__modal-item-stock">
+                                        Requested: <strong>{oos.requested_quantity}</strong> &nbsp;·&nbsp; Available: <strong>{oos.available_stock}</strong>
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                        <button
+                            className="crt__modal-btn"
+                            onClick={() => setOutOfStockModal({ open: false, items: [] })}
+                        >
+                            Got it
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

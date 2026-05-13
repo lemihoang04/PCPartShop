@@ -172,8 +172,8 @@
 }
 
 .selected-component img {
-  width: 40px;
-  height: 40px;
+  width: 35px;
+  height: 35px;
   object-fit: contain;
   margin-right: 10px;
   background: white;
@@ -1038,4 +1038,29 @@
 
 .modal-done-btn:hover {
   background: #16a34a;
+}
+
+/* Availability */
+.availability {
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+.availability-badge {
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  display: inline-block;
+}
+
+.availability.in-stock .availability-badge {
+  color: #1f93ff;
+  background: #eaf2fb;
+  border: 1px solid #dbeaf9;
+}
+
+.availability.out-of-stock .availability-badge {
+  color: #ef4444;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
 }

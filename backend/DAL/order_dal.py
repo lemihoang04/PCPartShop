@@ -81,9 +81,11 @@ def get_orders_by_user_id(user_id):
                 o.created_at,
                 p.title,
                 p.price AS product_price,
-                p.image
+                p.image,
+                CASE WHEN r.id IS NOT NULL THEN 1 ELSE 0 END AS is_reviewed
             FROM `Order` o
             JOIN Products p ON o.product_id = p.product_id
+            LEFT JOIN reviews r ON o.id = r.order_id
             WHERE o.user_id = %s
             ORDER BY o.order_id DESC
         """, (user_id,))

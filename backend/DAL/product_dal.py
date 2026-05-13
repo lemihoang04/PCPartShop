@@ -233,17 +233,27 @@ def dal_get_products_by_ids_for_chatbot(product_ids):
         db.close()
 
 def dal_get_components_by_type(type):
-    valid_types = ['Storage', 'PSU', 'Mainboard', 'GPU', 'CPU', 'RAM', 'CPU Cooler', 'Case']
-    if type not in valid_types:
-        return {"error": "Invalid component type"}, 400
-
     db = get_db_connection()
     if not db:
         return {'error': 'Database connection failed'}, 500
 
     cursor = db.cursor(dictionary=True)
-    cursor.execute("SET SESSION group_concat_max_len = 100000;")
     try:
+        # Check if category exists
+        cursor.execute("""
+            SELECT category_id, category_name 
+            FROM categories 
+            WHERE LOWER(category_name) = LOWER(%s)
+        """, (type,))
+        category = cursor.fetchone()
+        
+        if category:
+            type_to_use = category['category_name']
+        else:
+            valid_types = ['Storage', 'PSU', 'Mainboard', 'GPU', 'CPU', 'RAM', 'CPU Cooler', 'Case', 'CPU_Cooler']
+            type_to_use = next((v for v in valid_types if v.lower() == type.lower()), type)
+
+        cursor.execute("SET SESSION group_concat_max_len = 100000;")
         query = """
         SELECT 
             p.product_id,
@@ -256,15 +266,34 @@ def dal_get_components_by_type(type):
             p.created_at,
             p.updated_at,
             c.category_name,
-            GROUP_CONCAT(pa.attribute_name, ':', pa.attribute_value) as attributes
+            IFNULL(pa_group.attributes, '') AS attributes
         FROM products p
         JOIN categories c ON p.category_id = c.category_id
-        LEFT JOIN product_attributes pa ON p.product_id = pa.product_id
+        LEFT JOIN (
+            SELECT 
+                product_id,
+                GROUP_CONCAT(CONCAT(attribute_name, ':', attribute_value) SEPARATOR '; ') AS attributes
+            FROM 
+                product_attributes
+            GROUP BY 
+                product_id
+        ) pa_group ON p.product_id = pa_group.product_id
         WHERE c.category_name = %s
         GROUP BY p.product_id
         """
-        cursor.execute(query, (type,))
+        cursor.execute(query, (type_to_use,))
         components = cursor.fetchall()
+        
+        # Parse attributes string into dict
+        for component in components:
+            attrs = {}
+            if component.get('attributes'):
+                for pair in component['attributes'].split('; '):
+                    if ':' in pair:
+                        key, value = pair.split(':', 1)
+                        attrs[key.strip()] = value.strip()
+            component['attributes'] = attrs
+
         if not components:
             return {"message": "No components found for this type"}, 404
         return components, 200

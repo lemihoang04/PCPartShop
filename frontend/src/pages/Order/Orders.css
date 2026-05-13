@@ -1,449 +1,467 @@
-/* Order.css - Custom CSS for the Orders list page with odrs__ prefix to avoid conflicts */
+/* Orders.css — Clean, compact design. Primary: #1f93ff. No gradients. */
 
+/* ────────────────── Container ────────────────── */
 .odrs__container {
-    max-width: 1200px;
+    max-width: 1000px;
     margin: 0 auto;
-    padding: 40px 20px;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    color: #333;
+    padding: 36px 20px 60px;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    color: #1a1a2e;
 }
 
+/* ────────────────── Header ────────────────── */
 .odrs__header {
-    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+}
+
+.odrs__header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.odrs__header-icon {
+    font-size: 22px;
+    color: #1f93ff;
 }
 
 .odrs__title {
-    font-size: 32px;
+    font-size: 26px;
     font-weight: 700;
-    color: #202020;
-    margin: 0 0 8px 0;
-}
-
-.odrs__subheader {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.odrs__count {
-    font-size: 15px;
-    color: #666;
     margin: 0;
+    color: #111;
 }
 
+.odrs__count-badge {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1f93ff;
+    background: #e8f4ff;
+    padding: 4px 12px;
+    border-radius: 20px;
+}
+
+/* ────────────────── Controls ────────────────── */
 .odrs__controls {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    margin-bottom: 30px;
+    justify-content: space-between;
     flex-wrap: wrap;
-    gap: 15px;
+    gap: 12px;
+    margin-bottom: 24px;
 }
 
 .odrs__filters {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
 }
 
 .odrs__filter-btn {
-    padding: 8px 16px;
+    padding: 6px 14px;
     border-radius: 20px;
-    font-size: 14px;
-    background-color: #f1f1f1;
-    color: #666;
-    border: none;
+    font-size: 13px;
+    font-weight: 500;
+    background: #f3f4f6;
+    color: #555;
+    border: 1px solid transparent;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.18s;
 }
 
 .odrs__filter-btn:hover {
-    background-color: #e0e0e0;
+    background: #e8f4ff;
+    color: #1f93ff;
+    border-color: #bee3ff;
 }
 
 .odrs__filter-btn.odrs__active {
-    background-color: #0066cc;
-    color: white;
+    background: #1f93ff;
+    color: #fff;
+    border-color: #1f93ff;
 }
 
+/* ────────────────── Sort ────────────────── */
 .odrs__sort {
     display: flex;
     align-items: center;
-    gap: 10px;
-}
-
-.odrs__sort-label {
-    font-size: 14px;
-    color: #666;
+    gap: 8px;
 }
 
 .odrs__sort-select {
-    padding: 8px 12px;
-    border-radius: 4px;
-    border: 1px solid #ddd;
-    background-color: white;
-    font-size: 14px;
+    padding: 6px 10px;
+    border: 1px solid #dde1e7;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #333;
+    background: #fff;
     outline: none;
+    cursor: pointer;
+    transition: border-color 0.18s;
 }
 
-.odrs__sort-direction {
+.odrs__sort-select:focus {
+    border-color: #1f93ff;
+}
+
+.odrs__sort-dir {
     width: 32px;
     height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 4px;
-    border: 1px solid #ddd;
-    background-color: white;
+    border: 1px solid #dde1e7;
+    border-radius: 6px;
+    background: #fff;
+    color: #555;
     cursor: pointer;
-    font-size: 16px;
+    font-size: 14px;
+    transition: all 0.18s;
 }
 
-.odrs__orders-list {
+.odrs__sort-dir:hover {
+    border-color: #1f93ff;
+    color: #1f93ff;
+}
+
+/* ────────────────── Order list ────────────────── */
+.odrs__list {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 14px;
 }
 
-.odrs__order-card {
-    background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    padding: 24px;
-    transition: transform 0.2s ease;
+/* ────────────────── Order card ────────────────── */
+.odrs__card {
+    background: #fff;
+    border: 1px solid #e8eaed;
+    border-radius: 10px;
+    padding: 18px 20px;
+    transition: box-shadow 0.2s, border-color 0.2s;
 }
 
-.odrs__order-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+.odrs__card:hover {
+    box-shadow: 0 4px 16px rgba(31, 147, 255, 0.08);
+    border-color: #bee3ff;
 }
 
-.odrs__order-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 16px;
-}
-
-.odrs__order-info {
-    display: flex;
-    gap: 24px;
-}
-
-.odrs__order-number,
-.odrs__order-date {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.odrs__label {
-    font-size: 13px;
-    color: #666;
-}
-
-.odrs__value {
-    font-size: 15px;
-    font-weight: 600;
-    color: #202020;
-}
-
-/* Updated order summary with product preview */
-.odrs__order-summary {
-    padding: 16px 0;
-    border-top: 1px solid #f1f1f1;
-    border-bottom: 1px solid #f1f1f1;
-    margin-bottom: 16px;
-}
-
-.odrs__product-preview {
+/* ── Card head ── */
+.odrs__card-head {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
 }
 
-.odrs__product-image {
-    width: 80px;
-    height: 80px;
-    border-radius: 4px;
+.odrs__card-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.odrs__meta-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    color: #555;
+}
+
+.odrs__meta-icon {
+    color: #1f93ff;
+    font-size: 12px;
+}
+
+.odrs__divider {
+    width: 1px;
+    height: 14px;
+    background: #dde1e7;
+}
+
+/* ────────────────── Status badges ────────────────── */
+.odrs__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 11px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    letter-spacing: 0.3px;
+}
+
+.odrs__status-pending {
+    background: #fff7e6;
+    color: #d97706;
+}
+
+.odrs__status-processing {
+    background: #ede9fe;
+    color: #5b21b6;
+}
+
+.odrs__status-shipped {
+    background: #e0f2fe;
+    color: #0369a1;
+}
+
+.odrs__status-completed {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.odrs__status-delivered {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.odrs__status-cancelled {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+/* ── Product row ── */
+.odrs__product-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 0;
+    border-top: 1px solid #f1f3f5;
+    border-bottom: 1px solid #f1f3f5;
+    margin-bottom: 14px;
+}
+
+.odrs__thumb {
+    width: 68px;
+    height: 68px;
+    border-radius: 8px;
     overflow: hidden;
     border: 1px solid #eee;
-    margin-right: 16px;
     flex-shrink: 0;
+    background: #fafafa;
 }
 
-.odrs__product-image img {
+.odrs__thumb img {
     width: 100%;
     height: 100%;
     object-fit: contain;
 }
 
-.odrs__product-info {
+.odrs__product-body {
     flex: 1;
+    min-width: 0;
 }
 
 .odrs__product-name {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
-    margin: 0 0 8px 0;
-    color: #333;
+    color: #222;
+    margin: 0 0 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    transition: color 0.2s;
 }
 
-.odrs__product-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 4px;
-}
-
-.odrs__quantity {
-    background-color: #ebf8ff;
-    padding: 3px 8px;
-    border-radius: 12px;
-    font-size: 18px;
-    color: #3182ce;
-    font-weight: 600;
-}
-
-.odrs__price {
-    font-weight: 600;
-    font-size: 16px;
-    color: #0066cc;
-}
-
-.odrs__more-items {
-    font-size: 13px;
-    color: #0066cc;
-    text-decoration: none;
-    display: block;
-}
-
-.odrs__more-items:hover {
+.odrs__product-name:hover {
+    color: #1f93ff;
     text-decoration: underline;
 }
 
-/* End of order summary updates */
-
-.odrs__status {
-    display: inline-block;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 14px;
-    font-weight: 600;
-    text-transform: uppercase;
-}
-
-.odrs__status-pending {
-    background-color: #ffe082;
-    color: #ff8f00;
-}
-
-.odrs__status-processing {
-    background-color: #e0e7ff;
-    color: #4338ca;
-}
-
-.odrs__status-shipped {
-    background-color: #90caf9;
-    color: #1976d2;
-}
-
-.odrs__status-completed {
-    background-color: #c8e6c9;
-    color: #2e7d32;
-}
-
-.odrs__status-delivered {
-    background-color: #a5d6a7;
-    color: #2e7d32;
-}
-
-.odrs__status-cancelled {
-    background-color: #ef9a9a;
-    color: #c62828;
-}
-
-.odrs__order-actions {
+.odrs__product-foot {
     display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
 }
 
-.odrs__button {
-    padding: 10px 20px;
-    border-radius: 4px;
-    font-size: 14px;
+.odrs__qty {
+    font-size: 12px;
+    color: #777;
+    background: #f3f4f6;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.odrs__price {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1f93ff;
+}
+
+/* ── Actions ── */
+.odrs__actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.odrs__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 16px;
+    border-radius: 6px;
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
-    border: none;
+    border: 1px solid transparent;
+    transition: all 0.18s;
+    text-decoration: none;
 }
 
-.odrs__primary-button {
-    background-color: #0066cc;
-    color: white;
+.odrs__btn-primary {
+    background: #1f93ff;
+    color: #fff;
+    border-color: #1f93ff;
 }
 
-.odrs__primary-button:hover {
-    background-color: #0055aa;
+.odrs__btn-primary:hover {
+    background: #0d7de0;
+    border-color: #0d7de0;
 }
 
-.odrs__secondary-button {
-    background-color: #f1f1f1;
-    color: #333;
+.odrs__btn-danger {
+    background: #fff;
+    color: #e53e3e;
+    border-color: #e53e3e;
 }
 
-.odrs__secondary-button:hover {
-    background-color: #e0e0e0;
+.odrs__btn-danger:hover {
+    background: #fff5f5;
 }
 
-.odrs__outline-button {
-    background-color: transparent;
-    color: #d32f2f;
-    border: 1px solid #d32f2f;
+.odrs__btn-rate {
+    background: #fff8e1;
+    color: #d97706;
+    border-color: #f59e0b;
+    font-weight: 600;
 }
 
-.odrs__outline-button:hover {
-    background-color: rgba(211, 47, 47, 0.05);
+.odrs__btn-rate:hover {
+    background: #fef3c7;
 }
 
+.odrs__reviewed-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #15803d;
+    background: #dcfce7;
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid #bbf7d0;
+}
+
+/* ────────────────── Loading ────────────────── */
 .odrs__loading {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 60px 0;
+    padding: 80px 0;
+    gap: 16px;
+    color: #888;
 }
 
 .odrs__loading-spinner {
-    width: 40px;
-    height: 40px;
-    border: 3px solid #f1f1f1;
-    border-top: 3px solid #0066cc;
+    width: 36px;
+    height: 36px;
+    border: 3px solid #e8f4ff;
+    border-top-color: #1f93ff;
     border-radius: 50%;
-    animation: odrs-spin 1s linear infinite;
-    margin-bottom: 20px;
+    animation: odrs-spin 0.8s linear infinite;
 }
 
 @keyframes odrs-spin {
-    0% {
-        transform: rotate(0deg);
-    }
-
-    100% {
-        transform: rotate(360deg);
-    }
+    to { transform: rotate(360deg); }
 }
 
+/* ────────────────── Empty ────────────────── */
 .odrs__empty {
     text-align: center;
-    padding: 60px 0;
-    background-color: #f9f9f9;
-    border-radius: 8px;
+    padding: 70px 20px;
+    background: #f9fafb;
+    border-radius: 12px;
+    border: 1px dashed #d1d5db;
+}
+
+.odrs__empty-icon {
+    font-size: 48px;
+    color: #cbd5e1;
+    margin-bottom: 16px;
 }
 
 .odrs__empty h3 {
-    font-size: 20px;
-    margin-bottom: 12px;
+    font-size: 18px;
+    font-weight: 600;
+    color: #374151;
+    margin: 0 0 10px;
 }
 
 .odrs__empty p {
-    margin-bottom: 24px;
-    color: #666;
-    max-width: 500px;
-    margin-left: auto;
-    margin-right: auto;
+    color: #6b7280;
+    margin: 0 auto 20px;
+    max-width: 360px;
+    font-size: 14px;
 }
 
-/* Rating button styles */
-.odrs__rating-button {
-    background-color: #f59e0b;
-    color: white;
-    border: 1px solid #f59e0b;
-    transition: all 0.2s ease;
-}
-
-.odrs__rating-button:hover {
-    background-color: #d97706;
-    border-color: #d97706;
-}
-
-/* Animation for new Rating button */
-@keyframes pulse {
-    0% {
-        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+/* ────────────────── Responsive ────────────────── */
+@media (max-width: 640px) {
+    .odrs__container {
+        padding: 20px 14px 40px;
     }
 
-    70% {
-        box-shadow: 0 0 0 6px rgba(245, 158, 11, 0);
+    .odrs__card {
+        padding: 14px 15px;
     }
 
-    100% {
-        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
-    }
-}
-
-.odrs__rating-button {
-    animation: pulse 2s infinite;
-}
-
-/* Responsive styles */
-@media (max-width: 900px) {
-
-    .odrs__order-header,
-    .odrs__order-info {
+    .odrs__card-head {
         flex-direction: column;
-        gap: 12px;
+        align-items: flex-start;
+        gap: 8px;
     }
 
-    .odrs__status {
-        align-self: flex-start;
-    }
-}
-
-@media (max-width: 700px) {
     .odrs__controls {
         flex-direction: column;
         align-items: flex-start;
     }
 
     .odrs__filters {
-        width: 100%;
         overflow-x: auto;
-        padding-bottom: 8px;
         flex-wrap: nowrap;
+        width: 100%;
+        padding-bottom: 4px;
     }
 
-    .odrs__product-preview {
+    .odrs__product-row {
         flex-direction: column;
         align-items: flex-start;
     }
 
-    .odrs__product-image {
-        margin-bottom: 12px;
-        margin-right: 0;
+    .odrs__thumb {
         width: 100%;
-        height: 160px;
+        height: 140px;
     }
 
-    .odrs__product-info {
+    .odrs__product-body {
         width: 100%;
     }
 
-    .odrs__order-actions {
+    .odrs__actions {
         flex-direction: column;
     }
 
-    .odrs__button {
+    .odrs__btn {
         width: 100%;
-    }
-}
-
-@media (max-width: 500px) {
-    .odrs__container {
-        padding: 20px 12px;
-    }
-
-    .odrs__order-card {
-        padding: 16px;
+        justify-content: center;
     }
 }

@@ -15,7 +15,7 @@
   --transition: all 0.25s ease;
   position: sticky;
   top: 0;
-  z-index: 1200;
+  z-index: 700;
   background: radial-gradient(circle at 10% -25%, rgba(39, 167, 255, 0.36), transparent 35%),
     linear-gradient(110deg, #03060c 0%, #060b15 42%, #04070d 100%);
   border-bottom: 1px solid #162238;

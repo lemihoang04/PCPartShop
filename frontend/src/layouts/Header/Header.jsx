@@ -158,10 +158,10 @@ const Header = () => {
     <div className="header-container dark-theme">
       <div className="main-header">
         <div className="brand-block" onClick={() => goTo('/home')}>
-          <span className="brand-mark">TS</span>
+          {/* <span className="brand-mark">TS</span> */}
           <div className="brand-text-wrap">
             <span className="brand-title">TechShop</span>
-            <span className="brand-subtitle">Gaming and Creator Gear</span>
+            <span className="brand-subtitle">PC Components Gear</span>
           </div>
         </div>
 

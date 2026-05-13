@@ -189,6 +189,7 @@ def dal_get_build_by_slug(slug: str):
                 i.category_id,
                 i.quantity,
                 p.title,
+                p.stock,
                 p.price,
                 p.image,
                 c.category_name

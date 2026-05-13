@@ -12,6 +12,42 @@ from langgraph.prebuilt import ToolNode, tools_condition
 
 from context.init_models import db, get_llm
 
+import pickle
+from langchain_community.retrievers import BM25Retriever
+
+try:
+    docs_path = os.path.join(os.path.dirname(__file__), "chroma_db", "docs.pkl")
+    with open(docs_path, "rb") as f:
+        all_docs = pickle.load(f)
+    bm25_retriever = BM25Retriever.from_documents(all_docs)
+except Exception as e:
+    print(f"Error loading docs.pkl for BM25: {e}")
+    bm25_retriever = None
+
+def check_filter_match(doc: Any, filters: Optional[Dict[str, Any]]) -> bool:
+    if not filters:
+        return True
+    metadata = getattr(doc, "metadata", {}) or {}
+    def match_condition(cond: Dict[str, Any]) -> bool:
+        for k, v in cond.items():
+            if k == "$and":
+                return all(match_condition(c) for c in v)
+            if k == "$or":
+                return any(match_condition(c) for c in v)
+            doc_val = metadata.get(k)
+            if isinstance(v, dict):
+                for op, op_val in v.items():
+                    if op == "$gte":
+                        if doc_val is None or doc_val < op_val: return False
+                    elif op == "$lte":
+                        if doc_val is None or doc_val > op_val: return False
+                    elif op == "$eq":
+                        if doc_val != op_val: return False
+            else:
+                if doc_val != v: return False
+        return True
+    return match_condition(filters)
+
 # =====================================================
 # CONFIG
 # =====================================================
@@ -222,15 +258,45 @@ def ranked_search(query: str, filters: Optional[Dict[str, Any]], k: int = 8) -> 
 
     queries = [
         query,
-        f"sản phẩm phù hợp cho nhu cầu {query}",
-        f"linh kiện pc {query}",
+        # f"sản phẩm phù hợp cho nhu cầu {query}",
+        # f"linh kiện pc {query}",
     ]
 
     for q in queries:
         try:
-            docs = db.similarity_search(q, k=k, filter=filters if filters else None)
-            results.extend(docs)
-        except Exception:
+            if bm25_retriever:
+                vector_docs = db.similarity_search(q, k=k, filter=filters if filters else None)
+                
+                bm25_retriever.k = max(k * 3, 20)
+                bm25_docs_unfiltered = bm25_retriever.invoke(q)
+                
+                if filters:
+                    bm25_docs = [d for d in bm25_docs_unfiltered if check_filter_match(d, filters)]
+                else:
+                    bm25_docs = bm25_docs_unfiltered
+                
+                rrf_score = {}
+                doc_map = {}
+                
+                for r, doc in enumerate(vector_docs):
+                    uid = doc_uid(doc)
+                    rrf_score[uid] = rrf_score.get(uid, 0.0) + (1.0 / (r + 60))
+                    doc_map[uid] = doc
+                    
+                for r, doc in enumerate(bm25_docs):
+                    uid = doc_uid(doc)
+                    rrf_score[uid] = rrf_score.get(uid, 0.0) + (1.0 / (r + 50)) * 0.9
+                    doc_map[uid] = doc
+                
+                sorted_docs = sorted(rrf_score.items(), key=lambda x: x[1], reverse=True)
+                docs = [doc_map[uid] for uid, score in sorted_docs[:k]]
+                
+                results.extend(docs)
+            else:
+                docs = db.similarity_search(q, k=k, filter=filters if filters else None)
+                results.extend(docs)
+        except Exception as e:
+            print(f"Hybrid search error: {e}")
             continue
 
     return dedupe_docs(results)
@@ -370,31 +436,27 @@ def build_pc_recommendation(budget: int, priority: str = "balance") -> str:
 # =====================================================
 
 @tool
-def search_products_by_keyword(keyword: str, limit: int = 10) -> str:
-    """Tim san pham theo tu khoa trong mo ta/ten san pham."""
+def search_products(keyword: str = "", category: str = "", limit: int = 10) -> str:
+    """Tìm sản phẩm theo từ khóa(keyword) và/hoặc loại linh kiện(category). Cả 2 đều có thể để trống nếu chỉ cần tìm theo 1 trong 2."""
     keyword = (keyword or "").strip()
-    if not keyword:
-        return "Vui lòng cung cấp từ khóa để tìm sản phẩm."
+    category = (category or "").strip().lower()
 
-    docs = ranked_search(keyword, None, k=max(1, min(limit, 10)))
+    if not keyword and not category:
+        return "Vui lòng cung cấp từ khóa hoặc loại sản phẩm."
+
+    filters = {"category": category} if category else None
+    query = keyword if keyword else category
+
+    docs = ranked_search(query, filters, k=max(1, min(limit, 10)))
     docs = docs[: max(1, min(limit, 10))]
+    
     if not docs:
-        return f"Không tìm thấy sản phẩm nào với từ khóa '{keyword}'."
-
-    return build_context_block(docs)
-
-
-@tool
-def search_products_by_type(product_type: str, limit: int = 10) -> str:
-    """Tim san pham theo loai linh kien."""
-    product_type = (product_type or "").strip().lower()
-    if not product_type:
-        return "Vui lòng cung cấp loại sản phẩm."
-
-    docs = ranked_search(product_type, {"category": product_type}, k=max(1, min(limit, 10)))
-    docs = docs[: max(1, min(limit, 10))]
-    if not docs:
-        return f"Không tìm thấy sản phẩm loại '{product_type}'."
+        if keyword and category:
+            return f"Không tìm thấy sản phẩm nào loại '{category}' với từ khóa '{keyword}'."
+        elif keyword:
+            return f"Không tìm thấy sản phẩm nào với từ khóa '{keyword}'."
+        else:
+            return f"Không tìm thấy sản phẩm loại '{category}'."
 
     return build_context_block(docs)
 
@@ -402,7 +464,7 @@ def search_products_by_type(product_type: str, limit: int = 10) -> str:
 @tool
 def search_products_by_budget(target_price: int, keyword: str = "", product_type: str = "", limit: int = 5) -> str:
     """
-    Tìm sản phẩm gần với ngân sách mục tiêu của người dùng (target_price) và keyword.
+    Tìm sản phẩm gần với ngân sách mục tiêu của người dùng (target_price), loại sản phẩm (product_type) và từ khóa (keyword).
     """
 
     if target_price <= 0:
@@ -464,8 +526,7 @@ def get_available_types() -> str:
 
 
 tools = [
-    search_products_by_keyword,
-    search_products_by_type,
+    search_products,
     search_products_by_budget,
     recommend_pc_build,
     get_available_types,
@@ -486,9 +547,9 @@ Bạn là trợ lý tư vấn cho shop linh kiện PC và laptop.
 Quy tắc:
 - Chỉ trả lời dựa trên dữ liệu từ tools.
 - Trả lời bằng JSON hợp lệ với 2 khóa bắt buộc: "message" và "product_ids".
-- "message" phải là nội dung markdown ngắn gọn, rõ ràng, không sử dụng icon.
+- "message" phải là nội dung markdown ngắn gọn, rõ ràng, không sử dụng icon, có kèm danh sách sản phẩm (không kèm product_id) nếu có. 
 - "product_ids" là danh sách product_id lấy từ các sản phẩm phù hợp; nếu không có sản phẩm thì trả về [].
-- Nếu người dùng hỏi chung về loại sản phẩm, dùng get_available_types hoặc search_products_by_type.
+- Nếu người dùng hỏi chung về loại sản phẩm hoặc tìm kiếm sản phẩm, dùng get_available_types hoặc search_products.
 - Nếu có ngân sách, dùng search_products_by_budget hoặc recommend_pc_build.
 - Nếu người dùng muốn build PC, hãy hỏi thêm nếu thiếu ngân sách hoặc nhu cầu.
 - Khi đã có đủ dữ liệu, trả lời ngắn gọn, rõ ràng, ưu tiên dạng danh sách.

@@ -27,7 +27,7 @@ const Home = () => {
             subtitle: 'High-end gaming setups with best price/performance picks.',
             cta: 'Build Your PC',
             badge: 'Best Seller',
-            image: 'https://goscreenworks.com/wp-content/uploads/2022/08/ella-don-JomkRNkzKhE-unsplash.jpg',
+            image: 'https://nzxt.com/cdn/shop/files/Shop_the_look_1.png?v=1770183972&width=2400',
             route: '/build'
         },
         {
@@ -36,7 +36,7 @@ const Home = () => {
             subtitle: 'From entry-level to enthusiast, every part in one place.',
             cta: 'Shop Components',
             badge: 'New Arrivals',
-            image: 'https://www.intel.com/content/dam/www/central-libraries/us/en/images/2023-01/s9-u05-03-overhead-pc-components-original-rwd.jpg.rendition.intel.web.1648.927.jpg',
+            image: 'https://nzxt.com/cdn/shop/files/Special_Offers_adfb08a1-d891-4bab-b852-a92f01441688.png?v=1774793945&width=1800',
             route: '/components/gpu'
         },
         {

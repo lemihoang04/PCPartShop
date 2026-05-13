@@ -48,7 +48,11 @@ def api_check_out_stock():
         return jsonify({'error': 'No items provided'}), 400
 
     try:
-        stock_results = checkOutStock(items)
-        return jsonify({"errCode": 0, "data": stock_results}), 200
+        out_of_stock_items = checkOutStock(items)
+        if out_of_stock_items:
+            # Some items are out of stock — return them with errCode 1
+            return jsonify({"errCode": 1, "outOfStock": out_of_stock_items}), 200
+        # All items are in stock
+        return jsonify({"errCode": 0, "outOfStock": []}), 200
     except Exception as e:
-        return jsonify({"errCode": 1, 'error': str(e)}), 500
+        return jsonify({"errCode": 2, 'error': str(e)}), 500

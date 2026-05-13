@@ -139,6 +139,37 @@ def delete_review(review_id, user_id):
             cursor.close()
             connection.close()
 
+def check_order_reviewed(order_id, product_id=None):
+    """
+    Check if a specific order item has already been reviewed.
+    If product_id is provided, checks for that specific product in the order.
+    Returns True if reviewed, False otherwise.
+    """
+    try:
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
+
+        if product_id is not None:
+            query = """
+            SELECT id FROM reviews WHERE order_id = %s AND product_id = %s LIMIT 1
+            """
+            cursor.execute(query, (order_id, product_id))
+        else:
+            query = """
+            SELECT id FROM reviews WHERE order_id = %s LIMIT 1
+            """
+            cursor.execute(query, (order_id,))
+
+        result = cursor.fetchone()
+        return result is not None
+    except Error as e:
+        print(f"Error checking order review status: {e}")
+        return False
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+
 def get_product_rating_summary(product_id):
     """
     Get rating summary for a product (average rating and count by rating value)

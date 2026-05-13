@@ -134,6 +134,26 @@ def get_reviews_by_user(user_id):
             "message": f"An error occurred: {str(e)}"
         })
 
+@review_blueprint.route('/order/<order_id>/reviewed', methods=['GET'])
+def check_order_review_status(order_id):
+    """
+    Check if an order item has already been reviewed.
+    Optional query param: product_id
+    """
+    try:
+        product_id = request.args.get('product_id', type=int)
+        is_reviewed = check_order_reviewed(order_id, product_id)
+        return jsonify({
+            "errCode": 0,
+            "is_reviewed": is_reviewed
+        })
+    except Exception as e:
+        print(f"Error checking order review status: {e}")
+        return jsonify({
+            "errCode": 1,
+            "message": f"An error occurred: {str(e)}"
+        })
+
 @review_blueprint.route('/review/<int:review_id>', methods=['DELETE'])
 def remove_review(review_id):
     """

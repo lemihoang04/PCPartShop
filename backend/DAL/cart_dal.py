@@ -90,13 +90,19 @@ def checkOutStock(items):
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)
 
+    out_of_stock = []
     try:
         for item in items:
-            cursor.execute("SELECT stock FROM products WHERE product_id = %s", (item['product_id'],))
+            cursor.execute("SELECT title, stock FROM products WHERE product_id = %s", (item['product_id'],))
             product = cursor.fetchone()
             if not product or product['stock'] < item['quantity']:
-                return False
-        return True
+                out_of_stock.append({
+                    'product_id': item['product_id'],
+                    'title': product['title'] if product else 'Unknown product',
+                    'available_stock': product['stock'] if product else 0,
+                    'requested_quantity': item['quantity'],
+                })
+        return out_of_stock
     except Error as e:
         raise Exception(f"Database error: {str(e)}")
     finally:

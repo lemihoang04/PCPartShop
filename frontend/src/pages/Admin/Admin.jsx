@@ -8,6 +8,7 @@ import UserManager from "./User/UserManager.jsx";
 import OrderManager from "./Order/OrderManager.jsx";
 import CategoryManager from "./Category/CategoryManager.jsx";
 import ProductManager from "./Product/ProductManager.jsx";
+import CouponManager from "./Coupon/CouponManager.jsx";
 import adminAvatar from "./assets/images/admin-icon.svg"; // Make sure this path is correct
 // import Settings from "./Settings/Settings.jsx";
 import { useNavigate } from "react-router-dom";
@@ -36,6 +37,8 @@ const Admin = () => {
                 return <UserManager />;
             case "Product":
                 return <ProductManager />;
+            case "Coupon":
+                return <CouponManager />;
             // case "Settings":
             //     return <Settings />;
             default:
@@ -101,6 +104,7 @@ const Admin = () => {
                         { name: "Product", icon: "bi-box" },
                         { name: "Order", icon: "bi-cart" },
                         { name: "Customers", icon: "bi-people" },
+                        { name: "Coupon", icon: "bi-ticket-perforated" },
                         // { name: "Reports", icon: "bi-bar-chart" },
                         // { name: "Settings", icon: "bi-gear" },
                     ].map((item) => (
@@ -127,7 +131,36 @@ const Admin = () => {
             {/* Main Content Area */}
             <div className={`admin-content-area ${collapsed ? "expanded" : ""}`}>
                 {/* Top Navbar */}
-
+                {/* <div className="admin-top-navbar d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 className="mb-0 fw-bold">{activeTab}</h5>
+                        <nav aria-label="breadcrumb">
+                            <ol className="breadcrumb mb-0 small">
+                                <li className="breadcrumb-item"><a href="#" className="text-decoration-none">Home</a></li>
+                                <li className="breadcrumb-item active" aria-current="page">{activeTab}</li>
+                            </ol>
+                        </nav>
+                    </div>
+                    <div className="d-flex align-items-center">
+                        <div className="admin-notification-bell me-4">
+                            <i className="bi bi-bell fs-4"></i>
+                            {notifications > 0 && (
+                                <span className="admin-notification-badge">{notifications}</span>
+                            )}
+                        </div>
+                        <div className="admin-user-profile">
+                            <img
+                                src={adminAvatar || "https://via.placeholder.com/40"}
+                                alt="Admin"
+                                className="admin-logo me-2"
+                            />
+                            <div className="d-none d-md-block">
+                                <h6 className="mb-0 fw-bold">Admin User</h6>
+                                <small className="text-muted">Administrator</small>
+                            </div>
+                        </div>
+                    </div>
+                </div> */}
 
                 {/* Main Content */}
                 <div className="admin-main-content">
