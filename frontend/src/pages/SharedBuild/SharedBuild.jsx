@@ -310,10 +310,10 @@ const SharedBuild = () => {
   return (
     <div className="sb-shared-build-container">
       {/* Page Hero Header */}
-      <div className="sb-hero-section">
+      {/* <div className="sb-hero-section">
         <h1>Góc Chia Sẻ PC Builds</h1>
         <p>Khám phá, tùy biến và hiện thực hóa các bộ cấu hình PC đỉnh cao được thiết kế và chia sẻ bởi cộng đồng!</p>
-      </div>
+      </div> */}
 
       <div className="sb-search-content">
         {/* Left Side Filter Panel */}

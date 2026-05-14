@@ -1,9 +1,9 @@
 import React, { useContext, useEffect, useState, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { fetchProductById, fetchProductsByCategoryId } from "../../services/productService.js";
 import { GetProductReviews } from "../../services/apiService.js";
 import { UserContext } from "../../context/UserProvider";
-import { FaStar, FaStarHalfAlt, FaRegStar, FaShoppingCart, FaChevronDown, FaChevronUp } from "react-icons/fa";
+import { FaStar, FaStarHalfAlt, FaRegStar, FaShoppingCart, FaChevronDown, FaChevronUp, FaCheckCircle, FaTimesCircle, FaMicrochip, FaBoxOpen, FaComments, FaFilter } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { addToCart } from "../../services/apiService.js";
 import "./ProductInfo.css";
@@ -14,8 +14,8 @@ import "./ProductInfo.css";
 //   return match ? parseFloat(match[1]) : null;
 // };
 
-const RatingStars = ({ rating }) => {
-  if (typeof rating !== "number" || rating < 0 || rating > 5) {
+const RatingStars = ({ rating, reviewsCount }) => {
+  if (typeof rating !== "number" || rating <= 0 || rating > 5) {
     return <p className="pi-no-rating">No ratings yet</p>;
   }
 
@@ -23,12 +23,29 @@ const RatingStars = ({ rating }) => {
   const halfStar = rating % 1 >= 0.5 ? 1 : 0;
   const emptyStars = 5 - fullStars - halfStar;
 
+  const scrollToReviews = () => {
+    const section = document.getElementById("reviews-section");
+    if (section) {
+      section.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
   return (
     <div className="pi-rating-stars">
       {Array.from({ length: fullStars }, (_, i) => <FaStar key={`full-${i}`} />)}
       {halfStar ? <FaStarHalfAlt key="half" /> : null}
       {Array.from({ length: emptyStars }, (_, i) => <FaRegStar key={`empty-${i}`} />)}
-      <span className="pi-rating-count">{rating.toFixed(1)}</span>
+      <span className="pi-rating-count">
+        {rating.toFixed(1)}
+        {reviewsCount !== undefined ? (
+          <span 
+            className="pi-review-link"
+            onClick={scrollToReviews}
+          >
+            ({reviewsCount})
+          </span>
+        ) : ''}
+      </span>
     </div>
   );
 };
@@ -70,6 +87,7 @@ const ProductInfo = () => {
   const { productId } = useParams();
   const { user, fetchUser } = useContext(UserContext);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [productInfo, setProductInfo] = useState(null);
   const [similarProducts, setSimilarProducts] = useState([]);
@@ -151,6 +169,18 @@ const ProductInfo = () => {
       setFilterStar(0);
     }
   }, [productId, fetchReviews]);
+
+  // Handle scrollToReviews from location state
+  useEffect(() => {
+    if (location.state?.scrollToReviews && !loading && !reviewsLoading) {
+      setTimeout(() => {
+        const section = document.getElementById("reviews-section");
+        if (section) {
+          section.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 300);
+    }
+  }, [location.state, loading, reviewsLoading]);
 
   // Function to fetch similar products by category
   const fetchSimilarProducts = async (currentProductId, categoryId) => {
@@ -288,10 +318,7 @@ const ProductInfo = () => {
 
             <div className="pi-product-meta">
               <div className="pi-product-rating-container">
-                <RatingStars rating={rating} />
-                <span className="pi-review-count">
-                  {productInfo.reviews ? `(${productInfo.reviews} reviews)` : ''}
-                </span>
+                <RatingStars rating={rating} reviewsCount={productInfo.reviews} />
               </div>
             </div>
           </div>
@@ -312,7 +339,7 @@ const ProductInfo = () => {
             )}
             {productInfo.discount && <div className="pi-discount-badge">-{productInfo.discount}%</div>}
             <div className={`pi-stock-badge ${isOutOfStock ? "pi-stock-out" : "pi-stock-in"}`}>
-              {isOutOfStock ? "Out of stock" : `${stockCount} in stock`}
+              {isOutOfStock ? <><FaTimesCircle /> Out of stock</> : <><FaCheckCircle /> {stockCount} in stock</>}
             </div>
           </div>
 
@@ -394,7 +421,7 @@ const ProductInfo = () => {
 
           {/* Product Specifications */}
           <div className="pi-product-specs-section">
-            <h2 className="pi-section-title">Specifications</h2>
+            <h2 className="pi-section-title"><FaMicrochip /> Specifications</h2>
             <div className="pi-specs-card">
               <div className="pi-specs-container">
                 {visibleSpecs.map(([key, value]) => {
@@ -425,7 +452,7 @@ const ProductInfo = () => {
       {/* Similar Products Section */}
       {similarProducts.length > 0 && (
         <section className="pi-similar-products-section">
-          <h2 className="pi-section-title">Similar Products</h2>
+          <h2 className="pi-section-title"><FaBoxOpen /> Similar Products</h2>
           <div className="pi-similar-products-grid">
             {similarProducts.map((product) => (
               <div
@@ -464,12 +491,12 @@ const ProductInfo = () => {
       )}
 
       {/* Product Reviews Section */}
-      <section className="pi-reviews-section">
-        <h2 className="pi-section-title">Customer Reviews</h2>
+      <section id="reviews-section" className="pi-reviews-section">
+        <h2 className="pi-section-title"><FaComments /> Customer Reviews</h2>
 
         {/* Star filter */}
         <div className="pi-reviews-filter">
-          <span className="pi-filter-label">Filter by:</span>
+          <span className="pi-filter-label"><FaFilter style={{fontSize: '0.7rem', marginRight: '3px'}} /> Filter:</span>
           {[0, 5, 4, 3, 2, 1].map((star) => (
             <button
               key={star}

@@ -412,6 +412,18 @@
   color: var(--ink-700);
 }
 
+.comp-search-review-link {
+  cursor: pointer;
+  color: var(--blue-500);
+  text-decoration: underline;
+  transition: all 0.2s;
+  margin-left: 2px;
+}
+
+.comp-search-review-link:hover {
+  color: var(--blue-600);
+}
+
 /* Table Styles */
 .comp-search-component-table {
   width: 100%;

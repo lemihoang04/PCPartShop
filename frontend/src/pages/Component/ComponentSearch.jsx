@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { fetchComponents, fetchCompatibleComponents } from '../../services/componentService';
 import './ComponentSearch.css';
 import { fetchComponentById } from '../../services/componentService';
+import { FaStar, FaStarHalfAlt, FaRegStar } from "react-icons/fa";
 
 const ComponentSearch = () => {
   const { type } = useParams();
@@ -272,6 +273,7 @@ const ComponentSearch = () => {
         'Voltage',
         'Timing',
         'ECC / Registered',
+        'Rating',
         'Price',
         'Action'
       ],
@@ -283,6 +285,7 @@ const ComponentSearch = () => {
         'CPU Socket',
         'Water Cooled',
         'Fanless',
+        'Rating',
         'Price',
         'Action'
       ],
@@ -294,6 +297,7 @@ const ComponentSearch = () => {
         'Motherboard Form Factor',
         'Maximum Video Card Length',
         'Drive Bays',
+        'Rating',
         'Price',
         'Action'
       ],
@@ -306,6 +310,7 @@ const ComponentSearch = () => {
         'TDP',
         'Cooling',
         'Interface',
+        'Rating',
         'Price',
         'Action'
       ],
@@ -317,6 +322,7 @@ const ComponentSearch = () => {
         'Memory Max',
         'Memory Slots',
         'PCIe x16 Slots',
+        'Rating',
         'Price',
         'Action'
       ],
@@ -328,6 +334,7 @@ const ComponentSearch = () => {
         'ATX 4-Pin Connectors',
         'PCIe 8-Pin Connectors',
         'SATA Connectors',
+        'Rating',
         'Price',
         'Action'
       ],
@@ -339,6 +346,7 @@ const ComponentSearch = () => {
         'Interface',
         'NVME',
         'Cache',
+        'Rating',
         'Price',
         'Action'
       ],
@@ -431,11 +439,31 @@ const ComponentSearch = () => {
   };
 
   const getComponentRowData = (component) => {
-    const ratingStars = (rating, count) => (
-      <span>
-        {'★'.repeat(Math.round(rating || 4)) + '☆'.repeat(5 - Math.round(rating || 4))} ({count || 0})
-      </span>
-    );
+    const ratingStars = (rating, count, productId) => {
+      const numericRating = Number(rating) || 0;
+      if (numericRating === 0) return <span style={{ color: '#7f98b4', fontStyle: 'italic' }}>No ratings yet</span>;
+
+      const fullStars = Math.floor(numericRating);
+      const halfStar = numericRating % 1 >= 0.5 ? 1 : 0;
+      const emptyStars = 5 - fullStars - halfStar;
+
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#f59e0b' }}>
+          {Array.from({ length: fullStars }, (_, i) => <FaStar key={`full-${i}`} />)}
+          {halfStar ? <FaStarHalfAlt key="half" /> : null}
+          {Array.from({ length: emptyStars }, (_, i) => <FaRegStar key={`empty-${i}`} />)}
+          <span 
+            className="comp-search-review-link" 
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/product-info/${productId}`, { state: { scrollToReviews: true } });
+            }}
+          >
+            {numericRating.toFixed(1)}({count || 0})
+          </span>
+        </div>
+      );
+    };
 
     switch (normalizedType) {
       case 'CPU':
@@ -447,7 +475,7 @@ const ComponentSearch = () => {
           component.attributes?.['Socket'] || 'N/A',
           component.attributes?.['TDP'] || 'N/A',
           component.attributes?.['Integrated Graphics'] || 'None',
-          ratingStars(4, component.attributes?.['Rating Count']),
+          ratingStars(component.rating, component.reviews, component.product_id),
           `$${component.price.toFixed(2)}`,
         ];
       case 'RAM':
@@ -459,6 +487,7 @@ const ComponentSearch = () => {
           component.attributes?.['Voltage'] || 'N/A',
           component.attributes?.['Timing'] || 'N/A',
           component.attributes?.['ECC / Registered'] || 'N/A',
+          ratingStars(component.rating, component.reviews, component.product_id),
           `$${component.price.toFixed(2)}`,
         ];
       case 'CPU Cooler':
@@ -470,6 +499,7 @@ const ComponentSearch = () => {
           component.attributes?.['CPU Socket'] || 'N/A',
           component.attributes?.['Water Cooled'] || 'N/A',
           component.attributes?.['Fanless'] || 'N/A',
+          ratingStars(component.rating, component.reviews, component.product_id),
           `$${component.price.toFixed(2)}`,
         ];
       case 'Case':
@@ -481,6 +511,7 @@ const ComponentSearch = () => {
           component.attributes?.['Motherboard Form Factor'] || 'N/A',
           component.attributes?.['Maximum Video Card Length'] || 'N/A',
           component.attributes?.['Drive Bays'] || 'N/A',
+          ratingStars(component.rating, component.reviews, component.product_id),
           `$${component.price.toFixed(2)}`,
         ];
       case 'GPU':
@@ -493,6 +524,7 @@ const ComponentSearch = () => {
           component.attributes?.['TDP'] || 'N/A',
           component.attributes?.['Cooling'] || 'N/A',
           component.attributes?.['Interface'] || 'N/A',
+          ratingStars(component.rating, component.reviews, component.product_id),
           `$${component.price.toFixed(2)}`,
         ];
       case 'Mainboard':
@@ -504,6 +536,7 @@ const ComponentSearch = () => {
           component.attributes?.['Memory Max'] || 'N/A',
           component.attributes?.['Memory Slots'] || 'N/A',
           component.attributes?.['PCIe x16 Slots'] || 'N/A',
+          ratingStars(component.rating, component.reviews, component.product_id),
           `$${component.price.toFixed(2)}`,
         ];
       case 'PSU':
@@ -515,6 +548,7 @@ const ComponentSearch = () => {
           component.attributes?.['ATX 4-Pin Connectors'] || 'N/A',
           component.attributes?.['PCIe 8-Pin Connectors'] || 'N/A',
           component.attributes?.['SATA Connectors'] || 'N/A',
+          ratingStars(component.rating, component.reviews, component.product_id),
           `$${component.price.toFixed(2)}`,
         ];
       case 'Storage':
@@ -526,10 +560,11 @@ const ComponentSearch = () => {
           component.attributes?.['Interface'] || 'N/A',
           component.attributes?.['NVME'] || 'N/A',
           component.attributes?.['Cache'] || 'N/A',
+          ratingStars(component.rating, component.reviews, component.product_id),
           `$${component.price.toFixed(2)}`,
         ];
       default:
-        return [component.title, `$${component.price.toFixed(2)}`];
+        return [component.title, ratingStars(component.rating, component.reviews, component.product_id), `$${component.price.toFixed(2)}`];
     }
   };
 
