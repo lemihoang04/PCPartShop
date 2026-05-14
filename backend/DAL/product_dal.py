@@ -154,13 +154,14 @@ def dal_get_product_by_id(product_id):
                 p.title,
                 p.price,
                 p.stock,
-                p.rating,
+                (SELECT COUNT(*) FROM reviews WHERE product_id = %s) AS reviews,
+                (SELECT IFNULL(AVG(rating), 0) FROM reviews WHERE product_id = %s) AS rating,
                 p.description,
                 p.image,
                 p.category_id
             FROM Products p
             WHERE p.product_id = %s
-        """, (product_id,))
+        """, (product_id, product_id, product_id))
         
         product = cursor.fetchone()
         
@@ -260,7 +261,8 @@ def dal_get_components_by_type(type):
             p.title,
             p.price,
             p.stock,
-            p.rating,
+            (SELECT COUNT(*) FROM reviews WHERE product_id = p.product_id) AS reviews,
+            (SELECT IFNULL(AVG(rating), 0) FROM reviews WHERE product_id = p.product_id) AS rating,
             p.description,
             p.image,
             p.created_at,
@@ -449,7 +451,8 @@ def dal_get_products_by_ids(product_ids):
             p.title,
             p.price,
             p.stock,
-            p.rating,
+            (SELECT COUNT(*) FROM reviews WHERE product_id = p.product_id) AS reviews,
+            (SELECT IFNULL(AVG(rating), 0) FROM reviews WHERE product_id = p.product_id) AS rating,
             p.description,
             p.image,
             p.created_at,
