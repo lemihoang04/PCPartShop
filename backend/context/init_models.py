@@ -1,10 +1,9 @@
 import os
 from pathlib import Path
 
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_openai import ChatOpenAI
+from langchain_community.vectorstores import Chroma
 
 BASE_DIR = Path(__file__).resolve().parent
 COLLECTION_NAME = "pc_products"
@@ -20,7 +19,7 @@ def get_llm() -> ChatOpenAI:
         api_key=api_key,
         base_url="https://api.inceptionlabs.ai/v1",
         model="mercury-2",
-        temperature=0.05,
+        temperature=0.1,
     )
 
 embedding = HuggingFaceEmbeddings(model_name="BAAI/bge-m3")
