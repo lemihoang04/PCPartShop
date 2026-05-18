@@ -16,7 +16,7 @@
 }
 
 .comp-search-container {
-  /* max-width: 1400px; */
+  max-width: 1500px;
   margin: 0 auto;
   padding: 20px;
   /* background-color: var(--blue-50); */
@@ -35,10 +35,11 @@
 }
 
 .comp-search-header h1 {
-  font-size: 1.8rem;
+  font-size: 2rem;
   font-weight: 600;
   color: var(--ink-900);
   margin: 0;
+  font-family: 'Rajdhani', sans-serif;
 }
 
 .comp-search-header-actions {
@@ -475,7 +476,7 @@
 }
 
 .comp-search-component-table tr:hover {
-  background-color: var(--blue-50);
+  background-color: var(--blue-200);
 }
 
 .comp-search-product-name {

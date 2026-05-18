@@ -22,7 +22,7 @@
     radial-gradient(circle at 96% 10%, rgba(79, 176, 255, 0.12), transparent 32%),
     #ffffff;
   padding-bottom: 80px;
-  padding-top: 20px;
+  /* padding-top: 20px; */
 }
 
 .techshop section {

@@ -217,8 +217,10 @@ def dal_get_products_by_ids_for_chatbot(product_ids):
         FROM products p
         JOIN categories c ON p.category_id = c.category_id
         WHERE p.product_id IN ({product_ids_placeholder})
+        ORDER BY FIELD(p.product_id, {product_ids_placeholder})
         """
-        cursor.execute(product_query, product_ids)
+        params = product_ids + product_ids
+        cursor.execute(product_query, params)
         products = cursor.fetchall()
 
         if not products:

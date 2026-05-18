@@ -29,7 +29,8 @@ def _extract_chatbot_payload(agent_response):
         if 'message' in agent_response or 'product_ids' in agent_response:
             message = str(agent_response.get('message') or agent_response.get('output') or '')
             product_ids = agent_response.get('product_ids') or []
-            return message, list(product_ids)
+            intent = agent_response.get('intent') or None
+            return message, list(product_ids), intent
 
     if isinstance(agent_response, str):
         raw_content = agent_response.strip()
@@ -44,7 +45,7 @@ def _extract_chatbot_payload(agent_response):
         raw_content = getattr(last_message, 'content', str(last_message) if last_message is not None else '').strip()
 
     if not raw_content:
-        return '', []
+        return '', [], None
 
     normalized = raw_content
     if normalized.startswith('```'):
@@ -56,13 +57,14 @@ def _extract_chatbot_payload(agent_response):
         if isinstance(parsed, dict):
             message = str(parsed.get('message') or parsed.get('output') or '')
             product_ids = parsed.get('product_ids') or []
-            return message, list(product_ids)
+            intent = parsed.get('intent') or None
+            return message, list(product_ids), intent
     except Exception:
         pass
 
     product_ids = re.findall(r'/product-info/([^\)\s]+)', raw_content)
     product_ids = list(dict.fromkeys(product_ids))
-    return raw_content, product_ids
+    return raw_content, product_ids, None
 
 
 def _build_history_for_llm(db_messages, max_turns=10):
@@ -200,6 +202,7 @@ def chatbot_langchain_query():
         # --- Step 2: Load conversation history from DB ---
         history_messages = []
         current_products_context = []
+        current_intent_context = None
 
         if conversation_id:
             msgs_result, msgs_status = dal_get_messages_by_conversation(conversation_id)
@@ -209,6 +212,7 @@ def chatbot_langchain_query():
             state_result, state_status = dal_get_conversation_state(conversation_id)
             if state_status == 200 and isinstance(state_result, dict):
                 current_products_context = state_result.get("current_products") or []
+                current_intent_context = state_result.get("intent")
 
         # --- Step 3: Save user message ---
         user_msg_id = None
@@ -220,14 +224,20 @@ def chatbot_langchain_query():
         # --- Step 4: Build input for LLM (history + optional context injection) ---
         llm_messages = list(history_messages)
 
-        # Inject current_products context if available
+        # Inject context (products + intent) if available
+        context_parts = []
         if current_products_context:
-            context_text = (
-                "Ngữ cảnh cuộc trò chuyện: Các sản phẩm đang được thảo luận: "
+            context_parts.append(
+                "Các sản phẩm đang được thảo luận: "
                 + ", ".join(str(p) for p in current_products_context)
             )
+        if current_intent_context:
+            context_parts.append(f"Ý định (intent) hiện tại của người dùng là: {current_intent_context}")
+
+        if context_parts:
+            context_text = "Ngữ cảnh cuộc trò chuyện: " + " | ".join(context_parts)
             # Prepend as system-level context at beginning of current turn
-            llm_messages.append(("user", f"[CONTEXT] {context_text}"))
+            llm_messages.append(("user", f"{context_text}"))
 
         # Add current user message
         llm_messages.append(("user", user_message))
@@ -235,7 +245,7 @@ def chatbot_langchain_query():
         # --- Step 5: Invoke agent ---
         agent_response = product_agent.invoke({"messages": llm_messages})
 
-        response_content, product_ids = _extract_chatbot_payload(agent_response)
+        response_content, product_ids, intent = _extract_chatbot_payload(agent_response)
 
         # --- Step 6: Fetch product details ---
         products = []
@@ -249,7 +259,7 @@ def chatbot_langchain_query():
         # --- Step 7: Save bot message + link products ---
         bot_msg_id = None
         if conversation_id and user_id:
-            bid, _ = dal_save_message(conversation_id, "bot", response_content)
+            bid, _ = dal_save_message(conversation_id, "bot", response_content, intent=intent)
             if isinstance(bid, int):
                 bot_msg_id = bid
                 if product_ids:
@@ -260,7 +270,7 @@ def chatbot_langchain_query():
                 conversation_id,
                 current_products=product_ids if product_ids else current_products_context,
                 filters=None,
-                intent=None,
+                intent=intent if intent else None,
             )
 
         return jsonify({

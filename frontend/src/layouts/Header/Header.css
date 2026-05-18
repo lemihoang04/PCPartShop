@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
 
+
 .header-container {
   --bg-black: #05080f;
   --bg-black-soft: #0d1321;
@@ -16,8 +17,9 @@
   position: sticky;
   top: 0;
   z-index: 700;
-  background: radial-gradient(circle at 10% -25%, rgba(39, 167, 255, 0.36), transparent 35%),
-    linear-gradient(110deg, #03060c 0%, #060b15 42%, #04070d 100%);
+  /* background: radial-gradient(circle at 10% -25%, rgba(39, 167, 255, 0.36), transparent 35%),
+    linear-gradient(110deg, #03060c 0%, #060b15 42%, #04070d 100%); */
+    background-color: black;
   border-bottom: 1px solid #162238;
   font-family: 'Space Grotesk', sans-serif;
 }
@@ -26,8 +28,8 @@
   display: flex;
   align-items: center;
   gap: 20px;
-  min-height: 76px;
-  padding: 12px 28px;
+  min-height: 68px;
+  padding: 8px 28px;
   margin: 0 auto;
   max-width: 1340px;
   position: relative;
@@ -71,7 +73,7 @@
 }
 
 .brand-subtitle {
-  color: var(--text-muted);
+  color: var(--text-main);
   font-size: 11px;
   letter-spacing: 1.3px;
   text-transform: uppercase;
@@ -126,9 +128,9 @@
   min-height: 44px;
   padding: 0 16px;
   border-radius: 11px;
-  color: #cfe4fa;
+  color: var(--text-main);
   font-weight: 500;
-  font-size: 14px;
+  font-size: 15px;
   cursor: pointer;
   position: relative;
   transition: var(--transition);
@@ -151,7 +153,7 @@
 .nav-icon {
   margin-right: 8px;
   font-size: 14px;
-  color: var(--blue-main);
+  /* color: var(--blue-main); */
 }
 
 .nav-arrow {
@@ -182,7 +184,7 @@
   color: var(--text-main);
   position: relative;
   border: 1px solid #243653;
-  background: #0a1527;
+  /* background: #0a1527; */
 }
 
 .cart-icon:hover {
@@ -229,7 +231,7 @@
   align-items: center;
   padding: 5px 11px;
   border: 1px solid #223553;
-  background: #091325;
+  /* background: #091325; */
   position: relative;
 }
 
@@ -348,7 +350,7 @@
 
 .mega-panel {
   position: absolute;
-  top: 76px;
+  top: 68px;
   left: 0;
   width: 100%;
   background: linear-gradient(180deg, rgba(6, 12, 22, 0.98) 0%, rgba(9, 16, 29, 0.98) 100%);
@@ -677,7 +679,7 @@
   color: var(--text-main);
   position: relative;
   border: 1px solid #243653;
-  background: #0a1527;
+  /* background: #0a1527; */
 }
 
 .notification-icon:hover {

@@ -8,7 +8,7 @@ import { fetchAllProducts, deleteProduct, addProduct, updateProduct } from "../.
 import { useNavigate } from "react-router-dom";
 import { toast } from 'react-toastify';
 
-const PAGE_SIZE = 8; // Products per page for the card layout
+const PAGE_SIZE = 10; // Products per page for the card layout
 
 const ProductManager = () => {
   const navigate = useNavigate();
@@ -75,14 +75,23 @@ const ProductManager = () => {
 
   // Sort products
   const sortedProducts = [...filteredProducts].sort((a, b) => {
-    const fieldA = a[sortOrder.field] || '';
-    const fieldB = b[sortOrder.field] || '';
-    
-    if (sortOrder.direction === "asc") {
-      return typeof fieldA === 'string' ? fieldA.localeCompare(fieldB) : fieldA - fieldB;
-    } else {
-      return typeof fieldA === 'string' ? fieldB.localeCompare(fieldA) : fieldB - fieldA;
+    let valA = a[sortOrder.field];
+    let valB = b[sortOrder.field];
+
+    // If sorting by numeric fields, convert to number
+    if (["product_id", "price", "stock"].includes(sortOrder.field)) {
+      const numA = valA !== null && valA !== undefined ? Number(valA) : 0;
+      const numB = valB !== null && valB !== undefined ? Number(valB) : 0;
+      return sortOrder.direction === "asc" ? numA - numB : numB - numA;
     }
+
+    // Otherwise treat as string
+    const strA = valA ? String(valA).toLowerCase() : "";
+    const strB = valB ? String(valB).toLowerCase() : "";
+
+    return sortOrder.direction === "asc" 
+      ? strA.localeCompare(strB) 
+      : strB.localeCompare(strA);
   });
 
   // Pagination logic after filtering and sorting
@@ -115,10 +124,10 @@ const ProductManager = () => {
     pageNumbers.push(i);
   }
 
-  // Reset to page 1 when changing category filter or search query
+  // Reset to page 1 when changing category filter, search query or sort order
   useEffect(() => {
     setCurrentPage(1);
-  }, [categoryFilter, searchQuery]);
+  }, [categoryFilter, searchQuery, sortOrder]);
   const handleShowModal = (product = null) => {
     if (product) {
       setEditingProduct(product);
@@ -353,12 +362,22 @@ const ProductManager = () => {
               <table className="pm-table">
                 <thead>
                   <tr>
-                    <th>ID</th>
+                    <th onClick={() => handleSort('product_id')} className="sortable-th">
+                      ID {sortOrder.field === 'product_id' && (sortOrder.direction === 'asc' ? '↑' : '↓')}
+                    </th>
                     <th>Image</th>
-                    <th>Name</th>
-                    <th>Category</th>
-                    <th>Price</th>
-                    <th>Stock</th>
+                    <th onClick={() => handleSort('title')} className="sortable-th">
+                      Name {sortOrder.field === 'title' && (sortOrder.direction === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th onClick={() => handleSort('category_name')} className="sortable-th">
+                      Category {sortOrder.field === 'category_name' && (sortOrder.direction === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th onClick={() => handleSort('price')} className="sortable-th">
+                      Price {sortOrder.field === 'price' && (sortOrder.direction === 'asc' ? '↑' : '↓')}
+                    </th>
+                    <th onClick={() => handleSort('stock')} className="sortable-th">
+                      Stock {sortOrder.field === 'stock' && (sortOrder.direction === 'asc' ? '↑' : '↓')}
+                    </th>
                     <th>Actions</th>
                   </tr>
                 </thead>

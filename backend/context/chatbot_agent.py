@@ -14,6 +14,7 @@ from context.init_models import db, get_llm
 
 import pickle
 from langchain_community.retrievers import BM25Retriever
+from langchain_classic.retrievers import EnsembleRetriever
 
 try:
     docs_path = os.path.join(os.path.dirname(__file__), "chroma_db", "docs.pkl")
@@ -344,37 +345,24 @@ def ranked_search(query: str, filters: Optional[Dict[str, Any]], k: int = 8) -> 
 
     for q in queries:
         try:
+            db_retriever = db.as_retriever(search_kwargs={"k": k, "filter": filters if filters else None})
             if bm25_retriever:
-                vector_docs = db.similarity_search(q, k=k, filter=filters if filters else None)
-                
                 bm25_retriever.k = max(k * 3, 20)
-                bm25_docs_unfiltered = bm25_retriever.invoke(q)
+                ensemble_retriever = EnsembleRetriever(
+                    retrievers=[bm25_retriever, db_retriever], weights=[0.2, 0.8]
+                )
+                docs = ensemble_retriever.invoke(q)
                 
                 if filters:
-                    bm25_docs = [d for d in bm25_docs_unfiltered if check_filter_match(d, filters)]
+                    filtered_docs = [d for d in docs if check_filter_match(d, filters)]
+                    docs = filtered_docs[:k]
                 else:
-                    bm25_docs = bm25_docs_unfiltered
-                
-                rrf_score = {}
-                doc_map = {}
-                
-                for r, doc in enumerate(vector_docs):
-                    uid = doc_uid(doc)
-                    rrf_score[uid] = rrf_score.get(uid, 0.0) + (1.0 / (r + 60))
-                    doc_map[uid] = doc
-                    
-                for r, doc in enumerate(bm25_docs):
-                    uid = doc_uid(doc)
-                    rrf_score[uid] = rrf_score.get(uid, 0.0) + (1.0 / (r + 50)) * 0.9
-                    doc_map[uid] = doc
-                
-                sorted_docs = sorted(rrf_score.items(), key=lambda x: x[1], reverse=True)
-                docs = [doc_map[uid] for uid, score in sorted_docs[:k]]
+                    docs = docs[:k]
                 
                 results.extend(docs)
             else:
-                docs = db.similarity_search(q, k=k, filter=filters if filters else None)
-                results.extend(docs)
+                docs = db_retriever.invoke(q)
+                results.extend(docs[:k])
         except Exception as e:
             print(f"Hybrid search error: {e}")
             continue
@@ -472,62 +460,214 @@ def resolve_preferred_parts(
     return locked, compat_info
 
 
+def _extract_mm(value: str) -> Optional[float]:
+    """Trích xuất giá trị số mm từ chuỗi như '267 mm', '400 mm / 15.748\"', '15.748\"'."""
+    # Ưu tiên tìm giá trị mm trước
+    m = re.search(r"([\d]+(?:[.,]\d+)?)\s*mm", str(value), re.IGNORECASE)
+    if m:
+        return float(m.group(1).replace(",", "."))
+    # Fallback: tìm số bất kỳ đầu tiên
+    m = re.search(r"([\d]+(?:[.,]\d+)?)", str(value))
+    if m:
+        return float(m.group(1).replace(",", "."))
+    return None
+
+
+def filter_docs_by_compat(
+    docs: List[Any],
+    category: str,
+    compat_info: Dict[str, Any],
+    selected_categories: List[str],
+) -> List[Any]:
+    """
+    Lọc danh sách docs theo điều kiện tương thích dựa trên COMPATIBILITY_ATTRS và compat_info.
+    Chỉ giữ lại các doc mà attrs_json của chúng khớp với ràng buộc tương thích từ các linh kiện đã chọn.
+    Nếu không có ràng buộc nào hoặc không có doc nào vượt qua bộ lọc, trả về danh sách gốc.
+
+    Logic so sánh theo từng loại constraint:
+    - Socket / Memory Type : contains (case-insensitive)
+    - Form Factor          : mainboard FF phải xuất hiện trong danh sách FF case hỗ trợ
+    - Length               : GPU length (mm) phải <= case Maximum Video Card Length (mm)
+    """
+    required: Dict[str, str] = {}
+    for src_cat in selected_categories:
+        constraint_keys = COMPATIBILITY_ATTRS.get((src_cat, category), [])
+        for ck in constraint_keys:
+            if ck in ["Socket", "Socket/CPU"] and "Socket" in compat_info:
+                required["Socket"] = compat_info["Socket"]
+            elif ck in ["Memory Type", "Type"] and "Memory Type" in compat_info:
+                required["Memory Type"] = compat_info["Memory Type"]
+            elif ck in ["Form Factor", "Motherboard Form Factor"] and "Form Factor" in compat_info:
+                required["Form Factor"] = compat_info["Form Factor"]
+            elif ck in ["Length", "Maximum Video Card Length"] and "Length" in compat_info:
+                required["Length"] = compat_info["Length"]
+
+    if not required:
+        return docs
+
+    ATTR_ALIASES: Dict[str, List[str]] = {
+        "Socket":      ["Socket", "Socket/CPU"],
+        "Memory Type": ["Memory Type", "Type"],
+        "Form Factor": ["Form Factor", "Motherboard Form Factor"],
+        "Length":      ["Length", "Maximum Video Card Length"],
+    }
+
+    def doc_matches(doc: Any) -> bool:
+        attrs_str = getattr(doc, "metadata", {}).get("attrs_json", "{}")
+        try:
+            attrs = json.loads(attrs_str)
+        except Exception:
+            return True  # không parse được → không loại
+
+        for compat_key, expected_val in required.items():
+            aliases = ATTR_ALIASES.get(compat_key, [compat_key])
+            actual_val = None
+            for alias in aliases:
+                if alias in attrs:
+                    actual_val = attrs[alias]
+                    break
+            if actual_val is None:
+                continue  # thiếu attr → không loại
+
+            exp_str = str(expected_val).strip()
+            act_str = str(actual_val).strip()
+
+            # --- Length: so sánh số mm (GPU length <= Case max length) ---
+            if compat_key == "Length":
+                gpu_mm = _extract_mm(exp_str)
+                case_max_mm = _extract_mm(act_str)
+                if gpu_mm is not None and case_max_mm is not None:
+                    if gpu_mm > case_max_mm:
+                        print(
+                            f"  [compat filter] Loại '{doc_name(doc)}': "
+                            f"GPU length {gpu_mm}mm > case max {case_max_mm}mm ('{act_str}')"
+                        )
+                        return False
+                # Nếu không parse được số → bỏ qua (an toàn)
+                continue
+
+            # --- Form Factor: kiểm tra mainboard FF nằm trong danh sách case hỗ trợ ---
+            if compat_key == "Form Factor":
+                if exp_str.lower() not in act_str.lower():
+                    print(
+                        f"  [compat filter] Loại '{doc_name(doc)}': "
+                        f"Form Factor '{exp_str}' không nằm trong '{act_str}'"
+                    )
+                    return False
+                continue
+
+            # --- Socket / Memory Type: contains (case-insensitive) ---
+            if exp_str.lower() not in act_str.lower():
+                print(
+                    f"  [compat filter] Loại '{doc_name(doc)}': "
+                    f"{compat_key} = '{act_str}' không chứa '{exp_str}'"
+                )
+                return False
+
+        return True
+
+    filtered = [d for d in docs if doc_matches(d)]
+    if not filtered:
+        print(f"  [compat filter] Không có doc nào vượt qua bộ lọc cho {category}, dùng danh sách gốc.")
+        return docs  # fallback
+    print(f"  [compat filter] {category}: giữ {len(filtered)}/{len(docs)} docs sau khi lọc.")
+    return filtered
+
+
 def build_pc_recommendation(
     budget: int,
-    priority: str = "balance",
+    purpose: str = "gaming",
     preferred_parts: Optional[Dict[str, str]] = None,
 ) -> str:
-    allocation_by_priority = {
-        "fps": {
-            "cpu": 0.22,
-            "mainboard": 0.13,
-            "gpu": 0.39,
+    allocation_by_purpose = {
+        "gaming": {
+            "cpu": 0.20,
+            "mainboard": 0.12,
+            "cpu_cooler": 0.04,
+            "gpu": 0.38,
             "ram": 0.10,
             "storage": 0.07,
             "psu": 0.05,
             "case": 0.04,
         },
-        "productivity": {
-            "cpu": 0.30,
+        "office": {
+            "cpu": 0.28,
             "mainboard": 0.14,
-            "gpu": 0.27,
+            "cpu_cooler": 0.05,
+            "gpu": 0.13,
+            "ram": 0.15,
+            "storage": 0.13,
+            "psu": 0.06,
+            "case": 0.06,
+        },
+        "workstation": {
+            "cpu": 0.28,
+            "mainboard": 0.13,
+            "cpu_cooler": 0.05,
+            "gpu": 0.25,
             "ram": 0.12,
             "storage": 0.08,
             "psu": 0.05,
             "case": 0.04,
         },
-        "silent": {
-            "cpu": 0.24,
-            "mainboard": 0.14,
-            "gpu": 0.32,
-            "ram": 0.10,
-            "storage": 0.08,
-            "psu": 0.06,
-            "case": 0.06,
-        },
-        "balance": {
-            "cpu": 0.25,
-            "mainboard": 0.14,
-            "gpu": 0.35,
-            "ram": 0.10,
-            "storage": 0.07,
-            "psu": 0.05,
-            "case": 0.04,
+        "creator": {
+            "cpu": 0.26,
+            "mainboard": 0.12,
+            "cpu_cooler": 0.05,
+            "gpu": 0.28,
+            "ram": 0.12,
+            "storage": 0.10,
+            "psu": 0.04,
+            "case": 0.03,
         },
     }
-    allocation = allocation_by_priority.get(priority, allocation_by_priority["balance"])
+    allocation = allocation_by_purpose.get(purpose, allocation_by_purpose["gaming"])
     category_budget = {key: int(budget * ratio) for key, ratio in allocation.items()}
 
-    query_hint = {
-        "cpu": "cpu hiệu năng tốt",
-        "mainboard": "mainboard",
-        "gpu": "gpu mạnh cho gaming 1080p/2k",
-        "ram": "ram 16gb hoặc 32gb độ trễ tốt",
-        "storage": "ssd nvme tốc độ cao",
-        "psu": "psu chất lượng 80 plus, công suất đủ",
-        "case": "case airflow tốt, dễ lắp ráp",
+    query_hints_by_purpose = {
+        "gaming": {
+            "cpu": "latest high performance gaming cpu",
+            "mainboard": "gaming mainboard",
+            "cpu_cooler": "high performance air cooler liquid cooler",
+            "gpu": "powerful gpu for 1080p, 2k, 4k gaming",
+            "ram": "high bus low latency gaming ram",
+            "storage": "high speed nvme ssd for gaming",
+            "psu": "stable high wattage power supply",
+            "case": "good airflow cooling case",
+        },
+        "office": {
+            "cpu": "modern budget power efficient cpu",
+            "mainboard": "durable budget mainboard",
+            "cpu_cooler": "quiet budget air cooler",
+            "gpu": "budget basic display gpu",
+            "ram": "stable office ram",
+            "storage": "sata nvme office ssd",
+            "psu": "stable moderate wattage power supply",
+            "case": "compact simple office case",
+        },
+        "workstation": {
+            "cpu": "high performance multi-core workstation cpu",
+            "mainboard": "durable premium workstation mainboard",
+            "cpu_cooler": "durable premium aio liquid air cooler",
+            "gpu": "professional deep cuda compute workstation gpu",
+            "ram": "large capacity 32gb or 64gb ram",
+            "storage": "professional large capacity high endurance nvme ssd",
+            "psu": "ultra durable gold platinum high wattage power supply",
+            "case": "spacious sturdy good cooling case",
+        },
+        "creator": {
+            "cpu": "video rendering photo editing creator cpu",
+            "mainboard": "stable high quality mainboard",
+            "cpu_cooler": "good cooling aio air cooler rgb for rendering",
+            "gpu": "large vram rendering modeling gpu",
+            "ram": "high bus creator graphic design ram",
+            "storage": "ultra fast read write speed nvme ssd for large files",
+            "psu": "stable high performance power supply",
+            "case": "good airflow liquid cooling supported case",
+        },
     }
-    categories = ["mainboard", "cpu", "gpu", "ram", "storage", "psu", "case"]
+    query_hint = query_hints_by_purpose.get(purpose, query_hints_by_purpose["gaming"])
+    categories = ["cpu", "mainboard", "cpu_cooler", "gpu", "ram", "storage", "psu", "case"]
     selected_parts: List[Any] = []
     estimated_spent = 0
     compat_info: Dict[str, Any] = {}
@@ -578,13 +718,20 @@ def build_pc_recommendation(
         if category == "mainboard":
             if "Socket" in compat_info: query += f" socket {compat_info['Socket']}"
             if "Memory Type" in compat_info: query += f" hỗ trợ {compat_info['Memory Type']}"
+        elif category == "cpu_cooler":
+            if "Socket" in compat_info: query += f" socket {compat_info['Socket']}"
         elif category == "ram":
             if "Memory Type" in compat_info: query += f" {compat_info['Memory Type']}"
         elif category == "case":
             if "Form Factor" in compat_info: query += f" hỗ trợ mainboard {compat_info['Form Factor']}"
             if "Length" in compat_info: query += f" vga {compat_info['Length']}"
         print("Query:", query)
-        docs = ranked_search(query, {"category": category}, k=10)
+        docs = ranked_search(query, {"category": category}, k=40)
+
+        # --- Lọc tương thích bằng Python trên attrs_json ---
+        selected_categories_so_far = [doc_category(d) for d in selected_parts]
+        docs = filter_docs_by_compat(docs, category, compat_info, selected_categories_so_far)
+
         chosen = choose_doc_by_budget(docs, target_price=target, max_price=dynamic_cap)
         
         if chosen:
@@ -604,7 +751,7 @@ def build_pc_recommendation(
         lines.append(
             (
                 f"{idx}. [{doc_name(doc)}] | product_id={product_id} |"
-                f"{doc_category(doc)} | {vnd(doc_price(doc))}{lock_marker}"
+                f"category={doc_category(doc)} | {vnd(doc_price(doc))}{lock_marker}"
             )
         )
 
@@ -632,10 +779,11 @@ def extract_product_ids_from_text(text: str) -> List[str]:
     return list(dict.fromkeys(product_ids))
 
 
-def build_json_response(message: str) -> str:
+def build_json_response(message: str, intent: str = "") -> str:
     payload = {
         "message": message,
         "product_ids": extract_product_ids_from_text(message),
+        "intent": intent,
     }
     return json.dumps(payload, ensure_ascii=False)
 # =====================================================
@@ -643,16 +791,22 @@ def build_json_response(message: str) -> str:
 # =====================================================
 
 @tool
-def search_products(keyword: str = "", category: str = "", limit: int = 5) -> str:
-    """Tìm sản phẩm theo từ khóa(keyword) và/hoặc loại linh kiện(category). Cả 2 đều có thể để trống nếu chỉ cần tìm theo 1 trong 2."""
+def search_products(keyword: str = "", category: str = "", limit: int = 5, purpose: str = "") -> str:
+    """Tìm sản phẩm theo từ khóa(keyword) và/hoặc loại linh kiện(category). Cả 2 đều có thể để trống nếu chỉ cần tìm theo 1 trong 2. Tham số purpose (tùy chọn) mô tả mục đích tìm kiếm của người dùng."""
     keyword = (keyword or "").strip()
     category = (category or "").strip().lower()
+    purpose = (purpose or "").strip()
+    
+    if purpose:
+        print(f"[Tool: search_products] User purpose: {purpose}")
 
     if not keyword and not category:
         return "Vui lòng cung cấp từ khóa hoặc loại sản phẩm."
 
     filters = {"category": category} if category else None
     query = keyword if keyword else category
+    if purpose:
+        query = f"{query} {purpose}".strip()
 
     docs = ranked_search(query, filters, k=max(1, min(limit, 10)))
     docs = docs[: max(1, min(limit, 10))]
@@ -669,10 +823,13 @@ def search_products(keyword: str = "", category: str = "", limit: int = 5) -> st
 
 
 @tool
-def search_products_by_budget(target_price: int, keyword: str = "", product_type: str = "", limit: int = 5) -> str:
+def search_products_by_budget(target_price: int, keyword: str = "", product_type: str = "", limit: int = 5, purpose: str = "") -> str:
     """
-    Tìm sản phẩm gần với ngân sách mục tiêu của người dùng (target_price), loại sản phẩm (product_type) và từ khóa (keyword).
+    Tìm sản phẩm gần với ngân sách mục tiêu của người dùng (target_price), loại sản phẩm (product_type) và từ khóa (keyword). Tham số purpose (tùy chọn) mô tả mục đích tìm kiếm của người dùng.
     """
+    purpose = (purpose or "").strip()
+    if purpose:
+        print(f"[Tool: search_products_by_budget] User purpose: {purpose}")
 
     if target_price <= 0:
         return "Ngân sách phải lớn hơn 0."
@@ -687,6 +844,8 @@ def search_products_by_budget(target_price: int, keyword: str = "", product_type
     )
 
     query = f"{keyword}"
+    if purpose:
+        query = f"{query} {purpose}".strip()
 
     docs = ranked_search(query, filters or None, k=max(limit * 3, 20))
 
@@ -701,17 +860,17 @@ def search_products_by_budget(target_price: int, keyword: str = "", product_type
 
     return build_context_block(docs)
 @tool
-def recommend_pc_build(budget: int, priority: str = "balance", preferred_parts: Optional[Dict[str, str]] = None) -> str:
+def recommend_pc_build(budget: int, purpose: str = "gaming", preferred_parts: Optional[Dict[str, str]] = None) -> str:
     """
-    Gợi ý cấu hình PC cân đối theo ngân sách và mục tiêu sử dụng.
-    Nếu người dùng chỉ định linh kiện cụ thể, truyền preferred_parts là dict với key là loại linh kiện (cpu, gpu, ram, mainboard, storage, psu, case) và value là tên/từ khóa linh kiện.
+    Gợi ý cấu hình PC cân đối theo ngân sách và mục đích sử dụng (purpose: gaming, office, workstation, creator).
+    Nếu người dùng chỉ định linh kiện cụ thể, truyền preferred_parts là dict với key là loại linh kiện (cpu, gpu, ram, mainboard, cpu_cooler, storage, psu, case) và value là tên/từ khóa linh kiện.
     Ví dụ: preferred_parts={"cpu": "AMD Ryzen 7 7800X3D", "gpu": "RTX 4060"}
     Các category còn lại sẽ được tự động chọn phù hợp với ngân sách và tương thích.
     """
     if budget <= 0:
         return "Ngân sách phải lớn hơn 0."
 
-    return build_pc_recommendation(budget=budget, priority=priority, preferred_parts=preferred_parts)
+    return build_pc_recommendation(budget=budget, purpose=purpose, preferred_parts=preferred_parts)
 
 
 @tool
@@ -871,15 +1030,16 @@ Bạn là trợ lý tư vấn cho shop linh kiện PC.
 
 Quy tắc:
 - Chỉ trả lời dựa trên dữ liệu từ tools.
-- Trả lời bằng JSON hợp lệ với 2 khóa bắt buộc: "message" và "product_ids".
+- Trả lời bằng JSON hợp lệ với 3 khóa bắt buộc: "message", "product_ids" và "intent".
+- "intent" là ý định ngắn gọn của người dùng (ví dụ: "build pc", "tìm kiếm", "so sánh").
 - "message" phải là nội dung markdown ngắn gọn, rõ ràng, không sử dụng icon, có kèm danh sách sản phẩm (không kèm product_id) nếu có. 
 - "product_ids" là danh sách product_id lấy từ các sản phẩm phù hợp; nếu không có sản phẩm thì trả về [].
 - Nếu người dùng hỏi chung về loại sản phẩm hoặc tìm kiếm sản phẩm, dùng get_available_types hoặc search_products.
 - Nếu người dùng yêu cầu so sánh sản phẩm, dùng compare_products, thêm một chút nhận xét cho mỗi thông số được so sánh, và kết luận ngắn gọn cuối cùng.
 - Nếu người dùng yêu cầu tìm sản phẩm tương thích với sản phẩm người dùng đưa ra, dùng find_compatible_products.
-- Nếu có ngân sách, dùng search_products_by_budget hoặc recommend_pc_build.
-- Nếu người dùng muốn build PC, hãy hỏi thêm nếu thiếu ngân sách hoặc nhu cầu.
-- Nếu người dùng yêu cầu build PC và chỉ định linh kiện cụ thể (ví dụ: "build PC dùng Ryzen 7 và RTX 4060"), hãy truyền preferred_parts cho recommend_pc_build với key là category (cpu, gpu, ram, mainboard, storage, psu, case) và value là tên/từ khóa linh kiện người dùng đưa ra.
+- Nếu có ngân sách, dùng search_products_by_budget.
+- Nếu người dùng muốn build PC, hãy hỏi thêm nếu thiếu ngân sách hoặc nhu cầu (gaming, office, workstation, creator), và thêm một câu nhận xét ngắn gọn sau khi nhận câu trả lời.
+- Nếu người dùng yêu cầu build PC và chỉ định linh kiện cụ thể (ví dụ: "build PC dùng Ryzen 7 và RTX 4060"), hãy truyền preferred_parts cho recommend_pc_build với key là category (cpu, gpu, ram, mainboard, cpu_cooler, storage, psu, case) và value là tên/từ khóa linh kiện người dùng đưa ra.
 - Khi đã có đủ dữ liệu, trả lời ngắn gọn, rõ ràng, ưu tiên dạng danh sách.
 """.strip()
 )
@@ -932,6 +1092,8 @@ def format_node(state: AgentState):
         parsed = json.loads(content_str)
         # Kiểm tra có đủ keys "message" và "product_ids" không
         if isinstance(parsed, dict) and "message" in parsed and "product_ids" in parsed:
+            if "intent" not in parsed:
+                parsed["intent"] = ""
             formatted = json.dumps(parsed, ensure_ascii=False)
             return {"messages": [AIMessage(content=formatted)]}
     except (json.JSONDecodeError, ValueError):
@@ -963,7 +1125,8 @@ def format_node(state: AgentState):
     
     formatted_json = json.dumps({
         "message": message,
-        "product_ids": product_ids
+        "product_ids": product_ids,
+        "intent": ""
     }, ensure_ascii=False)
     
     return {"messages": [AIMessage(content=formatted_json)]}

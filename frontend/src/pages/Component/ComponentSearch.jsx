@@ -250,7 +250,7 @@ const ComponentSearch = () => {
     return options;
   }, [components, normalizedType]);
 
-  const itemsPerPage = 50;
+  const itemsPerPage = 25;
   const getRawComponentHeaders = () => {
     const headers = {
       CPU: [

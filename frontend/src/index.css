@@ -64,7 +64,7 @@ select,
 button,
 th,
 td {
-  font-family: "Inter", serif !important;
+  font-family: "Inter", serif ;
 
 }
 
