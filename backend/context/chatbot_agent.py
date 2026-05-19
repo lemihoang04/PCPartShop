@@ -349,7 +349,7 @@ def ranked_search(query: str, filters: Optional[Dict[str, Any]], k: int = 8) -> 
             if bm25_retriever:
                 bm25_retriever.k = max(k * 3, 20)
                 ensemble_retriever = EnsembleRetriever(
-                    retrievers=[bm25_retriever, db_retriever], weights=[0.2, 0.8]
+                    retrievers=[bm25_retriever, db_retriever], weights=[0.4, 0.6]
                 )
                 docs = ensemble_retriever.invoke(q)
                 
@@ -375,31 +375,58 @@ def choose_doc_by_budget(
     target_price: int,
     max_price: int,
 ) -> Optional[Any]:
+
     if not docs:
         return None
 
-    priced_candidates: List[Dict[str, Any]] = []
-    for idx, doc in enumerate(docs):
+    if target_price <= 0:
+        # Không có thông tin giá mục tiêu → trả doc có rank tốt nhất có price hợp lệ
+        for doc in docs:
+            price = doc_price(doc)
+            if price and price > 0:
+                return doc
+        return docs[0]
+
+    if target_price > max_price:
+        target_price = max_price
+        max_price = target_price * 1.1
+
+    candidates: List[Dict[str, Any]] = []
+
+    for rank, doc in enumerate(docs):
         price = doc_price(doc)
-        if price is None:
+        if price is None or price <= 0:
             continue
-        priced_candidates.append({"doc": doc, "price": price, "rank": idx})
+        candidates.append({
+            "doc": doc,
+            "price": int(price),
+            "rank": rank,
+        })
 
-    if priced_candidates:
-        within_budget = [item for item in priced_candidates if item["price"] <= max_price]
-        pool = within_budget if within_budget else priced_candidates
+    if not candidates:
+        return None
 
-        def score(item: Dict[str, Any]) -> float:
-            price = int(item["price"])
-            rank = int(item["rank"])
-            distance = abs(price - target_price) / max(target_price, 1)
-            over_target_penalty = 0.12 if price > target_price else 0.0
-            rank_penalty = rank * 0.03
-            return distance + over_target_penalty + rank_penalty
+    within_budget = [c for c in candidates if c["price"] <= max_price]
+    print("within_budget count:", len(within_budget))
+    pool = within_budget if within_budget else candidates
 
-        return min(pool, key=score)["doc"]
+    def score(item: Dict[str, Any]) -> float:
+        price = item["price"]
+        rank = item["rank"]
 
-    return docs[0]
+        # Độ lệch tuyệt đối so với target (normalize)
+        distance_score = abs(price - target_price) / target_price
+
+        # Phạt lũy tiến nếu vượt target (dù vẫn trong max_price)
+        over_ratio = max(price - target_price, 0) / target_price
+        over_budget_penalty = over_ratio * 2.0
+
+        # Rank là tie-breaker: mỗi bậc chỉ tương đương ~2% giá
+        rank_penalty = rank * 0.02
+
+        return distance_score + over_budget_penalty + rank_penalty
+
+    return min(pool, key=score)["doc"]
 
 
 def update_compat_info(compat_info: Dict[str, Any], chosen: Any, category: str) -> None:
@@ -417,7 +444,7 @@ def update_compat_info(compat_info: Dict[str, Any], chosen: Any, category: str) 
         elif k in ["Type", "Memory Type"] and category in ["ram", "cpu", "mainboard"]:
             if "Memory Type" not in compat_info:
                 compat_info["Memory Type"] = v
-        elif k in ["Motherboard Form Factor", "Form Factor"]:
+        elif k in ["Motherboard Form Factor", "Form Factor"] and category not in ["ram", "storage"]:
             if "Form Factor" not in compat_info:
                 compat_info["Form Factor"] = v
         elif k in ["Length", "Maximum Video Card Length"]:
@@ -425,17 +452,28 @@ def update_compat_info(compat_info: Dict[str, Any], chosen: Any, category: str) 
                 compat_info["Length"] = v
 
 
+def _is_generic_keyword(keyword: str) -> bool:
+    """Kiểm tra keyword có phải là đặc tả chung (ít từ, không phải tên sản phẩm cụ thể)."""
+    words = keyword.strip().split()
+    # Nếu ít hơn hoặc bằng 3 từ → coi là chung chung, cần enrich
+    return len(words) <= 3
+
+
 def resolve_preferred_parts(
     preferred_parts: Dict[str, str],
-) -> tuple[Dict[str, Any], Dict[str, Any]]:
+) -> tuple[Dict[str, Any], Dict[str, Any], Dict[str, str]]:
     """
-    Tìm kiếm linh kiện mà người dùng chỉ định (preferred_parts).
+    Phân loại và xử lý linh kiện người dùng chỉ định.
+    - Specific keyword (tên sản phẩm cụ thể, > 3 từ): tìm ngay và lock.
+    - Generic keyword (brand/loại chung, <= 3 từ): trả về generic_parts để vòng lặp build xử lý.
     Trả về:
-      - locked: dict {category: doc} cho các linh kiện tìm được
-      - compat_info: thông tin tương thích trích xuất từ linh kiện đã khóa
+      - locked: dict {category: doc} các linh kiện đã lock
+      - compat_info: thông tin tương thích từ linh kiện đã lock
+      - generic_parts: dict {resolved_cat: keyword} các linh kiện chung chung để enrich trong build loop
     """
     locked: Dict[str, Any] = {}
     compat_info: Dict[str, Any] = {}
+    generic_parts: Dict[str, str] = {}
 
     for category, keyword in preferred_parts.items():
         cat_norm = category.strip().lower()
@@ -448,16 +486,25 @@ def resolve_preferred_parts(
         if not resolved_cat:
             resolved_cat = cat_norm
 
-        docs = ranked_search(keyword.strip(), {"category": resolved_cat}, k=5)
+        keyword_clean = keyword.strip()
+
+        # Nếu keyword chung chung → để build loop xử lý với enriched query
+        if _is_generic_keyword(keyword_clean):
+            print(f"[preferred] Generic keyword '{keyword_clean}' for '{resolved_cat}' -> will enrich in build loop")
+            generic_parts[resolved_cat] = keyword_clean
+            continue
+
+        # Specific keyword → tìm ngay và lock
+        docs = ranked_search(keyword_clean, {"category": resolved_cat}, k=10)
         if docs:
-            chosen = docs[0]  # Lấy kết quả phù hợp nhất
+            chosen = docs[0]
             locked[resolved_cat] = chosen
             update_compat_info(compat_info, chosen, resolved_cat)
             print(f"[preferred] Locked {resolved_cat}: {doc_name(chosen)} - {vnd(doc_price(chosen))}")
         else:
-            print(f"[preferred] Không tìm thấy '{keyword}' cho category '{resolved_cat}'")
+            print(f"[preferred] Không tìm thấy '{keyword_clean}' cho category '{resolved_cat}'")
 
-    return locked, compat_info
+    return locked, compat_info, generic_parts
 
 
 def _extract_mm(value: str) -> Optional[float]:
@@ -538,10 +585,10 @@ def filter_docs_by_compat(
                 case_max_mm = _extract_mm(act_str)
                 if gpu_mm is not None and case_max_mm is not None:
                     if gpu_mm > case_max_mm:
-                        print(
-                            f"  [compat filter] Loại '{doc_name(doc)}': "
-                            f"GPU length {gpu_mm}mm > case max {case_max_mm}mm ('{act_str}')"
-                        )
+                        # print(
+                        #     f"  [compat filter] Loại '{doc_name(doc)}': "
+                        #     f"GPU length {gpu_mm}mm > case max {case_max_mm}mm ('{act_str}')"
+                        # )
                         return False
                 # Nếu không parse được số → bỏ qua (an toàn)
                 continue
@@ -549,19 +596,19 @@ def filter_docs_by_compat(
             # --- Form Factor: kiểm tra mainboard FF nằm trong danh sách case hỗ trợ ---
             if compat_key == "Form Factor":
                 if exp_str.lower() not in act_str.lower():
-                    print(
-                        f"  [compat filter] Loại '{doc_name(doc)}': "
-                        f"Form Factor '{exp_str}' không nằm trong '{act_str}'"
-                    )
+                    # print(
+                    #     f"  [compat filter] Loại '{doc_name(doc)}': "
+                    #     f"Form Factor '{exp_str}' không nằm trong '{act_str}'"
+                    # )
                     return False
                 continue
 
             # --- Socket / Memory Type: contains (case-insensitive) ---
             if exp_str.lower() not in act_str.lower():
-                print(
-                    f"  [compat filter] Loại '{doc_name(doc)}': "
-                    f"{compat_key} = '{act_str}' không chứa '{exp_str}'"
-                )
+                # print(
+                #     f"  [compat filter] Loại '{doc_name(doc)}': "
+                #     f"{compat_key} = '{act_str}' không chứa '{exp_str}'"
+                # )
                 return False
 
         return True
@@ -581,24 +628,24 @@ def build_pc_recommendation(
 ) -> str:
     allocation_by_purpose = {
         "gaming": {
-            "cpu": 0.20,
+            "cpu": 0.23,
             "mainboard": 0.12,
             "cpu_cooler": 0.04,
-            "gpu": 0.38,
+            "gpu": 0.36,
             "ram": 0.10,
             "storage": 0.07,
             "psu": 0.05,
-            "case": 0.04,
+            "case": 0.03,
         },
         "office": {
-            "cpu": 0.28,
-            "mainboard": 0.14,
+            "cpu": 0.31,
+            "mainboard": 0.15,
             "cpu_cooler": 0.05,
-            "gpu": 0.13,
+            "gpu": 0.12,
             "ram": 0.15,
             "storage": 0.13,
             "psu": 0.06,
-            "case": 0.06,
+            "case": 0.03,
         },
         "workstation": {
             "cpu": 0.28,
@@ -629,14 +676,14 @@ def build_pc_recommendation(
             "cpu": "latest high performance gaming cpu",
             "mainboard": "gaming mainboard",
             "cpu_cooler": "high performance air cooler liquid cooler",
-            "gpu": "powerful gpu for 1080p, 2k, 4k gaming",
+            "gpu": "lastest, modern gpu for gaming",
             "ram": "high bus low latency gaming ram",
             "storage": "high speed nvme ssd for gaming",
             "psu": "stable high wattage power supply",
             "case": "good airflow cooling case",
         },
         "office": {
-            "cpu": "modern budget power efficient cpu",
+            "cpu": "modern newest power efficient cpu",
             "mainboard": "durable budget mainboard",
             "cpu_cooler": "quiet budget air cooler",
             "gpu": "budget basic display gpu",
@@ -667,24 +714,27 @@ def build_pc_recommendation(
         },
     }
     query_hint = query_hints_by_purpose.get(purpose, query_hints_by_purpose["gaming"])
-    categories = ["cpu", "mainboard", "cpu_cooler", "gpu", "ram", "storage", "psu", "case"]
+    categories = ["cpu", "mainboard", "gpu", "ram", "storage", "cpu_cooler", "psu", "case"]
     selected_parts: List[Any] = []
     estimated_spent = 0
     compat_info: Dict[str, Any] = {}
 
     # --- Xử lý linh kiện người dùng chỉ định ---
     locked: Dict[str, Any] = {}
+    generic_parts: Dict[str, str] = {}
     if preferred_parts:
-        locked, compat_info = resolve_preferred_parts(preferred_parts)
+        locked, compat_info, generic_parts = resolve_preferred_parts(preferred_parts)
         # Tính chi phí và thêm các linh kiện đã khóa
         for cat, doc in locked.items():
             estimated_spent += doc_price(doc) or 0
 
     # --- Tính lại ngân sách cho các category còn lại ---
-    remaining_categories = [c for c in categories if c not in locked]
+    # Cả locked lẫn generic_parts đều không tính vào remaining để phân bổ lại
+    pinned_cats = set(locked.keys()) | set(generic_parts.keys())
+    remaining_categories = [c for c in categories if c not in pinned_cats]
     remaining_budget = max(budget - estimated_spent, 0)
-
-    # Phân bổ lại ngân sách còn lại cho các category chưa được khóa
+    print(remaining_budget)
+    # Phân bổ lại ngân sách còn lại cho các category chưa được pin
     if remaining_categories:
         total_remaining_ratio = sum(allocation.get(c, 0) for c in remaining_categories)
         if total_remaining_ratio > 0:
@@ -696,7 +746,7 @@ def build_pc_recommendation(
                 category_budget[c] = equal_share
 
     for idx, category in enumerate(categories):
-        # Nếu category đã được khóa bởi preferred_parts, thêm và bỏ qua
+        # Nếu category đã được khóa (specific keyword), thêm và bỏ qua
         if category in locked:
             selected_parts.append(locked[category])
             continue
@@ -708,11 +758,17 @@ def build_pc_recommendation(
 
         dynamic_cap = min(
             int(target * 1.25),
-            max(remaining_budget_now - reserve_for_remaining, int(target * 0.80)),
+            max(remaining_budget_now - reserve_for_remaining, int(target * 0.90)),
         )
-        dynamic_cap = max(dynamic_cap, int(target * 0.80))
+        dynamic_cap = max(dynamic_cap, int(target * 0.90))
 
-        query = query_hint[category]
+        # Nếu category có generic keyword → enrich query = keyword + query_hint
+        if category in generic_parts:
+            query = f"{generic_parts[category]} {query_hint[category]}"
+            print(f"[build] Generic preferred '{generic_parts[category]}' enriched to: '{query}'")
+        else:
+            query = query_hint[category]
+
         if category == "cpu":
             if "Socket" in compat_info: query += f" socket {compat_info['Socket']}"
         if category == "mainboard":
@@ -726,14 +782,14 @@ def build_pc_recommendation(
             if "Form Factor" in compat_info: query += f" hỗ trợ mainboard {compat_info['Form Factor']}"
             if "Length" in compat_info: query += f" vga {compat_info['Length']}"
         print("Query:", query)
-        docs = ranked_search(query, {"category": category}, k=40)
+        docs = ranked_search(query, {"category": category}, k=50)
 
         # --- Lọc tương thích bằng Python trên attrs_json ---
         selected_categories_so_far = [doc_category(d) for d in selected_parts]
         docs = filter_docs_by_compat(docs, category, compat_info, selected_categories_so_far)
-
+        print(category,"target:",target,"dynamic_cap:",dynamic_cap)
         chosen = choose_doc_by_budget(docs, target_price=target, max_price=dynamic_cap)
-        
+        print
         if chosen:
             selected_parts.append(chosen)
             estimated_spent += doc_price(chosen) or target
@@ -746,8 +802,9 @@ def build_pc_recommendation(
     lines = [f"Đề xuất cấu hình theo ngân sách {vnd(budget)}:"]
     for idx, doc in enumerate(selected_parts, start=1):
         product_id = doc_uid(doc)
-        is_locked = doc_category(doc) in locked
-        lock_marker = " (người dùng chỉ định)" if is_locked else ""
+        cat = doc_category(doc)
+        is_pinned = cat in locked or cat in generic_parts
+        lock_marker = " (người dùng chỉ định)" if is_pinned else ""
         lines.append(
             (
                 f"{idx}. [{doc_name(doc)}] | product_id={product_id} |"

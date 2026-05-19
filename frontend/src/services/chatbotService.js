@@ -82,9 +82,27 @@ const getConversationMessages = async (conversationId) => {
     }
 };
 
+/**
+ * Delete a conversation.
+ * @param {number} conversationId
+ * @param {number} userId
+ */
+const deleteConversation = async (conversationId, userId) => {
+    try {
+        const response = await axios.delete(`/chatbot/conversations/${conversationId}`, {
+            params: { user_id: userId }
+        });
+        return response;
+    } catch (error) {
+        console.error('Error deleting conversation:', error);
+        return { success: false };
+    }
+};
+
 export {
     sendChatbotQuery,
     getConversations,
     createConversation,
     getConversationMessages,
+    deleteConversation,
 };

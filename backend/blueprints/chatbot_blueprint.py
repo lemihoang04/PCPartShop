@@ -13,6 +13,7 @@ from DAL.chatbot_dal import (
     dal_save_message_products,
     dal_get_conversation_state,
     dal_upsert_conversation_state,
+    dal_delete_conversation,
 )
 
 chatbot_blueprint = Blueprint('chatbot', __name__)
@@ -67,7 +68,7 @@ def _extract_chatbot_payload(agent_response):
     return raw_content, product_ids, None
 
 
-def _build_history_for_llm(db_messages, max_turns=10):
+def _build_history_for_llm(db_messages, max_turns=6):
     """Convert DB messages to (role, content) tuples for LangGraph."""
     history = []
     # Take last max_turns messages
@@ -122,6 +123,20 @@ def create_conversation():
         return jsonify({'success': False, 'error': str(result)}), status
 
     return jsonify({'success': True, 'conversation_id': result}), 201
+
+
+@chatbot_blueprint.route("/chatbot/conversations/<int:conversation_id>", methods=["DELETE"])
+def delete_conversation(conversation_id):
+    """Delete a conversation for a user."""
+    user_id = request.args.get("user_id")
+    if not user_id:
+        return jsonify({'success': False, 'error': 'Missing user_id'}), 400
+
+    result, status = dal_delete_conversation(conversation_id, user_id)
+    if status != 200:
+        return jsonify({'success': False, 'error': result.get('error', 'Unknown error')}), status
+
+    return jsonify({'success': True})
 
 
 @chatbot_blueprint.route("/chatbot/conversations/<int:conversation_id>/messages", methods=["GET"])
@@ -207,7 +222,7 @@ def chatbot_langchain_query():
         if conversation_id:
             msgs_result, msgs_status = dal_get_messages_by_conversation(conversation_id)
             if msgs_status == 200 and isinstance(msgs_result, list):
-                history_messages = _build_history_for_llm(msgs_result)
+                history_messages = _build_history_for_llm(msgs_result, max_turns=6)
 
             state_result, state_status = dal_get_conversation_state(conversation_id)
             if state_status == 200 and isinstance(state_result, dict):

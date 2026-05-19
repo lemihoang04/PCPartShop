@@ -55,6 +55,43 @@ def dal_get_conversations_by_user(user_id):
         cursor.close()
         db.close()
 
+def dal_delete_conversation(conversation_id, user_id):
+    """Delete a conversation and its related data."""
+    db = get_db_connection()
+    if not db:
+        return {"error": "Database connection failed"}, 500
+    cursor = db.cursor()
+    try:
+        # Check if conversation belongs to user
+        cursor.execute("SELECT id FROM conversations WHERE id = %s AND user_id = %s", (conversation_id, user_id))
+        if not cursor.fetchone():
+            return {"error": "Conversation not found or unauthorized"}, 404
+            
+        # Delete related conversation state
+        cursor.execute("DELETE FROM conversation_state WHERE conversation_id = %s", (conversation_id,))
+        
+        # Delete message products via JOIN
+        cursor.execute("""
+            DELETE mp FROM message_products mp
+            INNER JOIN messages m ON mp.message_id = m.id
+            WHERE m.conversation_id = %s
+        """, (conversation_id,))
+        
+        # Delete messages
+        cursor.execute("DELETE FROM messages WHERE conversation_id = %s", (conversation_id,))
+        
+        # Delete the conversation itself
+        cursor.execute("DELETE FROM conversations WHERE id = %s", (conversation_id,))
+        
+        db.commit()
+        return True, 200
+    except Exception as e:
+        db.rollback()
+        return {"error": str(e)}, 500
+    finally:
+        cursor.close()
+        db.close()
+
 
 # =====================================================
 # MESSAGES

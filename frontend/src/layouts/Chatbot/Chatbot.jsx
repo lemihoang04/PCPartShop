@@ -2,14 +2,17 @@ import React, { useState, useRef, useEffect, useContext, useCallback } from 'rea
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { addToCart } from '../../services/apiService';
 import {
     sendChatbotQuery,
     getConversations,
     getConversationMessages,
+    deleteConversation,
 } from '../../services/chatbotService';
 import { UserContext } from '../../context/UserProvider';
 import './Chatbot.css';
-import { FaRobot, FaTimes, FaPaperPlane, FaChevronLeft, FaPlus, FaComments } from 'react-icons/fa';
+import { FaShoppingCart, FaRobot, FaTimes, FaPaperPlane, FaChevronLeft, FaPlus, FaComments, FaTrash } from 'react-icons/fa';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -59,15 +62,50 @@ const Chatbot = () => {
     // Conversation list
     const [conversations, setConversations] = useState([]);
     const [convLoading, setConvLoading] = useState(false);
+    const [deleteConfirmConvId, setDeleteConfirmConvId] = useState(null);
 
     const [input, setInput] = useState('');
     const [isTyping, setIsTyping] = useState(false);
 
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
-    const { user } = useContext(UserContext);
+    const { user, fetchUser } = useContext(UserContext);
     const navigate = useNavigate();
     const userId = user?.account?.id || user?.account?.user_id || null;
+
+    // ── Add to cart ──────────────────────────────────────────────────────────
+    const handleAddToCart = async (e, product) => {
+        e.stopPropagation(); // Ngăn không cho click trigger chuyển trang
+        if (!(user && user.isAuthenticated)) {
+            toast.error("You must be logged in to add products to the cart!");
+            navigate('/login');
+            return;
+        }
+
+        const isPriceNotAvailable = Number(product.price || 0) === 0;
+        if (isPriceNotAvailable) {
+            toast.error("Price is not available. Cannot add to cart.");
+            return;
+        }
+
+        if (product.stock !== undefined && Number(product.stock) <= 0) {
+            toast.error("This product is out of stock.");
+            return;
+        }
+
+        try {
+            const response = await addToCart(user.account.id, product.product_id, 1);
+            if (response && response.errCode === 0) {
+                toast.success("Item added to cart successfully!");
+                if (fetchUser) fetchUser();
+            } else {
+                toast.error(response?.error || "Failed to add product to cart.");
+            }
+        } catch (error) {
+            console.error("Error adding product to cart:", error);
+            toast.error("An error occurred while adding the product to the cart.");
+        }
+    };
 
     // ── Auto-scroll ──────────────────────────────────────────────────────────
     useEffect(() => {
@@ -135,6 +173,39 @@ const Chatbot = () => {
         } catch {
             setMessages([WELCOME_MSG]);
         }
+    };
+
+    // ── Delete a conversation ────────────────────────────────────────────────
+    const triggerDeleteConversation = (e, convId) => {
+        e.stopPropagation();
+        setDeleteConfirmConvId(convId);
+    };
+
+    const confirmDeleteConversation = async () => {
+        if (!deleteConfirmConvId) return;
+        const convId = deleteConfirmConvId;
+        setDeleteConfirmConvId(null);
+        
+        try {
+            const res = await deleteConversation(convId, userId);
+            if (res?.success || res?.status === 200 || res?.data?.success) {
+                toast.success("Đã xóa cuộc trò chuyện");
+                setConversations((prev) => prev.filter(c => c.id !== convId));
+                if (conversationId === convId) {
+                    startNewConversation();
+                    setView('list');
+                }
+            } else {
+                toast.error("Không thể xóa cuộc trò chuyện");
+            }
+        } catch (error) {
+            console.error("Error deleting conversation:", error);
+            toast.error("Đã xảy ra lỗi khi xóa");
+        }
+    };
+
+    const cancelDeleteConversation = () => {
+        setDeleteConfirmConvId(null);
     };
 
     // ── Send message ─────────────────────────────────────────────────────────
@@ -277,14 +348,28 @@ const Chatbot = () => {
                                 </button>
                             )}
                             <button
-                                onClick={toggleChat}
-                                className="ts-close-button"
-                                aria-label="Close chat"
-                            >
-                                <FaTimes />
-                            </button>
+                                    className="ts-close-button"
+                                    onClick={toggleChat}
+                                    aria-label="Close chat"
+                                >
+                                    <FaTimes />
+                                </button>
                         </div>
                     </div>
+
+                    {/* ── Delete Confirmation Modal ── */}
+                    {deleteConfirmConvId && (
+                        <div className="ts-chatbot-modal-overlay">
+                            <div className="ts-chatbot-modal">
+                                <h4>Xác nhận xóa</h4>
+                                <p>Bạn có chắc chắn muốn xóa cuộc trò chuyện này không?</p>
+                                <div className="ts-chatbot-modal-actions">
+                                    <button className="btn-cancel" onClick={cancelDeleteConversation}>Hủy</button>
+                                    <button className="btn-confirm" onClick={confirmDeleteConversation}>Xóa</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* ── Conversation List View ── */}
                     {view === 'list' && (
@@ -325,6 +410,13 @@ const Chatbot = () => {
                                                 {formatConvTime(conv.created_at)}
                                             </div>
                                         </div>
+                                        <button 
+                                            className="ts-conv-delete-btn"
+                                            onClick={(e) => triggerDeleteConversation(e, conv.id)}
+                                            title="Xóa cuộc trò chuyện"
+                                        >
+                                            <FaTrash />
+                                        </button>
                                     </button>
                                 ))}
                         </div>
@@ -419,6 +511,12 @@ const Chatbot = () => {
                                                                 <span className="ts-chatbot-product-price">
                                                                     {formatPrice(product.price)}
                                                                 </span>
+                                                                <button
+                                                                    className="ts-chatbot-add-to-cart-btn"
+                                                                    onClick={(e) => handleAddToCart(e, product)}
+                                                                >
+                                                                    <FaShoppingCart /> Add to Cart
+                                                                </button>
                                                             </div>
                                                         </button>
                                                     ))}

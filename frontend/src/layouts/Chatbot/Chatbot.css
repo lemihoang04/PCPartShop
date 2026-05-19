@@ -324,6 +324,116 @@
     margin-top: 2px;
 }
 
+.ts-conv-delete-btn {
+    background: transparent;
+    border: none;
+    color: #cbd5e0;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    opacity: 0;
+    visibility: hidden;
+}
+
+.ts-conv-item:hover .ts-conv-delete-btn {
+    opacity: 1;
+    visibility: visible;
+}
+
+.ts-conv-delete-btn:hover {
+    color: #ef4444;
+    background-color: #fee2e2;
+}
+
+/* ---------- Modal ---------- */
+.ts-chatbot-modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(15, 23, 42, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    border-radius: 16px;
+    animation: fadeInModal 0.2s ease;
+}
+
+.ts-chatbot-modal {
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 12px;
+    width: 80%;
+    max-width: 300px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    text-align: center;
+    animation: scaleInModal 0.2s ease;
+}
+
+@keyframes fadeInModal {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes scaleInModal {
+    from { transform: scale(0.95); }
+    to { transform: scale(1); }
+}
+
+.ts-chatbot-modal h4 {
+    margin: 0 0 10px 0;
+    font-size: 16px;
+    color: #1e293b;
+}
+
+.ts-chatbot-modal p {
+    margin: 0 0 20px 0;
+    font-size: 13.5px;
+    color: #475569;
+    line-height: 1.5;
+}
+
+.ts-chatbot-modal-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+
+.ts-chatbot-modal-actions button {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.ts-chatbot-modal-actions .btn-cancel {
+    background-color: #f1f5f9;
+    color: #475569;
+}
+
+.ts-chatbot-modal-actions .btn-cancel:hover {
+    background-color: #e2e8f0;
+}
+
+.ts-chatbot-modal-actions .btn-confirm {
+    background-color: #ef4444;
+    color: #ffffff;
+}
+
+.ts-chatbot-modal-actions .btn-confirm:hover {
+    background-color: #dc2626;
+}
+
 /* ---------- Messages Container ---------- */
 .ts-chatbot-messages {
     flex: 1;
@@ -592,7 +702,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 6px;
+    /* padding: 6px; */
     box-sizing: border-box;
     overflow: hidden;
 }
@@ -643,6 +753,32 @@
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
+}
+
+.ts-chatbot-add-to-cart-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 90%;
+    padding: 4px 0;
+    /* margin-top: 4px; */
+    background-color: #1f93ff;
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.ts-chatbot-add-to-cart-btn:hover {
+    background-color: #1d4ed8;
+}
+
+.ts-chatbot-add-to-cart-btn:active {
+    transform: scale(0.98);
 }
 
 /* ---------- Markdown Styles ---------- */
