@@ -11,6 +11,7 @@ import {
     deleteConversation,
 } from '../../services/chatbotService';
 import { UserContext } from '../../context/UserProvider';
+import { fetchComponentsByIds } from '../../services/componentService';
 import './Chatbot.css';
 import { FaShoppingCart, FaRobot, FaTimes, FaPaperPlane, FaChevronLeft, FaPlus, FaComments, FaTrash } from 'react-icons/fa';
 
@@ -107,6 +108,45 @@ const Chatbot = () => {
         }
     };
 
+    // ── Add to Build PC Page ────────────────────────────────────────────────
+    const handleAddAllToBuild = async (msg) => {
+        try {
+            const allIds = [];
+            if (msg.productGroups && msg.productGroups.length > 0) {
+                msg.productGroups.forEach(g => {
+                    if (g.products) {
+                        g.products.forEach(p => allIds.push(p.product_id || p.id));
+                    }
+                });
+            } else if (msg.products && msg.products.length > 0) {
+                msg.products.forEach(p => allIds.push(p.product_id || p.id));
+            }
+            
+            const uniqueIds = [...new Set(allIds)].filter(Boolean);
+            
+            if (uniqueIds.length === 0) {
+                toast.warning("Không có linh kiện nào để thêm vào cấu hình.");
+                return;
+            }
+
+            toast.info("Đang lấy thông tin linh kiện...");
+            const componentsData = await fetchComponentsByIds(uniqueIds);
+            
+            if (componentsData && Array.isArray(componentsData) && componentsData.length > 0) {
+                navigate('/build', {
+                    state: {
+                        addedComponents: componentsData,
+                    },
+                });
+            } else {
+                toast.error("Không thể lấy thông tin linh kiện.");
+            }
+        } catch (error) {
+            console.error("Error adding to build:", error);
+            toast.error("Đã xảy ra lỗi khi thêm vào cấu hình.");
+        }
+    };
+
     // ── Auto-scroll ──────────────────────────────────────────────────────────
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -165,6 +205,8 @@ const Chatbot = () => {
                     text: m.content,
                     sender: m.role === 'user' ? 'user' : 'bot',
                     products: Array.isArray(m.products) ? m.products : [],
+                    productGroups: Array.isArray(m.product_groups) ? m.product_groups : [],
+                    intent: m.intent,
                 }));
                 setMessages(mapped.length ? mapped : [WELCOME_MSG]);
             } else {
@@ -229,6 +271,10 @@ const Chatbot = () => {
             const products = Array.isArray(chatbotResponse?.products)
                 ? chatbotResponse.products
                 : [];
+            const productGroups = Array.isArray(chatbotResponse?.product_groups)
+                ? chatbotResponse.product_groups
+                : [];
+            const intent = chatbotResponse?.intent;
 
             // If backend created / used a conversation, track its ID
             if (response?.conversation_id && !conversationId) {
@@ -237,7 +283,7 @@ const Chatbot = () => {
 
             setTimeout(() => {
                 if (response?.success && output) {
-                    setMessages((prev) => [...prev, { text: output, sender: 'bot', products }]);
+                    setMessages((prev) => [...prev, { text: output, sender: 'bot', products, productGroups, intent }]);
                 } else {
                     setMessages((prev) => [
                         ...prev,
@@ -472,56 +518,78 @@ const Chatbot = () => {
                                             </div>
                                         </div>
 
-                                        {/* Product cards */}
-                                        {msg.sender === 'bot' &&
-                                            Array.isArray(msg.products) &&
-                                            msg.products.length > 0 && (
-                                                <div className="ts-chatbot-product-grid">
-                                                    {msg.products.map((product) => (
-                                                        <button
-                                                            key={product.product_id}
-                                                            type="button"
-                                                            className="ts-chatbot-product-card"
-                                                            onClick={() =>
-                                                                navigate(
-                                                                    `/product-info/${product.product_id}`
-                                                                )
-                                                            }
-                                                        >
-                                                            <div className="ts-chatbot-product-image-wrap">
-                                                                <img
-                                                                    src={getProductImage(
-                                                                        product.image
-                                                                    )}
-                                                                    alt={
-                                                                        product.title || 'Product'
-                                                                    }
-                                                                    className="ts-chatbot-product-image"
-                                                                />
-                                                            </div>
-                                                            <div className="ts-chatbot-product-info">
-                                                                {product.category_name && (
-                                                                    <span className="ts-chatbot-product-category">
-                                                                        {product.category_name}
-                                                                    </span>
-                                                                )}
-                                                                <div className="ts-chatbot-product-title">
-                                                                    {product.title || 'Sản phẩm'}
+                                        {/* Product groups */}
+                                        {msg.sender === 'bot' && (() => {
+                                            const groups = Array.isArray(msg.productGroups) && msg.productGroups.length > 0
+                                                ? msg.productGroups
+                                                : (Array.isArray(msg.products) && msg.products.length > 0
+                                                    ? [{ label: '', order: 1, products: msg.products }]
+                                                    : []);
+                                            if (groups.length === 0) return null;
+                                            return groups.map((group, gIdx) => (
+                                                <div key={gIdx} className="ts-chatbot-product-group">
+                                                    {group.label && (
+                                                        <div className="ts-chatbot-group-label">{group.label}</div>
+                                                    )}
+                                                    <div className="ts-chatbot-product-grid">
+                                                        {(group.products || []).map((product) => (
+                                                            <button
+                                                                key={product.product_id}
+                                                                type="button"
+                                                                className="ts-chatbot-product-card"
+                                                                onClick={() =>
+                                                                    navigate(
+                                                                        `/product-info/${product.product_id}`
+                                                                    )
+                                                                }
+                                                            >
+                                                                <div className="ts-chatbot-product-image-wrap">
+                                                                    <img
+                                                                        src={getProductImage(
+                                                                            product.image
+                                                                        )}
+                                                                        alt={
+                                                                            product.title || 'Product'
+                                                                        }
+                                                                        className="ts-chatbot-product-image"
+                                                                    />
                                                                 </div>
-                                                                <span className="ts-chatbot-product-price">
-                                                                    {formatPrice(product.price)}
-                                                                </span>
-                                                                <button
-                                                                    className="ts-chatbot-add-to-cart-btn"
-                                                                    onClick={(e) => handleAddToCart(e, product)}
-                                                                >
-                                                                    <FaShoppingCart /> Add to Cart
-                                                                </button>
-                                                            </div>
-                                                        </button>
-                                                    ))}
+                                                                <div className="ts-chatbot-product-info">
+                                                                    {product.category_name && (
+                                                                        <span className="ts-chatbot-product-category">
+                                                                            {product.category_name}
+                                                                        </span>
+                                                                    )}
+                                                                    <div className="ts-chatbot-product-title">
+                                                                        {product.title || 'Sản phẩm'}
+                                                                    </div>
+                                                                    <span className="ts-chatbot-product-price">
+                                                                        {formatPrice(product.price)}
+                                                                    </span>
+                                                                    <button
+                                                                        className="ts-chatbot-add-to-cart-btn"
+                                                                        onClick={(e) => handleAddToCart(e, product)}
+                                                                    >
+                                                                        <FaShoppingCart /> Add to Cart
+                                                                    </button>
+                                                                </div>
+                                                            </button>
+                                                        ))}
+                                                    </div>
                                                 </div>
-                                            )}
+                                            ));
+                                        })()}
+
+                                        {msg.sender === 'bot' && msg.intent && msg.intent.toLowerCase() === 'build pc' && (
+                                            <div className="ts-chatbot-add-build-wrap">
+                                                <button 
+                                                    className="ts-chatbot-add-build-btn" 
+                                                    onClick={() => handleAddAllToBuild(msg)}
+                                                >
+                                                    Thêm vào Build PC
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
 

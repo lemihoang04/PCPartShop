@@ -363,6 +363,82 @@ def dal_get_component_by_id(product_id):
         cursor.close()
         db.close()
         
+def dal_get_components_by_ids(product_ids):
+    if not product_ids:
+        return [], 200
+
+    db = get_db_connection()
+    if not db:
+        return {'error': 'Database connection failed'}, 500
+
+    cursor = db.cursor(dictionary=True)
+    try:
+        # Remove duplicates for the query
+        unique_ids = list(set(product_ids))
+        format_strings = ','.join(['%s'] * len(unique_ids))
+        
+        # Get product basic information
+        product_query = f"""
+        SELECT 
+            p.product_id,
+            p.title,
+            p.price,
+            p.stock,
+            p.rating,
+            p.description,
+            p.image,
+            p.created_at,
+            p.updated_at,
+            c.category_name,
+            c.category_id
+        FROM products p
+        JOIN categories c ON p.category_id = c.category_id
+        WHERE p.product_id IN ({format_strings})
+        """
+        cursor.execute(product_query, tuple(unique_ids))
+        products = cursor.fetchall()
+        
+        if not products:
+            return {"error": "Components not found"}, 404
+            
+        # Get attributes as key-value pairs
+        attributes_query = f"""
+        SELECT product_id, attribute_name, attribute_value
+        FROM product_attributes
+        WHERE product_id IN ({format_strings})
+        """
+        cursor.execute(attributes_query, tuple(unique_ids))
+        attribute_rows = cursor.fetchall()
+        
+        # Build attributes dict from rows
+        attributes_by_product = {}
+        for row in attribute_rows:
+            pid = row['product_id']
+            if pid not in attributes_by_product:
+                attributes_by_product[pid] = {}
+            attributes_by_product[pid][row['attribute_name']] = row['attribute_value']
+        
+        # Combine product info with attributes and preserve original order
+        product_map = {}
+        for product in products:
+            pid = product['product_id']
+            product['attributes'] = attributes_by_product.get(pid, {})
+            product_map[pid] = product
+            
+        results = []
+        for pid in product_ids:
+            if pid in product_map:
+                # Add a copy to avoid reference issues if there are duplicate IDs
+                results.append(product_map[pid].copy())
+                
+        return results, 200
+        
+    except mysql.connector.Error as err:
+        return {"error": str(err)}, 500
+    finally:
+        cursor.close()
+        db.close()
+        
 def get_products(limit=None):
     connection = get_db_connection()
     cursor = connection.cursor(dictionary=True)

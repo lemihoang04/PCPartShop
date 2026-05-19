@@ -162,6 +162,18 @@ function categorizeGPUs(gpus) {
   return result;
 }
 
+// Function to get initial components
+const getInitialComponents = () => [
+  { id: 'cpu', name: 'CPU', selected: null, multiple: false, icon: <FaMicrochip /> },
+  { id: 'cpu Cooler', name: 'CPU Cooler', selected: null, multiple: false, icon: <FaFan /> },
+  { id: 'Mainboard', name: 'Mainboard', selected: null, multiple: false, icon: <FaDesktop /> },
+  { id: 'ram', name: 'RAM', selected: [], multiple: true, icon: <FaMemory /> },
+  { id: 'storage', name: 'Storage', selected: [], multiple: true, icon: <FaHdd /> },
+  { id: 'gpu', name: 'GPU', selected: [], multiple: true, icon: <FaVideo /> },
+  { id: 'case', name: 'Case', selected: null, multiple: false, icon: <FaCube /> },
+  { id: 'psu', name: 'PSU', selected: null, multiple: false, icon: <FaBolt /> },
+];
+
 const Build = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -198,16 +210,7 @@ const Build = () => {
         console.log('Restored components from sessionStorage:', parsed);
 
         // Merge saved data with default component structure (including icons)
-        const defaultComponents = [
-          { id: 'cpu', name: 'CPU', selected: null, multiple: false, icon: <FaMicrochip /> },
-          { id: 'cpu Cooler', name: 'CPU Cooler', selected: null, multiple: false, icon: <FaFan /> },
-          { id: 'Mainboard', name: 'Mainboard', selected: null, multiple: false, icon: <FaDesktop /> },
-          { id: 'ram', name: 'RAM', selected: [], multiple: true, icon: <FaMemory /> },
-          { id: 'storage', name: 'Storage', selected: [], multiple: true, icon: <FaHdd /> },
-          { id: 'gpu', name: 'GPU', selected: [], multiple: true, icon: <FaVideo /> },
-          { id: 'case', name: 'Case', selected: null, multiple: false, icon: <FaCube /> },
-          { id: 'psu', name: 'PSU', selected: null, multiple: false, icon: <FaBolt /> },
-        ];
+        const defaultComponents = getInitialComponents();
 
         // Merge saved selections with default structure
         const restoredComponents = defaultComponents.map(defaultComponent => {
@@ -227,16 +230,7 @@ const Build = () => {
     }
 
     // Default components structure
-    const defaultComponents = [
-      { id: 'cpu', name: 'CPU', selected: null, multiple: false, icon: <FaMicrochip /> },
-      { id: 'cpu Cooler', name: 'CPU Cooler', selected: null, multiple: false, icon: <FaFan /> },
-      { id: 'Mainboard', name: 'Mainboard', selected: null, multiple: false, icon: <FaDesktop /> },
-      { id: 'ram', name: 'RAM', selected: [], multiple: true, icon: <FaMemory /> },
-      { id: 'storage', name: 'Storage', selected: [], multiple: true, icon: <FaHdd /> },
-      { id: 'gpu', name: 'GPU', selected: [], multiple: true, icon: <FaVideo /> },
-      { id: 'case', name: 'Case', selected: null, multiple: false, icon: <FaCube /> },
-      { id: 'psu', name: 'PSU', selected: null, multiple: false, icon: <FaBolt /> },
-    ];
+    const defaultComponents = getInitialComponents();
 
     console.log('Using default components structure');
     return defaultComponents;
@@ -348,16 +342,7 @@ const Build = () => {
       const res = await getBuildBySlug(buildSlug);
       if (res && res.items) {
         // Initialize default structure
-        const defaultComponents = [
-          { id: 'cpu', name: 'CPU', selected: null, multiple: false, icon: <FaMicrochip /> },
-          { id: 'cpu Cooler', name: 'CPU Cooler', selected: null, multiple: false, icon: <FaFan /> },
-          { id: 'Mainboard', name: 'Mainboard', selected: null, multiple: false, icon: <FaDesktop /> },
-          { id: 'ram', name: 'RAM', selected: [], multiple: true, icon: <FaMemory /> },
-          { id: 'storage', name: 'Storage', selected: [], multiple: true, icon: <FaHdd /> },
-          { id: 'gpu', name: 'GPU', selected: [], multiple: true, icon: <FaVideo /> },
-          { id: 'case', name: 'Case', selected: null, multiple: false, icon: <FaCube /> },
-          { id: 'psu', name: 'PSU', selected: null, multiple: false, icon: <FaBolt /> },
-        ];
+        const defaultComponents = getInitialComponents();
 
         // Map items from database to defaultComponents
         const loadedComponents = defaultComponents.map(component => {
@@ -742,7 +727,7 @@ const Build = () => {
       console.error('Error saving components to sessionStorage:', error);
     }
   }, [components]);
-  // Handle data sent from ComponentSearch.jsx
+  // Handle data sent from ComponentSearch.jsx or Chatbot
   useEffect(() => {
     if (location.state?.addedComponent) {
       const componentDetail = location.state.addedComponent;
@@ -756,10 +741,7 @@ const Build = () => {
               const currentSelected = component.selected || [];
               const newSelected = [...currentSelected, componentDetail];
               console.log(`Added to ${component.name}, new count: ${newSelected.length}`);
-              return {
-                ...component,
-                selected: newSelected,
-              };
+              return { ...component, selected: newSelected };
             } else {
               // If component only supports one selection
               console.log(`Replaced ${component.name} selection`);
@@ -769,6 +751,30 @@ const Build = () => {
           return component;
         });
 
+        return updatedComponents;
+      });
+
+      // Clear the location state to prevent re-adding on refresh
+      window.history.replaceState({}, document.title);
+    } else if (location.state?.addedComponents) {
+      const componentDetails = location.state.addedComponents;
+      console.log('Adding multiple components from Chatbot:', componentDetails);
+
+      setComponents((prevComponents) => {
+        const updatedComponents = prevComponents.map(comp => ({ ...comp }));
+        
+        componentDetails.forEach(detail => {
+          const targetComponent = updatedComponents.find(c => c.name === detail.category_name);
+          if (targetComponent) {
+            if (targetComponent.multiple) {
+              const currentSelected = targetComponent.selected || [];
+              targetComponent.selected = [...currentSelected, detail];
+            } else {
+              targetComponent.selected = detail;
+            }
+          }
+        });
+        
         return updatedComponents;
       });
 

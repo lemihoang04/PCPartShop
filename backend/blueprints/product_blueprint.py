@@ -136,6 +136,41 @@ def get_component_by_id(product_id):
             return jsonify(component), status
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@product_blueprint.route("/components/batch", methods=["GET", "POST"])
+def get_components_by_ids():
+    try:
+        product_ids = []
+        if request.method == "GET":
+            ids_param = request.args.get('ids')
+            if not ids_param:
+                return jsonify({"error": "No product IDs provided. Use ?ids=1,2,3"}), 400
+            try:
+                product_ids = [int(id.strip()) for id in ids_param.split(',') if id.strip()]
+            except ValueError:
+                return jsonify({"error": "Invalid ID format, must be comma-separated integers"}), 400
+        else: # POST
+            data = request.get_json()
+            if not data or 'ids' not in data:
+                return jsonify({"error": "No product IDs provided in request body"}), 400
+            product_ids = data.get('ids', [])
+            if not isinstance(product_ids, list):
+                return jsonify({"error": "Product IDs must be a list"}), 400
+            try:
+                product_ids = [int(id) for id in product_ids]
+            except ValueError:
+                return jsonify({"error": "All product IDs must be integers"}), 400
+                
+        if not product_ids:
+            return jsonify([]), 200
+            
+        components, status = dal_get_components_by_ids(product_ids)
+        if status == 200:
+            return jsonify(components), 200
+        else:
+            return jsonify(components), status
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
     
 @product_blueprint.route("/components/<string:type>", methods=["GET"])
 def get_components_by_type(type):

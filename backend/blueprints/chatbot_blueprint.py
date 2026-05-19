@@ -26,12 +26,31 @@ product_agent = create_pc_product_agent()
 # =====================================================
 
 def _extract_chatbot_payload(agent_response):
+    """Extract message, product_groups, and intent from agent response.
+    Returns (message, product_groups, intent)
+    product_groups: list of {label, order, product_ids}
+    """
+    # Helper to flatten product_groups to a flat product_ids list
+    def _groups_to_flat(groups):
+        ids = []
+        for g in (groups or []):
+            ids.extend(g.get("product_ids") or [])
+        return ids
+
+    # Helper to convert old product_ids to product_groups
+    def _ids_to_groups(product_ids):
+        if not product_ids:
+            return []
+        return [{"label": "", "order": 1, "product_ids": list(product_ids)}]
+
     if isinstance(agent_response, dict):
-        if 'message' in agent_response or 'product_ids' in agent_response:
+        if 'message' in agent_response or 'product_groups' in agent_response or 'product_ids' in agent_response:
             message = str(agent_response.get('message') or agent_response.get('output') or '')
-            product_ids = agent_response.get('product_ids') or []
+            product_groups = agent_response.get('product_groups')
+            if product_groups is None:
+                product_groups = _ids_to_groups(agent_response.get('product_ids') or [])
             intent = agent_response.get('intent') or None
-            return message, list(product_ids), intent
+            return message, list(product_groups), intent
 
     if isinstance(agent_response, str):
         raw_content = agent_response.strip()
@@ -57,15 +76,17 @@ def _extract_chatbot_payload(agent_response):
         parsed = json.loads(normalized)
         if isinstance(parsed, dict):
             message = str(parsed.get('message') or parsed.get('output') or '')
-            product_ids = parsed.get('product_ids') or []
+            product_groups = parsed.get('product_groups')
+            if product_groups is None:
+                product_groups = _ids_to_groups(parsed.get('product_ids') or [])
             intent = parsed.get('intent') or None
-            return message, list(product_ids), intent
+            return message, list(product_groups), intent
     except Exception:
         pass
 
     product_ids = re.findall(r'/product-info/([^\)\s]+)', raw_content)
     product_ids = list(dict.fromkeys(product_ids))
-    return raw_content, product_ids, None
+    return raw_content, _ids_to_groups(product_ids), None
 
 
 def _build_history_for_llm(db_messages, max_turns=6):
@@ -177,6 +198,22 @@ def get_conversation_messages(conversation_id):
             for pid in msg_product_ids
             if str(pid) in products_by_id
         ]
+
+        # Build product_groups with full product details
+        msg_product_groups = []
+        for g in (msg.get('product_groups') or []):
+            group_products = [
+                products_by_id[str(pid)]
+                for pid in (g.get('product_ids') or [])
+                if str(pid) in products_by_id
+            ]
+            msg_product_groups.append({
+                'label': g.get('label') or '',
+                'order': g.get('order') or 1,
+                'products': group_products,
+            })
+        msg_product_groups.sort(key=lambda x: x.get('order', 1))
+
         messages.append({
             'id': msg['id'],
             'role': msg['role'],
@@ -184,6 +221,7 @@ def get_conversation_messages(conversation_id):
             'intent': msg.get('intent'),
             'product_ids': msg_product_ids,
             'products': msg_products,
+            'product_groups': msg_product_groups,
             'created_at': msg['created_at'].isoformat() if msg.get('created_at') else None,
         })
 
@@ -260,16 +298,42 @@ def chatbot_langchain_query():
         # --- Step 5: Invoke agent ---
         agent_response = product_agent.invoke({"messages": llm_messages})
 
-        response_content, product_ids, intent = _extract_chatbot_payload(agent_response)
+        response_content, product_groups, intent = _extract_chatbot_payload(agent_response)
+
+        # Flatten product_groups to get all product_ids
+        all_product_ids = []
+        for g in product_groups:
+            all_product_ids.extend(g.get("product_ids") or [])
+        all_product_ids = list(dict.fromkeys(all_product_ids))  # dedup
 
         # --- Step 6: Fetch product details ---
-        products = []
-        if product_ids:
-            product_result = dal_get_products_by_ids_for_chatbot(product_ids)
+        products_by_id = {}
+        if all_product_ids:
+            product_result = dal_get_products_by_ids_for_chatbot(all_product_ids)
             if isinstance(product_result, tuple) and len(product_result) == 2:
-                products, status_code = product_result
-                if status_code != 200:
-                    products = []
+                fetched, status_code = product_result
+                if status_code == 200 and isinstance(fetched, list):
+                    for p in fetched:
+                        products_by_id[str(p.get('product_id', ''))] = p
+
+        # Build response product_groups with full product details
+        response_product_groups = []
+        for g in product_groups:
+            group_products = [
+                products_by_id[str(pid)]
+                for pid in (g.get("product_ids") or [])
+                if str(pid) in products_by_id
+            ]
+            response_product_groups.append({
+                "label": g.get("label") or "",
+                "order": g.get("order") or 1,
+                "products": group_products,
+            })
+        # Sort by order
+        response_product_groups.sort(key=lambda x: x.get("order", 1))
+
+        # Flat list for backward compat
+        all_products = [products_by_id[str(pid)] for pid in all_product_ids if str(pid) in products_by_id]
 
         # --- Step 7: Save bot message + link products ---
         bot_msg_id = None
@@ -277,13 +341,13 @@ def chatbot_langchain_query():
             bid, _ = dal_save_message(conversation_id, "bot", response_content, intent=intent)
             if isinstance(bid, int):
                 bot_msg_id = bid
-                if product_ids:
-                    dal_save_message_products(bot_msg_id, product_ids)
+                if product_groups:
+                    dal_save_message_products(bot_msg_id, product_groups)
 
             # --- Step 8: Update conversation state ---
             dal_upsert_conversation_state(
                 conversation_id,
-                current_products=product_ids if product_ids else current_products_context,
+                current_products=all_product_ids if all_product_ids else current_products_context,
                 filters=None,
                 intent=intent if intent else None,
             )
@@ -294,8 +358,10 @@ def chatbot_langchain_query():
             'response': {
                 'message': response_content,
                 'output': response_content,
-                'product_ids': product_ids,
-                'products': products,
+                'product_ids': all_product_ids,
+                'products': all_products,
+                'product_groups': response_product_groups,
+                'intent': intent,
                 'type': 'markdown',
             }
         })

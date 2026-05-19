@@ -641,13 +641,35 @@
     cursor: not-allowed;
 }
 
+/* ---------- Product Groups ---------- */
+.ts-chatbot-product-group {
+    width: 100%;
+    margin-top: 8px;
+}
+
+.ts-chatbot-product-group + .ts-chatbot-product-group {
+    margin-top: 10px;
+}
+
+.ts-chatbot-group-label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #1e40af;
+    background: linear-gradient(135deg, #eff6ff 0%, #e0f0ff 100%);
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 5px 12px;
+    margin-bottom: 6px;
+    display: inline-block;
+}
+
 /* ---------- Product Grid ---------- */
 .ts-chatbot-product-grid {
     display: flex;
     flex-direction: row;
     gap: 8px;
     width: 100%;
-    margin-top: 8px;
+    margin-top: 4px;
     padding-bottom: 4px;
     box-sizing: border-box;
     overflow-x: auto;
@@ -897,4 +919,29 @@
     .ts-conv-item {
         padding: 10px 12px;
     }
+}
+
+/* ---------- Add to Build PC Button ---------- */
+.ts-chatbot-add-build-wrap {
+    margin-top: 12px;
+    display: flex;
+    justify-content: center;
+}
+
+.ts-chatbot-add-build-btn {
+    background: linear-gradient(135deg, #1f93ff, #067fd9);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 6px rgba(31, 147, 255, 0.2);
+}
+
+.ts-chatbot-add-build-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(31, 147, 255, 0.3);
 }

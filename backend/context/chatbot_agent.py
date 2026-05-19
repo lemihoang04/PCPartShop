@@ -141,8 +141,8 @@ COMPATIBILITY_ATTRS: Dict[tuple[str, str], List[str]] = {
     ("case", "mainboard"): ["Motherboard Form Factor"],
     ("case", "gpu"): ["Maximum Video Card Length"],
     
-    ("cpu_cooler", "cpu"): ["Socket/CPU", "Socket"],
-    ("cpu_cooling", "cpu"): ["Socket/CPU", "Socket"],
+    ("cpu_cooler", "cpu"): ["CPU Socket", "Socket"],
+    ("cpu_cooling", "cpu"): ["CPU Socket", "Socket"],
 }
 # =====================================================
 # STATE
@@ -540,7 +540,7 @@ def filter_docs_by_compat(
     for src_cat in selected_categories:
         constraint_keys = COMPATIBILITY_ATTRS.get((src_cat, category), [])
         for ck in constraint_keys:
-            if ck in ["Socket", "Socket/CPU"] and "Socket" in compat_info:
+            if ck in ["Socket", "Socket/CPU", "CPU Socket"] and "Socket" in compat_info:
                 required["Socket"] = compat_info["Socket"]
             elif ck in ["Memory Type", "Type"] and "Memory Type" in compat_info:
                 required["Memory Type"] = compat_info["Memory Type"]
@@ -553,7 +553,7 @@ def filter_docs_by_compat(
         return docs
 
     ATTR_ALIASES: Dict[str, List[str]] = {
-        "Socket":      ["Socket", "Socket/CPU"],
+        "Socket":      ["Socket", "Socket/CPU", "CPU Socket"],
         "Memory Type": ["Memory Type", "Type"],
         "Form Factor": ["Form Factor", "Motherboard Form Factor"],
         "Length":      ["Length", "Maximum Video Card Length"],
@@ -769,17 +769,17 @@ def build_pc_recommendation(
             query = query_hint[category]
 
         if category == "cpu":
-            if "Socket" in compat_info: query += f" socket {compat_info['Socket']}"
+            if "Socket" in compat_info: query += f" Socket : {compat_info['Socket']}"
         if category == "mainboard":
-            if "Socket" in compat_info: query += f" socket {compat_info['Socket']}"
-            if "Memory Type" in compat_info: query += f" hỗ trợ {compat_info['Memory Type']}"
+            if "Socket" in compat_info: query += f" Socket/CPU : {compat_info['Socket']}"
+            if "Memory Type" in compat_info: query += f" Memory Type : {compat_info['Memory Type']}"
         elif category == "cpu_cooler":
-            if "Socket" in compat_info: query += f" socket {compat_info['Socket']}"
+            if "Socket" in compat_info: query += f" CPU Socket : {compat_info['Socket']}"
         elif category == "ram":
-            if "Memory Type" in compat_info: query += f" {compat_info['Memory Type']}"
+            if "Memory Type" in compat_info: query += f" Memory Type : {compat_info['Memory Type']}"
         elif category == "case":
-            if "Form Factor" in compat_info: query += f" hỗ trợ mainboard {compat_info['Form Factor']}"
-            if "Length" in compat_info: query += f" vga {compat_info['Length']}"
+            if "Form Factor" in compat_info: query += f" Form Factor : {compat_info['Form Factor']}"
+            if "Length" in compat_info: query += f" VGA Card Length : {compat_info['Length']}"
         print("Query:", query)
         docs = ranked_search(query, {"category": category}, k=50)
 
@@ -834,9 +834,17 @@ def extract_product_ids_from_text(text: str) -> List[str]:
 
 
 def build_json_response(message: str, intent: str = "") -> str:
+    product_ids = extract_product_ids_from_text(message)
+    product_groups = []
+    if product_ids:
+        product_groups.append({
+            "label": "",
+            "order": 1,
+            "product_ids": product_ids,
+        })
     payload = {
         "message": message,
-        "product_ids": extract_product_ids_from_text(message),
+        "product_groups": product_groups,
         "intent": intent,
     }
     return json.dumps(payload, ensure_ascii=False)
@@ -1084,10 +1092,16 @@ Bạn là trợ lý tư vấn cho shop linh kiện PC.
 
 Quy tắc:
 - Chỉ trả lời dựa trên dữ liệu từ tools.
-- Trả lời bằng JSON hợp lệ với 3 khóa bắt buộc: "message", "product_ids" và "intent".
+- Trả lời bằng JSON hợp lệ với 3 khóa bắt buộc: "message", "product_groups" và "intent".
 - "intent" là ý định ngắn gọn của người dùng (ví dụ: "build pc", "tìm kiếm", "so sánh").
 - "message" phải là nội dung markdown ngắn gọn, rõ ràng, không sử dụng icon, có kèm danh sách sản phẩm (không kèm product_id) nếu có. 
-- "product_ids" là danh sách product_id lấy từ các sản phẩm phù hợp; nếu không có sản phẩm thì trả về [].
+- "product_groups" là mảng các nhóm sản phẩm. Mỗi nhóm gồm:
+  + "label": tên nhóm (ví dụ: "Mainboard Wi-Fi", "Tản nhiệt nước"), để trống "" nếu không cần tiêu đề nhóm.
+  + "order": số thứ tự sắp xếp (nhóm đầu tiên = 1, nhóm thứ hai = 2, ...).
+  + "product_ids": danh sách product_id thuộc nhóm đó.
+- Hạn chế chia product_groups. Nếu intent là "build pc" hoặc chỉ có 1 danh sách sản phẩm đơn, chỉ dùng 1 product_group duy nhất với label rỗng.
+- Chỉ chia nhiều product_groups khi kết quả thực sự thuộc các nhóm/category khác nhau rõ ràng (ví dụ: tìm tương thích cho nhiều loại linh kiện).
+- Nếu không có sản phẩm, trả "product_groups": [].
 - Nếu người dùng hỏi chung về loại sản phẩm hoặc tìm kiếm sản phẩm, dùng get_available_types hoặc search_products.
 - Nếu người dùng yêu cầu so sánh sản phẩm, dùng compare_products, thêm một chút nhận xét cho mỗi thông số được so sánh, và kết luận ngắn gọn cuối cùng.
 - Nếu người dùng yêu cầu tìm sản phẩm tương thích với sản phẩm người dùng đưa ra, dùng find_compatible_products.
@@ -1141,15 +1155,26 @@ def format_node(state: AgentState):
     if json_match:
         content_str = json_match.group(1).strip()
     
+    # Helper: chuyển đổi format cũ (product_ids) sang format mới (product_groups)
+    def _migrate_to_groups(parsed):
+        if "product_groups" not in parsed and "product_ids" in parsed:
+            pids = parsed.pop("product_ids", [])
+            if pids:
+                parsed["product_groups"] = [{"label": "", "order": 1, "product_ids": list(pids)}]
+            else:
+                parsed["product_groups"] = []
+        if "intent" not in parsed:
+            parsed["intent"] = ""
+        return parsed
+
     # Thử parse JSON từ content
     try:
         parsed = json.loads(content_str)
-        # Kiểm tra có đủ keys "message" và "product_ids" không
-        if isinstance(parsed, dict) and "message" in parsed and "product_ids" in parsed:
-            if "intent" not in parsed:
-                parsed["intent"] = ""
-            formatted = json.dumps(parsed, ensure_ascii=False)
-            return {"messages": [AIMessage(content=formatted)]}
+        if isinstance(parsed, dict) and "message" in parsed:
+            if "product_groups" in parsed or "product_ids" in parsed:
+                parsed = _migrate_to_groups(parsed)
+                formatted = json.dumps(parsed, ensure_ascii=False)
+                return {"messages": [AIMessage(content=formatted)]}
     except (json.JSONDecodeError, ValueError):
         pass
     
@@ -1162,7 +1187,6 @@ def format_node(state: AgentState):
     id_matches = re.findall(id_list_pattern, content_str)
     if id_matches:
         try:
-            # Cố gắng parse list số từ pattern tìm được
             for match in id_matches:
                 extracted = re.findall(r'\d+', match)
                 if extracted:
@@ -1177,9 +1201,13 @@ def format_node(state: AgentState):
     message = re.sub(r'product_id\s*:\s*\[[\d\s,]+\]', '', message).strip()
     message = message or content_str
     
+    product_groups = []
+    if product_ids:
+        product_groups.append({"label": "", "order": 1, "product_ids": product_ids})
+
     formatted_json = json.dumps({
         "message": message,
-        "product_ids": product_ids,
+        "product_groups": product_groups,
         "intent": ""
     }, ensure_ascii=False)
     

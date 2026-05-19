@@ -15,7 +15,7 @@ import Checkout from "../pages/Checkout/Checkout";
 import Profile from "../pages/UserInfo/Profile";
 import ChangePassword from "../pages/ChangePass/ChangePass";
 import LaptopSearch from "../pages/laptop/LaptopSearch"
-import ComponentSearch from "../pages/Component/ComponentSearch"
+import ComponentSearch from "../pages/ComponentSearch/ComponentSearch"
 import Orders from "../pages/Order/Orders";
 import SharedBuild from "../pages/SharedBuild/SharedBuild";
 import SharedBuildDetail from "../pages/SharedBuild/SharedBuildDetail";

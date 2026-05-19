@@ -69,6 +69,34 @@ const fetchComponentById = async (componentId) => {
   }
 };
 
+const fetchComponentsByIds = async (componentIds) => {
+  try {
+    if (!componentIds || !Array.isArray(componentIds) || componentIds.length === 0) {
+      return [];
+    }
+    
+    const response = await axios.post(`/components/batch`, { ids: componentIds });
+
+    if (response && Array.isArray(response)) {
+      console.log(`Received ${response.length} components from batch`);
+      return response;
+    } else {
+      console.error('Invalid batch components data:', response);
+      return { error: 'Invalid data format from server' };
+    }
+  } catch (error) {
+    console.error(`Error fetching components batch:`, {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+    });
+    return {
+      error: error.response?.data?.error || `Failed to fetch batch components`,
+      status: error.response?.status
+    };
+  }
+};
+
 /**
  * Generic function to fetch compatible components via the unified endpoint.
  * Replaces all individual fetchCompatible* functions.
@@ -124,5 +152,6 @@ const fetchCompatibleComponents = async (componentType, filters = null) => {
 export {
   fetchComponents,
   fetchComponentById,
+  fetchComponentsByIds,
   fetchCompatibleComponents
 };
