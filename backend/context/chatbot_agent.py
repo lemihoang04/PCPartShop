@@ -670,7 +670,7 @@ def build_pc_recommendation(
     }
     allocation = allocation_by_purpose.get(purpose, allocation_by_purpose["gaming"])
     category_budget = {key: int(budget * ratio) for key, ratio in allocation.items()}
-
+    print("category_budget",category_budget)
     query_hints_by_purpose = {
         "gaming": {
             "cpu": "latest high performance gaming cpu",
@@ -730,7 +730,7 @@ def build_pc_recommendation(
 
     # --- Tính lại ngân sách cho các category còn lại ---
     # Cả locked lẫn generic_parts đều không tính vào remaining để phân bổ lại
-    pinned_cats = set(locked.keys()) | set(generic_parts.keys())
+    pinned_cats = set(locked.keys())
     remaining_categories = [c for c in categories if c not in pinned_cats]
     remaining_budget = max(budget - estimated_spent, 0)
     print(remaining_budget)
@@ -750,7 +750,6 @@ def build_pc_recommendation(
         if category in locked:
             selected_parts.append(locked[category])
             continue
-
         target = category_budget[category]
         remaining_cats = [c for c in categories[idx + 1:] if c not in locked]
         reserve_for_remaining = sum(int(category_budget[c] * 0.70) for c in remaining_cats)
@@ -758,9 +757,9 @@ def build_pc_recommendation(
 
         dynamic_cap = min(
             int(target * 1.25),
-            max(remaining_budget_now - reserve_for_remaining, int(target * 0.90)),
+            max(remaining_budget_now - reserve_for_remaining, int(target * 0.80)),
         )
-        dynamic_cap = max(dynamic_cap, int(target * 0.90))
+        dynamic_cap = max(dynamic_cap, int(target * 0.80))
 
         # Nếu category có generic keyword → enrich query = keyword + query_hint
         if category in generic_parts:
@@ -803,12 +802,10 @@ def build_pc_recommendation(
     for idx, doc in enumerate(selected_parts, start=1):
         product_id = doc_uid(doc)
         cat = doc_category(doc)
-        is_pinned = cat in locked or cat in generic_parts
-        lock_marker = " (người dùng chỉ định)" if is_pinned else ""
         lines.append(
             (
                 f"{idx}. [{doc_name(doc)}] | product_id={product_id} |"
-                f"category={doc_category(doc)} | {vnd(doc_price(doc))}{lock_marker}"
+                f"category={doc_category(doc)} | {vnd(doc_price(doc))}"
             )
         )
 

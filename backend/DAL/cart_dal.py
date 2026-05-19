@@ -48,6 +48,7 @@ def dal_get_cart(user_id):
             FROM cart c
             JOIN products p ON c.product_id = p.product_id
             WHERE c.user_id = %s
+            ORDER BY c.cart_id DESC
         """, (user_id,))
         rows = cursor.fetchall()
 

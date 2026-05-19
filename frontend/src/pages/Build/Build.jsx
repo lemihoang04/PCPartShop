@@ -24,6 +24,7 @@ import {
   FaTrashAlt
 } from 'react-icons/fa';
 import { savePCBuild, getBuildHistory, deleteBuild, getBuildBySlug } from '../../services/buildpcService';
+import { addToCart } from '../../services/apiService';
 
 // Helper function to parse memory capacity and convert to GB
 function parseMemoryToGB(memoryString) {
@@ -182,6 +183,12 @@ const Build = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState('');
   const historyRef = useRef(null);
+
+  // ── Out of Stock Modal State ──
+  const [showOutOfStockModal, setShowOutOfStockModal] = useState(false);
+  const [outOfStockItems, setOutOfStockItems] = useState([]);
+  const [inStockItems, setInStockItems] = useState([]);
+
   const [components, setComponents] = useState(() => {
     // Restore state from sessionStorage if available
     try {
@@ -917,54 +924,65 @@ const Build = () => {
     }
   };
 
-  const handleBuyNow = () => {
-    // Check if there are any components selected
-    const hasSelectedComponents = components.some(component =>
-      component.multiple
-        ? (component.selected && component.selected.length > 0)
-        : component.selected !== null
-    );
-
-    if (!hasSelectedComponents) {
-      alert("Please select at least one component before proceeding to checkout.");
+  const handleAddToCart = async () => {
+    if (!user || !user.account || !user.account.id) {
+      toast.error('Please login to add to cart!');
+      navigate('/login');
       return;
     }
 
-    // Create items array from the selected components
     const items = [];
-
     components.forEach(component => {
       if (component.multiple && component.selected && component.selected.length > 0) {
-        // For components with multiple selections (RAM, Storage, GPU)
         component.selected.forEach(item => {
-          items.push({
-            product_id: item.product_id || item.id,
-            price: item.price || 0,
-            title: item.title || item.name,
-            quantity: 1,
-            image: item.image
-          });
+          items.unshift(item);
         });
       } else if (!component.multiple && component.selected) {
-        // For components with single selection (CPU, Mainboard, etc.)
-        items.push({
-          product_id: component.selected.product_id || component.selected.id,
-          price: component.selected.price || 0,
-          title: component.selected.title || component.selected.name,
-          quantity: 1,
-          image: component.selected.image
-        });
+        items.unshift(component.selected);
       }
     });
 
-    const amount = totalPrice;
-    const isBuyNow = true;
-    const formValue = { items, amount, isBuyNow };
+    if (items.length === 0) {
+      toast.warning('Please select at least one component to add to cart.');
+      return;
+    }
 
-    console.log("PC Build items to buy:", items);
-    navigate("/checkout", {
-      state: { formValue }
+    const outOfStock = [];
+    const inStock = [];
+
+    items.forEach(item => {
+      if (item.stock > 0) {
+        inStock.push(item);
+      } else {
+        outOfStock.push(item);
+      }
     });
+
+    if (outOfStock.length > 0) {
+      setOutOfStockItems(outOfStock);
+      setInStockItems(inStock);
+      setShowOutOfStockModal(true);
+    } else {
+      await processAddToCart(inStock);
+    }
+  };
+
+  const processAddToCart = async (itemsToAdd) => {
+    if (itemsToAdd.length === 0) {
+      toast.error('No available items to add to cart.');
+      return;
+    }
+    try {
+      await Promise.all(itemsToAdd.map(item =>
+        addToCart(user.account.id, item.product_id || item.id, 1)
+      ));
+      toast.success('Added components to cart successfully!');
+      if (fetchUser) fetchUser();
+      navigate('/cart');
+    } catch (err) {
+      console.error('Error adding to cart:', err);
+      toast.error('An error occurred while adding components to the cart.');
+    }
   };
   return (
     <div className="build-container">
@@ -1246,9 +1264,9 @@ const Build = () => {
           <FaSave style={{ marginRight: '6px' }} />
           Save Build
         </button> */}
-        <button className="amazon-buy-btn" onClick={handleBuyNow}>
+        <button className="amazon-buy-btn" onClick={handleAddToCart}>
           <span className="checkout-icon"><FaShoppingCart /></span>
-          Buy Complete Build
+          Add All to Cart
         </button>
         {/* Debug button - only show in development */}
         {process.env.NODE_ENV === 'development' && (
@@ -1370,6 +1388,49 @@ const Build = () => {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Out of Stock Modal ── */}
+      {showOutOfStockModal && (
+        <div className="save-modal-overlay" onClick={() => setShowOutOfStockModal(false)}>
+          <div className="save-modal" onClick={e => e.stopPropagation()}>
+            <div className="save-modal-header">
+              <h2><FaTimes style={{ marginRight: '8px', color: '#fca5a5' }} />Out of Stock Items</h2>
+              <button className="modal-close-btn" onClick={() => setShowOutOfStockModal(false)}><FaTimes /></button>
+            </div>
+            <div className="save-modal-body">
+              <p style={{ marginBottom: '10px' }}>The following items are currently out of stock and cannot be added to your cart:</p>
+              <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginBottom: '20px', maxHeight: '200px', overflowY: 'auto' }}>
+                {outOfStockItems.map((item, idx) => (
+                  <li key={idx} style={{ marginBottom: '8px', color: '#475569' }}>
+                    {item.title || item.name}
+                  </li>
+                ))}
+              </ul>
+              {inStockItems.length > 0 ? (
+                <p>Do you want to proceed adding the remaining <strong>{inStockItems.length}</strong> in-stock items to your cart?</p>
+              ) : (
+                <p>There are no in-stock items to add to the cart.</p>
+              )}
+            </div>
+            <div className="save-modal-footer">
+              <button className="cancel-btn" onClick={() => setShowOutOfStockModal(false)}>
+                {inStockItems.length > 0 ? 'Cancel' : 'Close'}
+              </button>
+              {inStockItems.length > 0 && (
+                <button
+                  className="confirm-save-btn"
+                  onClick={() => {
+                    setShowOutOfStockModal(false);
+                    processAddToCart(inStockItems);
+                  }}
+                >
+                  OK
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
