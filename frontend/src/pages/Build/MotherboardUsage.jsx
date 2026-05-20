@@ -822,10 +822,10 @@ const MotherboardUsage = ({ motherboard, rams, cpu, storages, gpus, components }
         </div>
       </div>
 
-      <div className="mb-note">
+      {/* <div className="mb-note">
         <FaLightbulb className="note-icon" />
         The number of RAM slots may vary depending on the motherboard. Please refer to the motherboard manual for optimal RAM installation.
-      </div>
+      </div> */}
 
       <div className={`mb-layout ${animateSection === 'storage' ? 'highlight-section' : ''}`}>
         <div className="mb-section">

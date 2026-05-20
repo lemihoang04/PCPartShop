@@ -586,7 +586,7 @@ const Chatbot = () => {
                                                     className="ts-chatbot-add-build-btn" 
                                                     onClick={() => handleAddAllToBuild(msg)}
                                                 >
-                                                    Thêm vào Build PC
+                                                    Add all products to Build PC Page
                                                 </button>
                                             </div>
                                         )}
@@ -606,17 +606,19 @@ const Chatbot = () => {
                             </div>
 
                             <div className="ts-chatbot-input">
-                                <input
-                                    type="text"
-                                    placeholder="Hỏi về linh kiện, giá hoặc build PC..."
-                                    value={input}
-                                    onChange={(e) => setInput(e.target.value)}
-                                    onKeyDown={handleKeyDown}
-                                    ref={inputRef}
-                                />
-                                <button onClick={handleSend} disabled={isTyping}>
-                                    <FaPaperPlane />
-                                </button>
+                                <div className="ts-chatbot-input-wrapper">
+                                    <input
+                                        type="text"
+                                        placeholder="Hỏi về linh kiện, giá hoặc build PC..."
+                                        value={input}
+                                        onChange={(e) => setInput(e.target.value)}
+                                        onKeyDown={handleKeyDown}
+                                        ref={inputRef}
+                                    />
+                                    <button onClick={handleSend} disabled={isTyping}>
+                                        <FaPaperPlane />
+                                    </button>
+                                </div>
                             </div>
                         </>
                     )}

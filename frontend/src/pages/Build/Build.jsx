@@ -402,6 +402,7 @@ const Build = () => {
 
     // Check RAM compatibility
     const motherboard = components.find(c => c.id === 'Mainboard')?.selected;
+    const cpu = components.find(c => c.id === 'cpu')?.selected;
     const rams = components.find(c => c.id === 'ram')?.selected || [];
     const storages = components.find(c => c.id === 'storage')?.selected || [];
     const gpus = components.find(c => c.id === 'gpu')?.selected || [];
@@ -434,6 +435,23 @@ const Build = () => {
             message: `Total RAM capacity (${totalRAMCapacityGB}GB) exceeds motherboard maximum (${maxMemoryGB}GB).`
           });
           isCompatible = false; // RAM capacity exceeded, set compatibility to false
+        }
+      }
+
+      // Check RAM capacity against CPU maximum supported memory
+      if (cpu) {
+        const maxCpuMemStr = cpu.attributes?.["Maximum Supported Memory"];
+        if (maxCpuMemStr) {
+          const maxCpuMemGB = parseMemoryToGB(maxCpuMemStr);
+          const totalRAMCapacityGB = calculateTotalRAMCapacity(rams);
+
+          if (totalRAMCapacityGB > maxCpuMemGB) {
+            issues.push({
+              type: 'problem',
+              message: `Total RAM capacity (${totalRAMCapacityGB}GB) exceeds CPU maximum supported memory (${maxCpuMemGB}GB).`
+            });
+            isCompatible = false;
+          }
         }
       }
 
@@ -543,7 +561,6 @@ const Build = () => {
     }
 
     // Check CPU and Motherboard Socket compatibility
-    const cpu = components.find(c => c.id === 'cpu')?.selected;
     if (cpu && motherboard) {
       const cpuSocket = cpu.attributes?.["Socket"];
       const mbSocket = motherboard.attributes?.["Socket/CPU"];
@@ -761,7 +778,10 @@ const Build = () => {
       console.log('Adding multiple components from Chatbot:', componentDetails);
 
       setComponents((prevComponents) => {
-        const updatedComponents = prevComponents.map(comp => ({ ...comp }));
+        const updatedComponents = prevComponents.map(comp => ({ 
+          ...comp,
+          selected: comp.multiple ? [] : null
+        }));
         
         componentDetails.forEach(detail => {
           const targetComponent = updatedComponents.find(c => c.name === detail.category_name);
@@ -780,6 +800,7 @@ const Build = () => {
 
       // Clear the location state to prevent re-adding on refresh
       window.history.replaceState({}, document.title);
+      toast.success("Build added successfully");
     }
   }, [location.state]);  // Hàm handleRemoveComponent - Xử lý xóa component
   const handleRemoveComponent = (componentId, index = null) => {
@@ -1279,7 +1300,7 @@ const Build = () => {
           <button
             className="amazon-buy-btn"
             onClick={clearAllComponents}
-            style={{ marginLeft: '10px', backgroundColor: '#ff6b6b' }}
+            style={{ backgroundColor: '#ff6b6b' }}
           >
             <FaTrash style={{ marginRight: '6px' }} /> Clear All
           </button>

@@ -8,7 +8,7 @@
 /* ---------- Container ---------- */
 .ts-chatbot-container {
     position: fixed;
-    bottom: 20px;
+    bottom: 10px;
     right: 20px;
     z-index: 900;
     font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
@@ -47,8 +47,8 @@
     position: absolute;
     bottom: 70px;
     right: 0;
-    width: 370px;
-    height: 520px;
+    width: 400px;
+    height: 580px;
     background-color: #ffffff;
     border-radius: 16px;
     box-shadow:
@@ -61,7 +61,7 @@
 }
 
 .ts-chatbot-window-no-button {
-    bottom: 20px;
+    bottom: 10px;
 }
 
 @keyframes slideUp {
@@ -79,7 +79,7 @@
 /* ---------- Header ---------- */
 .ts-chatbot-header {
     padding: 10px 12px;
-    background-color: #067fd9;
+    background-color: #1f93ff;
     color: #ffffff;
     display: flex;
     align-items: center;
@@ -437,7 +437,7 @@
 /* ---------- Messages Container ---------- */
 .ts-chatbot-messages {
     flex: 1;
-    padding: 14px 10px 12px 15px;
+    padding: 14px 10px 12px 12px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -504,18 +504,19 @@
 
 /* ---------- Message Bubble ---------- */
 .ts-message-text {
-    padding: 9px 13px;
+    padding: 8px 12px;
     border-radius: 16px;
     line-height: 1.5;
-    font-size: 13.5px;
+    font-size: 13px;
     word-break: break-word;
 }
 
 .ts-message.user .ts-message-text {
-    background-color: #1f93ff;
-    color: #ffffff;
+    background-color: #e3e6e6;
+    /* color: #ffffff; */
     border-bottom-right-radius: 4px;
-    box-shadow: 0 1px 4px rgba(37, 99, 235, 0.25);
+    font-weight: 500;
+    /* box-shadow: 0 1px 4px rgba(37, 99, 235, 0.25); */
 }
 
 .ts-message.bot .ts-message-text {
@@ -523,7 +524,8 @@
     color: #1e293b;
     border-bottom-left-radius: 4px;
     border: 1px solid #e2e8f0;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    font-weight: 400;
+    /* box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); */
 }
 
 .ts-message-text h2,
@@ -578,26 +580,44 @@
 
 /* ---------- Input Area ---------- */
 .ts-chatbot-input {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 8px;
     padding: 10px 12px;
-    border-top: 1px solid #e2e8f0;
-    background-color: #ffffff;
+    background-color: #f8fafc;
     flex-shrink: 0;
 }
 
+.ts-chatbot-input::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 0;
+    right: 0;
+    height: 8px;
+    background: linear-gradient(to bottom, transparent 0, #f8fafc 90%);
+    pointer-events: none;
+}
+
+.ts-chatbot-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
 .ts-chatbot-input input {
-    flex: 1;
-    padding: 9px 14px;
+    width: 100%;
+    padding: 10px 46px 10px 14px;
     border: 1.5px solid #e2e8f0;
-    border-radius: 20px;
+    border-radius: 22px;
     font-size: 13.5px;
     color: #0f172a;
-    background-color: #f8fafc;
+    background-color: #ffffff;
     outline: none;
-    transition: border-color 0.2s ease, background-color 0.2s ease;
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
     font-family: inherit;
+    box-sizing: border-box;
 }
 
 .ts-chatbot-input input::placeholder {
@@ -611,29 +631,33 @@
 }
 
 .ts-chatbot-input button {
+    position: absolute;
+    right: 7px;
+    top: 50%;
+    transform: translateY(-50%);
     background-color: #1f93ff;
     color: #ffffff;
     border: none;
     border-radius: 50%;
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 14px;
+    font-size: 13px;
     transition: background-color 0.2s ease, transform 0.15s ease;
     flex-shrink: 0;
 }
 
 .ts-chatbot-input button:hover:not(:disabled) {
     background-color: #1d4ed8;
-    transform: scale(1.05);
+    transform: translateY(-50%) scale(1.08);
 }
 
 .ts-chatbot-input button:active:not(:disabled) {
-    transform: scale(0.95);
+    transform: translateY(-50%) scale(0.95);
 }
 
 .ts-chatbot-input button:disabled {
@@ -644,7 +668,7 @@
 /* ---------- Product Groups ---------- */
 .ts-chatbot-product-group {
     width: 100%;
-    margin-top: 8px;
+    margin-top: 4px;
 }
 
 .ts-chatbot-product-group + .ts-chatbot-product-group {
@@ -825,7 +849,8 @@
 }
 
 .ts-message.user .ts-markdown-wrapper a {
-    color: #bfdbfe;
+    /* color: #bfdbfe; */
+    font-weight: 500;
 }
 
 .ts-markdown-wrapper img {
@@ -923,22 +948,24 @@
 
 /* ---------- Add to Build PC Button ---------- */
 .ts-chatbot-add-build-wrap {
-    margin-top: 12px;
+    margin-top: 3px;
     display: flex;
-    justify-content: center;
+    /* justify-content: flex-end; */
+    width: 100%;
+    /* align-self: stretch; */
 }
 
 .ts-chatbot-add-build-btn {
-    background: linear-gradient(135deg, #1f93ff, #067fd9);
-    color: white;
+    background: #96c3ff;
+    color: #002D74;
     border: none;
     padding: 8px 16px;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 0.9rem;
+    border-radius: 16px;
+    font-weight: 400;
+    font-size: 0.8rem;
     cursor: pointer;
     transition: all 0.2s ease;
-    box-shadow: 0 4px 6px rgba(31, 147, 255, 0.2);
+    /* box-shadow: 0 4px 6px rgba(31, 147, 255, 0.2); */
 }
 
 .ts-chatbot-add-build-btn:hover {

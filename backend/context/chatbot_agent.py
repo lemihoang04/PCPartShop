@@ -429,6 +429,14 @@ def choose_doc_by_budget(
     return min(pool, key=score)["doc"]
 
 
+def _extract_ddr_type(value: str) -> Optional[str]:
+    """Trích xuất DDR generation từ chuỗi như 'DDR5-5600' → 'DDR5', 'DDR4-3200' → 'DDR4'."""
+    m = re.match(r"(DDR\d+)", str(value).strip(), re.IGNORECASE)
+    if m:
+        return m.group(1).upper()
+    return None
+
+
 def update_compat_info(compat_info: Dict[str, Any], chosen: Any, category: str) -> None:
     """Trích xuất thông tin tương thích từ linh kiện đã chọn và cập nhật compat_info."""
     attrs_str = getattr(chosen, "metadata", {}).get("attrs_json", "{}")
@@ -444,6 +452,12 @@ def update_compat_info(compat_info: Dict[str, Any], chosen: Any, category: str) 
         elif k in ["Type", "Memory Type"] and category in ["ram", "cpu", "mainboard"]:
             if "Memory Type" not in compat_info:
                 compat_info["Memory Type"] = v
+        elif k == "Speed" and category == "ram":
+            # RAM dùng "Speed" dạng "DDR5-5600" thay vì "Type"/"Memory Type"
+            if "Memory Type" not in compat_info:
+                ddr_type = _extract_ddr_type(str(v))
+                if ddr_type:
+                    compat_info["Memory Type"] = ddr_type
         elif k in ["Motherboard Form Factor", "Form Factor"] and category not in ["ram", "storage"]:
             if "Form Factor" not in compat_info:
                 compat_info["Form Factor"] = v
@@ -507,6 +521,7 @@ def resolve_preferred_parts(
     return locked, compat_info, generic_parts
 
 
+
 def _extract_mm(value: str) -> Optional[float]:
     """Trích xuất giá trị số mm từ chuỗi như '267 mm', '400 mm / 15.748\"', '15.748\"'."""
     # Ưu tiên tìm giá trị mm trước
@@ -554,7 +569,7 @@ def filter_docs_by_compat(
 
     ATTR_ALIASES: Dict[str, List[str]] = {
         "Socket":      ["Socket", "Socket/CPU", "CPU Socket"],
-        "Memory Type": ["Memory Type", "Type"],
+        "Memory Type": ["Memory Type", "Type", "Speed"],
         "Form Factor": ["Form Factor", "Motherboard Form Factor"],
         "Length":      ["Length", "Maximum Video Card Length"],
     }
@@ -569,15 +584,22 @@ def filter_docs_by_compat(
         for compat_key, expected_val in required.items():
             aliases = ATTR_ALIASES.get(compat_key, [compat_key])
             actual_val = None
+            matched_alias = None
             for alias in aliases:
                 if alias in attrs:
                     actual_val = attrs[alias]
+                    matched_alias = alias
                     break
             if actual_val is None:
-                continue  # thiếu attr → không loại
+                return False  # thiếu attr → loại
 
             exp_str = str(expected_val).strip()
             act_str = str(actual_val).strip()
+
+            # --- Nếu lấy từ "Speed" (RAM) → extract DDR type trước khi so sánh ---
+            if matched_alias == "Speed" and compat_key == "Memory Type":
+                ddr = _extract_ddr_type(act_str)
+                act_str = ddr if ddr else act_str
 
             # --- Length: so sánh số mm (GPU length <= Case max length) ---
             if compat_key == "Length":
@@ -670,7 +692,6 @@ def build_pc_recommendation(
     }
     allocation = allocation_by_purpose.get(purpose, allocation_by_purpose["gaming"])
     category_budget = {key: int(budget * ratio) for key, ratio in allocation.items()}
-    print("category_budget",category_budget)
     query_hints_by_purpose = {
         "gaming": {
             "cpu": "latest high performance gaming cpu",
@@ -1052,7 +1073,12 @@ def find_compatible_products(provided_products: List[str], target_categories: Li
             
         query = " ".join(query_parts)
         
-        docs = ranked_search(query, filters={"category": filter_cat} if filter_cat in CATEGORY_KEYWORDS else None, k=5)
+        docs = ranked_search(query, filters={"category": filter_cat} if filter_cat in CATEGORY_KEYWORDS else None, k=50)
+        
+        # Lọc tương thích dựa trên cấu hình gốc
+        selected_categories_so_far = [doc_category(d) for d in base_docs]
+        docs = filter_docs_by_compat(docs, filter_cat, compat_info, selected_categories_so_far)
+        docs = docs[:5]
         
         if docs:
             display_name = target_kw_norm if target_kw_norm else target_cat_norm
