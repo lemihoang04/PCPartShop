@@ -26,9 +26,10 @@ product_agent = create_pc_product_agent()
 # =====================================================
 
 def _extract_chatbot_payload(agent_response):
-    """Extract message, product_groups, and intent from agent response.
-    Returns (message, product_groups, intent)
+    """Extract message, product_groups, intent, and suggested_prompts from agent response.
+    Returns (message, product_groups, intent, suggested_prompts)
     product_groups: list of {label, order, product_ids}
+    suggested_prompts: list of strings
     """
     # Helper to flatten product_groups to a flat product_ids list
     def _groups_to_flat(groups):
@@ -50,7 +51,9 @@ def _extract_chatbot_payload(agent_response):
             if product_groups is None:
                 product_groups = _ids_to_groups(agent_response.get('product_ids') or [])
             intent = agent_response.get('intent') or None
-            return message, list(product_groups), intent
+            suggested_prompts = agent_response.get('suggested_prompts') or []
+            print(suggested_prompts)
+            return message, list(product_groups), intent, suggested_prompts
 
     if isinstance(agent_response, str):
         raw_content = agent_response.strip()
@@ -65,7 +68,7 @@ def _extract_chatbot_payload(agent_response):
         raw_content = getattr(last_message, 'content', str(last_message) if last_message is not None else '').strip()
 
     if not raw_content:
-        return '', [], None
+        return '', [], None, []
 
     normalized = raw_content
     if normalized.startswith('```'):
@@ -80,13 +83,14 @@ def _extract_chatbot_payload(agent_response):
             if product_groups is None:
                 product_groups = _ids_to_groups(parsed.get('product_ids') or [])
             intent = parsed.get('intent') or None
-            return message, list(product_groups), intent
+            suggested_prompts = parsed.get('suggested_prompts') or []
+            return message, list(product_groups), intent, suggested_prompts
     except Exception:
         pass
 
     product_ids = re.findall(r'/product-info/([^\)\s]+)', raw_content)
     product_ids = list(dict.fromkeys(product_ids))
-    return raw_content, _ids_to_groups(product_ids), None
+    return raw_content, _ids_to_groups(product_ids), None, []
 
 
 def _build_history_for_llm(db_messages, max_turns=6):
@@ -298,7 +302,7 @@ def chatbot_langchain_query():
         # --- Step 5: Invoke agent ---
         agent_response = product_agent.invoke({"messages": llm_messages})
 
-        response_content, product_groups, intent = _extract_chatbot_payload(agent_response)
+        response_content, product_groups, intent, suggested_prompts = _extract_chatbot_payload(agent_response)
 
         # Flatten product_groups to get all product_ids
         all_product_ids = []
@@ -362,6 +366,7 @@ def chatbot_langchain_query():
                 'products': all_products,
                 'product_groups': response_product_groups,
                 'intent': intent,
+                'suggested_prompts': suggested_prompts,
                 'type': 'markdown',
             }
         })

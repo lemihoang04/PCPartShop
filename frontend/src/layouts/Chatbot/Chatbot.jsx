@@ -21,6 +21,11 @@ import { FaShoppingCart, FaRobot, FaTimes, FaPaperPlane, FaChevronLeft, FaPlus, 
 const WELCOME_MSG = {
     text: 'Xin chào! Mình có thể hỗ trợ bạn tìm linh kiện, kiểm tra giá hoặc gợi ý build PC.',
     sender: 'bot',
+    suggestedPrompts: [
+        'Shop bạn co các loại sản phẩm nào',
+        'Gợi ý cấu hình PC chơi game',
+        'So sánh Intel Core i5 và i7'
+    ]
 };
 
 const formatPrice = (value) => {
@@ -46,6 +51,32 @@ const formatConvTime = (isoStr) => {
     const diffH = Math.floor(diffMin / 60);
     if (diffH < 24) return `${diffH} giờ trước`;
     return d.toLocaleDateString('vi-VN');
+};
+
+const getUniqueCategoryCount = (msg) => {
+    if (!msg) return 0;
+    const categoriesSet = new Set();
+    if (msg.productGroups && msg.productGroups.length > 0) {
+        msg.productGroups.forEach(g => {
+            if (g.products) {
+                g.products.forEach(p => {
+                    const cat = p.category_name || p.category;
+                    if (cat) {
+                        categoriesSet.add(String(cat).trim().toLowerCase());
+                    }
+                });
+            }
+        });
+    }
+    if (msg.products && msg.products.length > 0) {
+        msg.products.forEach(p => {
+            const cat = p.category_name || p.category;
+            if (cat) {
+                categoriesSet.add(String(cat).trim().toLowerCase());
+            }
+        });
+    }
+    return categoriesSet.size;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -251,17 +282,10 @@ const Chatbot = () => {
     };
 
     // ── Send message ─────────────────────────────────────────────────────────
-    const handleSend = async () => {
-        if (input.trim() === '') return;
-
-        const userMessage = { text: input, sender: 'user' };
-        setMessages((prev) => [...prev, userMessage]);
-        const sentText = input;
-        setInput('');
+    const sendQuery = async (queryText) => {
         setIsTyping(true);
-
         try {
-            const response = await sendChatbotQuery(sentText, userId, conversationId);
+            const response = await sendChatbotQuery(queryText, userId, conversationId);
             const chatbotResponse = response?.response ?? response;
             const output =
                 chatbotResponse?.message ??
@@ -275,6 +299,9 @@ const Chatbot = () => {
                 ? chatbotResponse.product_groups
                 : [];
             const intent = chatbotResponse?.intent;
+            const suggestedPrompts = Array.isArray(chatbotResponse?.suggested_prompts)
+                ? chatbotResponse.suggested_prompts
+                : [];
 
             // If backend created / used a conversation, track its ID
             if (response?.conversation_id && !conversationId) {
@@ -283,7 +310,7 @@ const Chatbot = () => {
 
             setTimeout(() => {
                 if (response?.success && output) {
-                    setMessages((prev) => [...prev, { text: output, sender: 'bot', products, productGroups, intent }]);
+                    setMessages((prev) => [...prev, { text: output, sender: 'bot', products, productGroups, intent, suggestedPrompts }]);
                 } else {
                     setMessages((prev) => [
                         ...prev,
@@ -305,6 +332,20 @@ const Chatbot = () => {
             ]);
             setIsTyping(false);
         }
+    };
+
+    const handleSend = async () => {
+        if (input.trim() === '') return;
+        const sentText = input;
+        setInput('');
+        setMessages((prev) => [...prev, { text: sentText, sender: 'user' }]);
+        await sendQuery(sentText);
+    };
+
+    const handleSelectSuggestedPrompt = async (prompt) => {
+        if (!prompt || isTyping) return;
+        setMessages((prev) => [...prev, { text: prompt, sender: 'user' }]);
+        await sendQuery(prompt);
     };
 
     const handleKeyDown = (e) => {
@@ -580,7 +621,7 @@ const Chatbot = () => {
                                             ));
                                         })()}
 
-                                        {msg.sender === 'bot' && msg.intent && msg.intent.toLowerCase() === 'build pc' && (
+                                        {msg.sender === 'bot' && msg.intent && msg.intent.toLowerCase() === 'build pc' && getUniqueCategoryCount(msg) >= 5 && (
                                             <div className="ts-chatbot-add-build-wrap">
                                                 <button 
                                                     className="ts-chatbot-add-build-btn" 
@@ -588,6 +629,21 @@ const Chatbot = () => {
                                                 >
                                                     Add all products to Build PC Page
                                                 </button>
+                                            </div>
+                                        )}
+
+                                        {msg.sender === 'bot' && index === messages.length - 1 && Array.isArray(msg.suggestedPrompts) && msg.suggestedPrompts.length > 0 && (
+                                            <div className="ts-chatbot-suggested-prompts-wrap">
+                                                {msg.suggestedPrompts.map((prompt, pIdx) => (
+                                                    <button
+                                                        key={pIdx}
+                                                        className="ts-chatbot-suggested-prompt-btn"
+                                                        onClick={() => handleSelectSuggestedPrompt(prompt)}
+                                                        disabled={isTyping}
+                                                    >
+                                                        {prompt}
+                                                    </button>
+                                                ))}
                                             </div>
                                         )}
                                     </div>

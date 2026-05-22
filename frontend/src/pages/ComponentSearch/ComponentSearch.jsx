@@ -358,14 +358,25 @@ const ComponentSearch = () => {
   const getSortableValue = (component, key) => {
     if (key === 'Name') return component.title || '';
     if (key === 'Price') return Number(component.price) || 0;
-    if (key === 'Rating') return Number(component.attributes?.['Rating Count']) || 0;
+    if (key === 'Rating') return Number(component.rating) || 0;
 
-    const value = component.attributes?.[key];
-    if (value === undefined || value === null || value === 'N/A') return '';
+    let attributeKey = key;
+    if (normalizedType === 'CPU') {
+      if (key === 'Core Clock') {
+        attributeKey = 'Performance Core Clock';
+      } else if (key === 'Core Boost Clock') {
+        attributeKey = 'Performance Core Boost Clock';
+      }
+    }
+
+    const value = component.attributes?.[attributeKey];
+    if (value === undefined || value === null || value === 'N/A' || value === '') return null;
 
     if (typeof value === 'number') return value;
 
     const asString = String(value).trim();
+    if (asString.toLowerCase() === 'n/a' || asString === '') return null;
+
     const numeric = parseFloat(asString.replace(/[^\d.-]/g, ''));
 
     return Number.isNaN(numeric) ? asString.toLowerCase() : numeric;
@@ -378,13 +389,28 @@ const ComponentSearch = () => {
       const aValue = getSortableValue(a, sortConfig.key);
       const bValue = getSortableValue(b, sortConfig.key);
 
+      // Handle null/empty/invalid/N/A values to always be at the end of the list
+      const aIsEmpty = aValue === undefined || aValue === null || aValue === '';
+      const bIsEmpty = bValue === undefined || bValue === null || bValue === '';
+
+      if (aIsEmpty && bIsEmpty) return 0;
+      if (aIsEmpty) return 1;   // Empty values go to the end
+      if (bIsEmpty) return -1;  // Empty values go to the end
+
       if (aValue === bValue) return 0;
 
-      if (sortConfig.direction === 'asc') {
-        return aValue > bValue ? 1 : -1;
+      const isAsc = sortConfig.direction === 'asc';
+
+      // Numerical comparison if both are numbers
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return isAsc ? aValue - bValue : bValue - aValue;
       }
 
-      return aValue < bValue ? 1 : -1;
+      // Fallback to alphabetical comparison
+      const aStr = String(aValue).toLowerCase();
+      const bStr = String(bValue).toLowerCase();
+
+      return isAsc ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
     });
 
     return sortable;

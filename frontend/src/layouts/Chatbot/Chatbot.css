@@ -677,12 +677,12 @@
 
 .ts-chatbot-group-label {
     font-size: 12.5px;
-    font-weight: 600;
+    font-weight: 700;
     color: #1e40af;
-    background: linear-gradient(135deg, #eff6ff 0%, #e0f0ff 100%);
-    border: 1px solid #bfdbfe;
-    border-radius: 8px;
-    padding: 5px 12px;
+    /* background: linear-gradient(135deg, #eff6ff 0%, #e0f0ff 100%); */
+    /* border: 1px solid #bfdbfe; */
+    /* border-radius: 8px; */
+    padding: 1px 12px;
     margin-bottom: 6px;
     display: inline-block;
 }
@@ -971,4 +971,40 @@
 .ts-chatbot-add-build-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 12px rgba(31, 147, 255, 0.3);
+}
+
+/* ---------- Suggested Prompts ---------- */
+.ts-chatbot-suggested-prompts-wrap {
+    margin-left: 6px;
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    align-items: flex-start;
+}
+
+.ts-chatbot-suggested-prompt-btn {
+    background: #e0f0ff;
+    color: #067fd9;
+    border: 1px solid #bfdbfe;
+    padding: 7px 12px;
+    border-radius: 16px;
+    font-weight: 500;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+    max-width: 100%;
+}
+
+.ts-chatbot-suggested-prompt-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(31, 147, 255, 0.25);
+    background: #d0e8ff;
+}
+
+.ts-chatbot-suggested-prompt-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }

@@ -349,7 +349,7 @@ def ranked_search(query: str, filters: Optional[Dict[str, Any]], k: int = 8) -> 
             if bm25_retriever:
                 bm25_retriever.k = max(k * 3, 20)
                 ensemble_retriever = EnsembleRetriever(
-                    retrievers=[bm25_retriever, db_retriever], weights=[0.4, 0.6]
+                    retrievers=[bm25_retriever, db_retriever], weights=[0.1, 0.9]
                 )
                 docs = ensemble_retriever.invoke(q)
                 
@@ -875,7 +875,7 @@ def build_json_response(message: str, intent: str = "") -> str:
 
 @tool
 def search_products(keyword: str = "", category: str = "", limit: int = 5, purpose: str = "") -> str:
-    """Tìm sản phẩm theo từ khóa(keyword) và/hoặc loại linh kiện(category). Cả 2 đều có thể để trống nếu chỉ cần tìm theo 1 trong 2. Tham số purpose (tùy chọn) mô tả mục đích tìm kiếm của người dùng."""
+    """Tìm sản phẩm theo từ khóa(keyword: bằng tiếng Anh) và/hoặc loại linh kiện(category). Cả 2 đều có thể để trống nếu chỉ cần tìm theo 1 trong 2. Tham số purpose (tùy chọn) bằng tiếng Anh mô tả mục đích tìm kiếm của người dùng."""
     keyword = (keyword or "").strip()
     category = (category or "").strip().lower()
     purpose = (purpose or "").strip()
@@ -945,10 +945,16 @@ def search_products_by_budget(target_price: int, keyword: str = "", product_type
 @tool
 def recommend_pc_build(budget: int, purpose: str = "gaming", preferred_parts: Optional[Dict[str, str]] = None) -> str:
     """
-    Gợi ý cấu hình PC cân đối theo ngân sách và mục đích sử dụng (purpose: gaming, office, workstation, creator).
-    Nếu người dùng chỉ định linh kiện cụ thể, truyền preferred_parts là dict với key là loại linh kiện (cpu, gpu, ram, mainboard, cpu_cooler, storage, psu, case) và value là tên/từ khóa linh kiện.
-    Ví dụ: preferred_parts={"cpu": "AMD Ryzen 7 7800X3D", "gpu": "RTX 4060"}
-    Các category còn lại sẽ được tự động chọn phù hợp với ngân sách và tương thích.
+    Gợi ý cấu hình PC theo ngân sách và mục đích.
+    
+    Quy tắc trích xuất preferred_parts:
+    - Nếu người dùng chỉ định linh kiện hoặc THƯƠNG HIỆU (Intel, AMD, Nvidia, RTX...), phải đưa vào dict.
+    - Key: cpu, gpu, ram, mainboard, cpu_cooler, storage, psu, case.
+    - Value: Tên model hoặc tên thương hiệu.
+
+    Ví dụ:
+    - "PC gaming Intel 30 triệu" -> budget=30000000, preferred_parts={"cpu": "Intel"}
+    - "Build máy dùng card RTX" -> preferred_parts={"gpu": "RTX"}
     """
     if budget <= 0:
         return "Ngân sách phải lớn hơn 0."
@@ -1117,9 +1123,10 @@ system_prompt = SystemMessage(
 Bạn là trợ lý tư vấn cho shop linh kiện PC.
 
 Quy tắc:
-- Chỉ trả lời dựa trên dữ liệu từ tools.
-- Trả lời bằng JSON hợp lệ với 3 khóa bắt buộc: "message", "product_groups" và "intent".
+- Chỉ trả lời dựa trên dữ liệu từ tools, nếu bị hỏi ngoài dữ liệu thì trả lời không biết.
+- Trả lời bằng JSON hợp lệ với 4 khóa bắt buộc: "message", "product_groups", "intent" và "suggested_prompts".
 - "intent" là ý định ngắn gọn của người dùng (ví dụ: "build pc", "tìm kiếm", "so sánh").
+- "suggested_prompts" là mảng tối đa 2 câu prompt gợi ý hành động tiếp theo phù hợp cho người dùng (chỉ gợi ý những gì mà các tool trong hệ thống có thể làm được như tìm kiếm sản phẩm theo ngân sách, so sánh linh kiện, kiểm tra tương thích, hoặc gợi ý cấu hình PC). Nếu không cần gợi ý thêm gì, để trống [].
 - "message" phải là nội dung markdown ngắn gọn, rõ ràng, không sử dụng icon, có kèm danh sách sản phẩm (không kèm product_id) nếu có. 
 - "product_groups" là mảng các nhóm sản phẩm. Mỗi nhóm gồm:
   + "label": tên nhóm (ví dụ: "Mainboard Wi-Fi", "Tản nhiệt nước"), để trống "" nếu không cần tiêu đề nhóm.
@@ -1191,6 +1198,8 @@ def format_node(state: AgentState):
                 parsed["product_groups"] = []
         if "intent" not in parsed:
             parsed["intent"] = ""
+        if "suggested_prompts" not in parsed:
+            parsed["suggested_prompts"] = []
         return parsed
 
     # Thử parse JSON từ content
@@ -1234,7 +1243,8 @@ def format_node(state: AgentState):
     formatted_json = json.dumps({
         "message": message,
         "product_groups": product_groups,
-        "intent": ""
+        "intent": "",
+        "suggested_prompts": []
     }, ensure_ascii=False)
     
     return {"messages": [AIMessage(content=formatted_json)]}
