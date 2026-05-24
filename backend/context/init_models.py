@@ -20,7 +20,7 @@ def get_llm() -> ChatGoogleGenerativeAI:
     return ChatGoogleGenerativeAI(
         api_key=google_api_key,
         model=MODEL_NAME,
-        temperature=0,
+        temperature=0.1,
     )
 
 embedding = HuggingFaceEmbeddings(model_name="BAAI/bge-m3")

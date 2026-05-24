@@ -1,8 +1,9 @@
+from attr import filters
 import os
 import re
 import json
-from pathlib import Path
 from typing import Annotated, Any, Dict, List, Optional, TypedDict
+import csv
 
 from langchain_core.messages import AIMessage, SystemMessage
 from langchain_core.tools import tool
@@ -16,14 +17,7 @@ import pickle
 from langchain_community.retrievers import BM25Retriever
 from langchain_classic.retrievers import EnsembleRetriever
 
-try:
-    docs_path = os.path.join(os.path.dirname(__file__), "chroma_db", "docs.pkl")
-    with open(docs_path, "rb") as f:
-        all_docs = pickle.load(f)
-    bm25_retriever = BM25Retriever.from_documents(all_docs)
-except Exception as e:
-    print(f"Error loading docs.pkl for BM25: {e}")
-    bm25_retriever = None
+
 
 def check_filter_match(doc: Any, filters: Optional[Dict[str, Any]]) -> bool:
     if not filters:
@@ -144,6 +138,8 @@ COMPATIBILITY_ATTRS: Dict[tuple[str, str], List[str]] = {
     ("cpu_cooler", "cpu"): ["CPU Socket", "Socket"],
     ("cpu_cooling", "cpu"): ["CPU Socket", "Socket"],
 }
+
+
 # =====================================================
 # STATE
 # =====================================================
@@ -301,8 +297,6 @@ def build_context_block(docs: List[Any]) -> str:
     lines: List[str] = []
     for idx, doc in enumerate(docs, start=1):
         product_id = doc_uid(doc)
-        # product_link = f"/product-info/{product_id}"
-        # image_url = doc_image(doc)
         # content = (getattr(doc, "page_content", "") or "").replace("\n", " ").strip()
         # excerpt = content[:300] if content else "Khong co mo ta"
         # line = (
@@ -336,6 +330,14 @@ def format_markdown_output(text: str) -> str:
 
 def ranked_search(query: str, filters: Optional[Dict[str, Any]], k: int = 8) -> List[Any]:
     results: List[Any] = []
+    try:
+        docs_path = os.path.join(os.path.dirname(__file__), "chroma_db", "docs.pkl")
+        with open(docs_path, "rb") as f:
+            all_docs = pickle.load(f)
+        bm25_retriever = BM25Retriever.from_documents(all_docs)
+    except Exception as e:
+        print(f"Error loading docs.pkl for BM25: {e}")
+        bm25_retriever = None
 
     queries = [
         query,
@@ -346,10 +348,22 @@ def ranked_search(query: str, filters: Optional[Dict[str, Any]], k: int = 8) -> 
     for q in queries:
         try:
             db_retriever = db.as_retriever(search_kwargs={"k": k, "filter": filters if filters else None})
-            if bm25_retriever:
-                bm25_retriever.k = max(k * 3, 20)
+            if bm25_retriever and all_docs:
+                if filters and "category" in filters:
+                    target_category = filters["category"]
+                    # Chỉ giữ lại các tài liệu có category trùng khớp
+                    filtered_docs = [
+                        doc for doc in all_docs 
+                        if doc.metadata.get("category") == target_category
+                    ]
+                else:
+                    # Nếu không có hoặc không chứa "category", giữ nguyên toàn bộ tài liệu
+                    filtered_docs = all_docs
+                
+                bm25_retriever = BM25Retriever.from_documents(filtered_docs)
+                bm25_retriever.k = max(k * 2, 20)
                 ensemble_retriever = EnsembleRetriever(
-                    retrievers=[bm25_retriever, db_retriever], weights=[0.1, 0.9]
+                    retrievers=[bm25_retriever, db_retriever], weights=[0.5, 0.5]
                 )
                 docs = ensemble_retriever.invoke(q)
                 
@@ -374,18 +388,19 @@ def choose_doc_by_budget(
     docs: List[Any],
     target_price: int,
     max_price: int,
-) -> Optional[Any]:
+    category: str = None
+) -> List[Any]:
 
     if not docs:
-        return None
+        return []
 
     if target_price <= 0:
-        # Không có thông tin giá mục tiêu → trả doc có rank tốt nhất có price hợp lệ
+        result = []
         for doc in docs:
             price = doc_price(doc)
             if price and price > 0:
-                return doc
-        return docs[0]
+                result.append(doc)
+        return result if result else list(docs)
 
     if target_price > max_price:
         target_price = max_price
@@ -393,42 +408,99 @@ def choose_doc_by_budget(
 
     candidates: List[Dict[str, Any]] = []
 
+    # 1. Thu thập ứng viên và trích xuất chỉ số CPU/GPU
     for rank, doc in enumerate(docs):
         price = doc_price(doc)
         if price is None or price <= 0:
             continue
+            
+        # Trích xuất an toàn (Giả định trả về số, nếu không có hoặc None thì mặc định là 0)
+        # Thay đổi cách lấy thuộc tính tùy thuộc vào cấu trúc doc của bạn (ví dụ: doc.get() hoặc doc.cpu_multi_thread)
+        cpu_multi = float(doc.metadata.get('cpu_multi_thread', 0) or 0)
+        cpu_single = float(doc.metadata.get('cpu_single_thread', 0) or 0)
+        gpu_g3d = float(doc.metadata.get('gpu_g3d', 0) or 0)
+
         candidates.append({
             "doc": doc,
             "price": int(price),
             "rank": rank,
+            "cpu_multi": cpu_multi,
+            "cpu_single": cpu_single,
+            "gpu_g3d": gpu_g3d
         })
 
     if not candidates:
-        return None
+        return []
 
-    within_budget = [c for c in candidates if c["price"] <= max_price]
+    # 2. Tìm giá trị lớn nhất (Max) của từng chỉ số trong pool để phục vụ chuẩn hóa (Min-Max Normalization)
+    max_cpu_multi = max([c["cpu_multi"] for c in candidates]) or 1.0
+    max_cpu_single = max([c["cpu_single"] for c in candidates]) or 1.0
+    max_gpu_g3d = max([c["gpu_g3d"] for c in candidates]) or 1.0
+    min_price = target_price * 0.8
+    within_budget = [c for c in candidates if c["price"] <= max_price and c["price"] >= min_price]
     print("within_budget count:", len(within_budget))
     pool = within_budget if within_budget else candidates
-
+    # csv_file = "score_debug.csv"
+    # with open(csv_file, "w", newline="", encoding="utf-8") as f:
+    #     writer = csv.writer(f)
+    #     writer.writerow([
+    #         "doc_name",
+    #         "distance_score",
+    #         "over_budget_penalty",
+    #         "rank_penalty",
+    #         "perf_penalty",
+    #         "total_score"
+    #     ])
     def score(item: Dict[str, Any]) -> float:
         price = item["price"]
         rank = item["rank"]
 
-        # Độ lệch tuyệt đối so với target (normalize)
+        # --- TIÊU CHÍ CŨ ---
+        # Độ lệch tuyệt đối so với target
         distance_score = abs(price - target_price) / target_price
 
-        # Phạt lũy tiến nếu vượt target (dù vẫn trong max_price)
+        # Phạt lũy tiến nếu vượt target
         over_ratio = max(price - target_price, 0) / target_price
-        over_budget_penalty = over_ratio * 2.0
+        over_budget_penalty = over_ratio * 1
 
-        # Rank là tie-breaker: mỗi bậc chỉ tương đương ~2% giá
-        rank_penalty = rank * 0.02
+        # Rank penalty (mỗi bậc phạt 3%)
+        rank_penalty = rank * 0.01
 
-        return distance_score + over_budget_penalty + rank_penalty
+        # --- TIÊU CHÍ MỚI (CPU & GPU) ---
+        # Chuẩn hóa giá trị về khoảng [0, 1]. Hiệu năng càng cao, giá trị càng gần 1.
+        norm_cpu_multi = item["cpu_multi"] / max_cpu_multi
+        norm_cpu_single = item["cpu_single"] / max_cpu_single
+        norm_gpu_g3d = item["gpu_g3d"] / max_gpu_g3d
 
-    return min(pool, key=score)["doc"]
+        perf_weight = 1
+        if category == "cpu":
+            performance_bonus = (norm_cpu_multi * 0.6) + (norm_cpu_single * 0.4) 
+        elif category == "gpu":
+            performance_bonus = norm_gpu_g3d
+        else:
+            performance_bonus = 1
+        
+        perf_penalty = (1.0 - performance_bonus) * perf_weight    
+        total_score = distance_score + over_budget_penalty + rank_penalty + perf_penalty
 
+        # with open(csv_file, "a", newline="", encoding="utf-8") as f:
+        #     writer = csv.writer(f)
+        #     writer.writerow([
+        #         doc_name(item["doc"]),
+        #         distance_score,
+        #         over_budget_penalty,
+        #         rank_penalty,
+        #         perf_penalty,
+        #         total_score
+        #     ])
 
+        return total_score
+
+    # Trả về pool đã được rank theo score tăng dần (score thấp = tốt hơn)
+    ranked_pool = sorted(pool, key=score)
+    return [item["doc"] for item in ranked_pool]
+
+ 
 def _extract_ddr_type(value: str) -> Optional[str]:
     """Trích xuất DDR generation từ chuỗi như 'DDR5-5600' → 'DDR5', 'DDR4-3200' → 'DDR4'."""
     m = re.match(r"(DDR\d+)", str(value).strip(), re.IGNORECASE)
@@ -802,14 +874,14 @@ def build_pc_recommendation(
             if "Form Factor" in compat_info: query += f" Form Factor : {compat_info['Form Factor']}"
             if "Length" in compat_info: query += f" VGA Card Length : {compat_info['Length']}"
         print("Query:", query)
-        docs = ranked_search(query, {"category": category}, k=50)
+        docs = ranked_search(query, {"category": category}, k=100)
 
         # --- Lọc tương thích bằng Python trên attrs_json ---
         selected_categories_so_far = [doc_category(d) for d in selected_parts]
         docs = filter_docs_by_compat(docs, category, compat_info, selected_categories_so_far)
         print(category,"target:",target,"dynamic_cap:",dynamic_cap)
-        chosen = choose_doc_by_budget(docs, target_price=target, max_price=dynamic_cap)
-        print
+        ranked_docs = choose_doc_by_budget(docs, target_price=target, max_price=dynamic_cap, category=category)
+        chosen = ranked_docs[0] if ranked_docs else None
         if chosen:
             selected_parts.append(chosen)
             estimated_spent += doc_price(chosen) or target
@@ -875,7 +947,7 @@ def build_json_response(message: str, intent: str = "") -> str:
 
 @tool
 def search_products(keyword: str = "", category: str = "", limit: int = 5, purpose: str = "") -> str:
-    """Tìm sản phẩm theo từ khóa(keyword: bằng tiếng Anh) và/hoặc loại linh kiện(category). Cả 2 đều có thể để trống nếu chỉ cần tìm theo 1 trong 2. Tham số purpose (tùy chọn) bằng tiếng Anh mô tả mục đích tìm kiếm của người dùng."""
+    """Tìm sản phẩm theo từ khóa(keyword: bằng tiếng Anh) và/hoặc loại linh kiện(category). Cả 2 đều có thể để trống nếu chỉ cần tìm theo 1 trong 2. Tham số purpose (tùy chọn) tính chất, mục đích sử dụng ngắn gọn bằng tiếng Anh(ví dụ: gaming, office, ...)."""
     keyword = (keyword or "").strip()
     category = (category or "").strip().lower()
     purpose = (purpose or "").strip()
@@ -906,9 +978,9 @@ def search_products(keyword: str = "", category: str = "", limit: int = 5, purpo
 
 
 @tool
-def search_products_by_budget(target_price: int, keyword: str = "", product_type: str = "", limit: int = 5, purpose: str = "") -> str:
+def search_products_by_budget(target_price: int, keyword: str = "", product_type: str = "",limit: int = 5, purpose: str = "") -> str:
     """
-    Tìm sản phẩm gần với ngân sách mục tiêu của người dùng (target_price), loại sản phẩm (product_type) và từ khóa (keyword). Tham số purpose (tùy chọn) mô tả mục đích tìm kiếm của người dùng.
+    Tìm sản phẩm gần với ngân sách mục tiêu của người dùng (target_price), bắt buộc có loại sản phẩm (product_type). Từ khóa (keyword). Tham số purpose (tùy chọn) tính chất, mục đích sử dụng ngắn gọn(ví dụ: gaming, office, ...).
     """
     purpose = (purpose or "").strip()
     if purpose:
@@ -918,25 +990,19 @@ def search_products_by_budget(target_price: int, keyword: str = "", product_type
         return "Ngân sách phải lớn hơn 0."
 
     min_price = int(target_price * 0.8)
-    max_price = int(target_price * 1.1)
-
-    filters = build_filter(
-        product_type=product_type,
-        min_price=min_price,
-        max_price=max_price
-    )
+    max_price = int(target_price * 1.25)
 
     query = f"{keyword}"
     if purpose:
         query = f"{query} {purpose}".strip()
 
-    docs = ranked_search(query, filters or None, k=max(limit * 3, 20))
+    docs = ranked_search(query, {"category": product_type}, k=100)
 
     if not docs:
         return "Không tìm thấy sản phẩm."
+    docs = choose_doc_by_budget(docs, target_price=target_price, max_price=max_price, category=product_type)
 
-
-    docs = docs[: max(1, min(limit, 20))]
+    docs = docs[: max(1, min(limit, 50))]
 
     if not docs:
         return "Không tìm thấy sản phẩm phù hợp với ngân sách."
@@ -946,7 +1012,7 @@ def search_products_by_budget(target_price: int, keyword: str = "", product_type
 def recommend_pc_build(budget: int, purpose: str = "gaming", preferred_parts: Optional[Dict[str, str]] = None) -> str:
     """
     Gợi ý cấu hình PC theo ngân sách và mục đích.
-    
+    Có 4 mục đích tượng trưng, tùy vào mục đích người dùng mà để điền vào purpose: gaming, office, workstation, creator.
     Quy tắc trích xuất preferred_parts:
     - Nếu người dùng chỉ định linh kiện hoặc THƯƠNG HIỆU (Intel, AMD, Nvidia, RTX...), phải đưa vào dict.
     - Key: cpu, gpu, ram, mainboard, cpu_cooler, storage, psu, case.
@@ -964,7 +1030,7 @@ def recommend_pc_build(budget: int, purpose: str = "gaming", preferred_parts: Op
 
 @tool
 def get_available_types() -> str:
-    """Tra ve cac loai linh kien co the tim."""
+    """Trả về các loại linh kiện."""
     types = sorted(CATEGORY_KEYWORDS.keys())
     return "Các loại sản phẩm hiện có: " + ", ".join(types)
 
@@ -997,7 +1063,7 @@ def compare_products(product_names: List[str]) -> str:
         line = (
             f"Sản phẩm {idx}: {doc_name(doc)} | "
             f"category={doc_category(doc)} | price={vnd(doc_price(doc))} | product_id={product_id} | "
-            f"Thông số: {attrs}"
+            # f"Thông số: {attrs}"
         )
         lines.append(line)
         
@@ -1101,6 +1167,178 @@ def find_compatible_products(provided_products: List[str], target_categories: Li
     return "\n".join(results)
 
 
+def _extract_compat_values(attrs: Dict[str, Any], category: str) -> Dict[str, str]:
+    """Trích xuất các giá trị tương thích từ attrs, logic giống update_compat_info."""
+    info: Dict[str, str] = {}
+    for k, v in attrs.items():
+        if k in ["Socket/CPU", "Socket", "CPU Socket"]:
+            info["Socket"] = str(v)
+        elif k in ["Type", "Memory Type"] and category in ["ram", "cpu", "mainboard"]:
+            info["Memory Type"] = str(v)
+        elif k == "Speed" and category == "ram":
+            ddr = _extract_ddr_type(str(v))
+            if ddr and "Memory Type" not in info:
+                info["Memory Type"] = ddr
+        elif k in ["Motherboard Form Factor", "Form Factor"] and category not in ["ram", "storage"]:
+            info["Form Factor"] = str(v)
+        elif k in ["Length", "Maximum Video Card Length"]:
+            info["Length"] = str(v)
+    return info
+
+
+_COMPAT_KEY_MAP = {
+    "Socket": "Socket", "Socket/CPU": "Socket", "CPU Socket": "Socket",
+    "Memory Type": "Memory Type", "Type": "Memory Type",
+    "Form Factor": "Form Factor", "Motherboard Form Factor": "Form Factor",
+    "Length": "Length", "Maximum Video Card Length": "Length",
+}
+
+_COMPAT_KEY_ALIASES: Dict[str, List[str]] = {
+    "Socket":      ["Socket", "Socket/CPU", "CPU Socket"],
+    "Memory Type": ["Memory Type", "Type", "Speed"],
+    "Form Factor": ["Form Factor", "Motherboard Form Factor"],
+    "Length":      ["Length", "Maximum Video Card Length"],
+}
+
+
+def _compare_compat_pair(
+    src_vals: Dict[str, str], src_cat: str,
+    tgt_attrs: Dict[str, Any], tgt_cat: str,
+    constraint_keys: List[str],
+) -> tuple[List[str], List[str]]:
+    """Kiểm tra ràng buộc 1 chiều (src -> tgt). Trả về (matches, issues)."""
+    matches, issues = [], []
+    for ck in constraint_keys:
+        canon = _COMPAT_KEY_MAP.get(ck)
+        if not canon:
+            continue
+        expected = src_vals.get(canon)
+        if not expected:
+            continue
+
+        # Tìm giá trị thực tế trong target attrs
+        actual, matched_alias = None, None
+        for alias in _COMPAT_KEY_ALIASES.get(canon, [canon]):
+            if alias in tgt_attrs:
+                actual, matched_alias = str(tgt_attrs[alias]), alias
+                break
+        if actual is None:
+            continue
+
+        # RAM Speed -> extract DDR type
+        if matched_alias == "Speed" and canon == "Memory Type":
+            ddr = _extract_ddr_type(actual)
+            actual = ddr if ddr else actual
+
+        exp, act = expected.strip(), actual.strip()
+
+        # Length: so sánh số mm
+        if canon == "Length":
+            mm_src, mm_tgt = _extract_mm(exp), _extract_mm(act)
+            if mm_src is not None and mm_tgt is not None:
+                if src_cat == "gpu" and mm_src > mm_tgt:
+                    issues.append(f"Chieu dai GPU ({mm_src}mm) vuot qua gioi han Case ({mm_tgt}mm)")
+                elif tgt_cat == "gpu" and mm_tgt > mm_src:
+                    issues.append(f"Chieu dai GPU ({mm_tgt}mm) vuot qua gioi han Case ({mm_src}mm)")
+                else:
+                    matches.append(f"Length tuong thich: '{exp}' va '{act}'")
+            continue
+
+        # Socket / Memory Type / Form Factor: contains (case-insensitive)
+        if exp.lower() in act.lower() or act.lower() in exp.lower():
+            matches.append(f"{canon} tuong thich: '{exp}' va '{act}'")
+        else:
+            issues.append(f"{canon} khong tuong thich: '{exp}' vs '{act}'")
+
+    return matches, issues
+
+
+def _check_all_compatibility(docs: List[Any], not_found: List[str]) -> str:
+    """Kiểm tra tương thích pairwise giữa danh sách docs. Trả về report dạng text."""
+    lines: List[str] = ["San pham duoc kiem tra:"]
+    for idx, doc in enumerate(docs, start=1):
+        lines.append(f"  {idx}. {doc_name(doc)} (category: {doc_category(doc)}, product_id: {doc_uid(doc)})")
+    if not_found:
+        lines.append(f"\nKhong tim thay: {', '.join(not_found)}")
+    lines.append("")
+
+    has_any, all_ok = False, True
+
+    for i in range(len(docs)):
+        for j in range(i + 1, len(docs)):
+            doc_a, doc_b = docs[i], docs[j]
+            cat_a, cat_b = doc_category(doc_a), doc_category(doc_b)
+
+            keys_ab = COMPATIBILITY_ATTRS.get((cat_a, cat_b), [])
+            keys_ba = COMPATIBILITY_ATTRS.get((cat_b, cat_a), [])
+            if not keys_ab and not keys_ba:
+                continue
+
+            attrs_a = json.loads(getattr(doc_a, "metadata", {}).get("attrs_json", "{}"))
+            attrs_b = json.loads(getattr(doc_b, "metadata", {}).get("attrs_json", "{}"))
+            vals_a = _extract_compat_values(attrs_a, cat_a)
+            vals_b = _extract_compat_values(attrs_b, cat_b)
+
+            matches, issues = [], []
+            if keys_ab:
+                m, iss = _compare_compat_pair(vals_a, cat_a, attrs_b, cat_b, keys_ab)
+                matches += m; issues += iss
+            if keys_ba:
+                m, iss = _compare_compat_pair(vals_b, cat_b, attrs_a, cat_a, keys_ba)
+                matches += m; issues += iss
+
+            # Dedup
+            matches = list(dict.fromkeys(matches))
+            issues = list(dict.fromkeys(issues))
+            if not matches and not issues:
+                continue
+
+            has_any = True
+            ok = len(issues) == 0
+            if not ok:
+                all_ok = False
+
+            lines.append(f"--- {doc_name(doc_a)} <-> {doc_name(doc_b)} ---")
+            lines.append(f"Ket qua: {'Tuong thich' if ok else 'Khong tuong thich'}")
+            for m in matches:
+                lines.append(f"  [OK] {m}")
+            for iss in issues:
+                lines.append(f"  [FAIL] {iss}")
+            lines.append("")
+
+    if not has_any:
+        lines.append("Khong co rang buoc tuong thich giua cac linh kien duoc cung cap.")
+    else:
+        lines.append(f"Tong ket: {'Tat ca linh kien deu tuong thich.' if all_ok else 'Co mot so van de tuong thich can luu y.'}")
+
+    return "\n".join(lines)
+
+
+@tool
+def check_compatibility(product_names: List[str]) -> str:
+    """
+    Kiểm tra tương thích giữa các linh kiện PC.
+    Cung cấp danh sách tên sản phẩm (tối đa 8) để kiểm tra xem chúng có tương thích với nhau không.
+    """
+    if not product_names or len(product_names) < 2:
+        return "Vui long cung cap it nhat 2 san pham de kiem tra tuong thich."
+    if len(product_names) > 8:
+        return "Chi ho tro kiem tra toi da 8 san pham cung luc."
+
+    docs, not_found = [], []
+    for q in product_names:
+        found = ranked_search(q, filters=None, k=1)
+        if found:
+            docs.append(found[0])
+        else:
+            not_found.append(q)
+
+    if len(docs) < 2:
+        return "Khong tim du san pham de kiem tra tuong thich."
+
+    return _check_all_compatibility(docs, not_found)
+
+
 tools = [
     search_products,
     search_products_by_budget,
@@ -1108,6 +1346,7 @@ tools = [
     get_available_types,
     compare_products,
     find_compatible_products,
+    check_compatibility,
 ]
 
 
@@ -1124,6 +1363,17 @@ Bạn là trợ lý tư vấn cho shop linh kiện PC.
 
 Quy tắc:
 - Chỉ trả lời dựa trên dữ liệu từ tools, nếu bị hỏi ngoài dữ liệu thì trả lời không biết.
+- Khi đã có đủ dữ liệu, trả lời ngắn gọn, rõ ràng, ưu tiên dạng danh sách.
+- Các product_type: cpu, gpu, mainboard, cpu_cooler, ram, storage, psu, case.
+Tool_Guidance:
+- Nếu người dùng hỏi chung về loại sản phẩm hoặc tìm kiếm sản phẩm, dùng get_available_types hoặc search_products.
+- Nếu người dùng yêu cầu so sánh sản phẩm, dùng compare_products, thêm một chút nhận xét cho mỗi thông số được so sánh, và kết luận ngắn gọn cuối cùng.
+- Nếu người dùng yêu cầu kiểm tra tương thích giữa các linh kiện đã có (ví dụ: "CPU này có tương thích với mainboard này không?"), dùng check_compatibility.
+- Nếu người dùng yêu cầu tìm sản phẩm tương thích với sản phẩm người dùng đưa ra, dùng find_compatible_products.
+- Nếu có ngân sách, dùng search_products_by_budget.
+- Nếu người dùng muốn build PC, hãy hỏi thêm nếu thiếu ngân sách hoặc nhu cầu (gaming, office, workstation, creator), và thêm một câu nhận xét ngắn gọn sau khi nhận câu trả lời.
+- Nếu người dùng yêu cầu build PC và chỉ định linh kiện cụ thể (ví dụ: "build PC dùng Ryzen 7 và RTX 4060"), hãy truyền preferred_parts cho recommend_pc_build với key là category (cpu, gpu, ram, mainboard, cpu_cooler, storage, psu, case) và value là tên/từ khóa linh kiện người dùng đưa ra.
+Output_Requirements:
 - Trả lời bằng JSON hợp lệ với 4 khóa bắt buộc: "message", "product_groups", "intent" và "suggested_prompts".
 - "intent" là ý định ngắn gọn của người dùng (ví dụ: "build pc", "tìm kiếm", "so sánh").
 - "suggested_prompts" là mảng tối đa 2 câu prompt gợi ý hành động tiếp theo phù hợp cho người dùng (chỉ gợi ý những gì mà các tool trong hệ thống có thể làm được như tìm kiếm sản phẩm theo ngân sách, so sánh linh kiện, kiểm tra tương thích, hoặc gợi ý cấu hình PC). Nếu không cần gợi ý thêm gì, để trống [].
@@ -1135,13 +1385,6 @@ Quy tắc:
 - Hạn chế chia product_groups. Nếu intent là "build pc" hoặc chỉ có 1 danh sách sản phẩm đơn, chỉ dùng 1 product_group duy nhất với label rỗng.
 - Chỉ chia nhiều product_groups khi kết quả thực sự thuộc các nhóm/category khác nhau rõ ràng (ví dụ: tìm tương thích cho nhiều loại linh kiện).
 - Nếu không có sản phẩm, trả "product_groups": [].
-- Nếu người dùng hỏi chung về loại sản phẩm hoặc tìm kiếm sản phẩm, dùng get_available_types hoặc search_products.
-- Nếu người dùng yêu cầu so sánh sản phẩm, dùng compare_products, thêm một chút nhận xét cho mỗi thông số được so sánh, và kết luận ngắn gọn cuối cùng.
-- Nếu người dùng yêu cầu tìm sản phẩm tương thích với sản phẩm người dùng đưa ra, dùng find_compatible_products.
-- Nếu có ngân sách, dùng search_products_by_budget.
-- Nếu người dùng muốn build PC, hãy hỏi thêm nếu thiếu ngân sách hoặc nhu cầu (gaming, office, workstation, creator), và thêm một câu nhận xét ngắn gọn sau khi nhận câu trả lời.
-- Nếu người dùng yêu cầu build PC và chỉ định linh kiện cụ thể (ví dụ: "build PC dùng Ryzen 7 và RTX 4060"), hãy truyền preferred_parts cho recommend_pc_build với key là category (cpu, gpu, ram, mainboard, cpu_cooler, storage, psu, case) và value là tên/từ khóa linh kiện người dùng đưa ra.
-- Khi đã có đủ dữ liệu, trả lời ngắn gọn, rõ ràng, ưu tiên dạng danh sách.
 """.strip()
 )
 

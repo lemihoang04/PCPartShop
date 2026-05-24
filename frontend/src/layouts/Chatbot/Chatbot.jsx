@@ -22,9 +22,9 @@ const WELCOME_MSG = {
     text: 'Xin chào! Mình có thể hỗ trợ bạn tìm linh kiện, kiểm tra giá hoặc gợi ý build PC.',
     sender: 'bot',
     suggestedPrompts: [
-        'Shop bạn co các loại sản phẩm nào',
-        'Gợi ý cấu hình PC chơi game',
-        'So sánh Intel Core i5 và i7'
+        'Shop bạn có các loại sản phẩm nào',
+        'Gợi ý cấu hình PC chơi game 20 triệu',
+        'Card màn hình tốt nhất trong tầm giá 10 triệu'
     ]
 };
 

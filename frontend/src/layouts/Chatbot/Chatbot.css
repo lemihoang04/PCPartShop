@@ -583,7 +583,7 @@
     position: relative;
     display: flex;
     align-items: center;
-    padding: 10px 12px;
+    padding: 10px 8px;
     background-color: #f8fafc;
     flex-shrink: 0;
 }
@@ -678,7 +678,7 @@
 .ts-chatbot-group-label {
     font-size: 12.5px;
     font-weight: 700;
-    color: #1e40af;
+    color: #1e293b;
     /* background: linear-gradient(135deg, #eff6ff 0%, #e0f0ff 100%); */
     /* border: 1px solid #bfdbfe; */
     /* border-radius: 8px; */
@@ -956,6 +956,7 @@
 }
 
 .ts-chatbot-add-build-btn {
+    margin-left: 6px;
     background: #96c3ff;
     color: #002D74;
     border: none;
@@ -988,7 +989,7 @@
     background: #e0f0ff;
     color: #067fd9;
     border: 1px solid #bfdbfe;
-    padding: 7px 12px;
+    padding: 6px 12px;
     border-radius: 16px;
     font-weight: 500;
     font-size: 13px;

@@ -215,7 +215,7 @@ const ComponentSearch = () => {
 
   const getFilterableAttributes = () => {
     switch (normalizedType) {
-      case 'CPU': return ['Socket', 'Core Count', 'Integrated Graphics'];
+      case 'CPU': return ['Microarchitecture', 'Socket', 'Core Count', 'Integrated Graphics'];
       case 'GPU': return ['Chipset', 'Memory', 'Cooling'];
       case 'Mainboard': return ['Socket/CPU', 'Form Factor', 'Memory Max'];
       case 'RAM': return ['Modules', 'Speed', 'CAS Latency'];
