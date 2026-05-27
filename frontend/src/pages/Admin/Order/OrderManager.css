@@ -420,3 +420,178 @@
 .close-modal-btn:hover {
     background: #e2e8f0;
 }
+
+/* ── Collapsible Sub-tables ──────────────────────────────── */
+.om-btn-expand {
+    background: transparent;
+    border: none;
+    color: #64748b;
+    padding: 6px;
+    cursor: pointer;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    vertical-align: middle;
+}
+
+.om-btn-expand:hover {
+    background: #f1f5f9;
+    color: #4f46e5;
+}
+
+.om-btn-expand.expanded {
+    transform: rotate(0deg);
+    color: #4f46e5;
+}
+
+.om-row-expanded-parent {
+    background-color: #f8fafc;
+}
+
+.om-expanded-row {
+    background-color: #f8fafc;
+}
+
+.om-expanded-row td {
+    padding: 10px !important;
+    border-bottom: 1.5px solid #e2e8f0 !important;
+}
+
+.om-expanded-content {
+    background: #ffffff;
+    border-left: 4px solid #6366f1;
+    border-radius: 0 12px 12px 12px;
+    padding: 16px 20px;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.02), 0 4px 12px rgba(0,0,0,0.03);
+    margin-top: -4px;
+    animation: omSlideDown 0.25s ease;
+}
+
+@keyframes omSlideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.om-sub-title {
+    margin: 0 0 12px 0;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.om-sub-title::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #6366f1;
+}
+
+.om-sub-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.825rem;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+}
+
+.om-sub-table th {
+    background: #f8fafc;
+    padding: 10px 14px;
+    font-weight: 600;
+    color: #64748b;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.om-sub-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #475569;
+}
+
+.om-sub-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.om-sub-table tbody tr:hover {
+    background-color: #faf5ff !important;
+}
+
+.om-sub-total-cell {
+    font-weight: 700;
+    color: #1e293b;
+}
+
+/* ── Modal Product List ──────────────────────────────────── */
+.om-modal-items-section {
+    margin-top: 24px;
+    border-top: 1px dashed #e2e8f0;
+    padding-top: 20px;
+}
+
+.om-modal-items-title {
+    margin: 0 0 12px 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.om-modal-table-wrap {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #ffffff;
+}
+
+.om-modal-items-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+}
+
+.om-modal-items-table th {
+    background: #f8fafc;
+    padding: 8px 12px;
+    font-weight: 600;
+    color: #64748b;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.om-modal-items-table th:nth-child(2),
+.om-modal-items-table td:nth-child(2),
+.om-modal-items-table th:nth-child(4),
+.om-modal-items-table td:nth-child(4) {
+    text-align: right;
+}
+
+.om-modal-items-table th:nth-child(3),
+.om-modal-items-table td:nth-child(3) {
+    text-align: center;
+}
+
+.om-modal-items-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #475569;
+}
+
+.om-modal-items-table tr:last-child td {
+    border-bottom: none;
+}
+
+.om-modal-items-table td:last-child {
+    font-weight: 600;
+    color: #1e293b;
+}

@@ -11,9 +11,9 @@ import {
     deleteConversation,
 } from '../../services/chatbotService';
 import { UserContext } from '../../context/UserProvider';
-import { fetchComponentsByIds } from '../../services/componentService';
+import { fetchComponentById, fetchComponentsByIds } from '../../services/componentService';
 import './Chatbot.css';
-import { FaShoppingCart, FaRobot, FaTimes, FaPaperPlane, FaChevronLeft, FaPlus, FaComments, FaTrash } from 'react-icons/fa';
+import { FaShoppingCart, FaRobot, FaTimes, FaPaperPlane, FaChevronLeft, FaPlus, FaComments, FaTrash, FaWrench } from 'react-icons/fa';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -23,16 +23,23 @@ const WELCOME_MSG = {
     sender: 'bot',
     suggestedPrompts: [
         'Shop bạn có các loại sản phẩm nào',
-        'Gợi ý cấu hình PC chơi game 20 triệu',
-        'Card màn hình tốt nhất trong tầm giá 10 triệu'
+        'Gợi ý cấu hình PC chơi game giá tầm 1000 USD',
+        'Card màn hình tốt nhất trong tầm giá 500 USD'
     ]
 };
 
 const formatPrice = (value) => {
-    if (value === null || value === undefined || value === '') return 'Liên hệ';
-    const numericValue = Number(value) * 26000;
-    if (Number.isNaN(numericValue)) return String(value);
-    return `${new Intl.NumberFormat('vi-VN').format(numericValue)}đ`;
+    if (value === null || value === undefined || value === '') {
+        return 'Contact';
+    }
+
+    const numericValue = Number(value);
+
+    if (Number.isNaN(numericValue)) {
+        return String(value);
+    }
+
+    return `$${new Intl.NumberFormat('en-US').format(numericValue)}`;
 };
 
 const getProductImage = (image) => {
@@ -140,6 +147,28 @@ const Chatbot = () => {
     };
 
     // ── Add to Build PC Page ────────────────────────────────────────────────
+    const handleAddToBuilder = async (e, product) => {
+        e.stopPropagation();
+        try {
+            const productId = parseInt(product.product_id, 10);
+            const componentDetail = await fetchComponentById(productId);
+            if (componentDetail.error) {
+                console.error('Error fetching component details:', componentDetail.error);
+                toast.error('Không thể lấy thông tin linh kiện.');
+                return;
+            }
+            navigate('/build', {
+                state: {
+                    addedComponent: componentDetail,
+                },
+            });
+        } catch (error) {
+            console.error('Failed to fetch component details:', error);
+            toast.error('Đã xảy ra lỗi khi thêm vào Builder.');
+        }
+    };
+
+    // ── Add all to Build PC Page ────────────────────────────────────────────────
     const handleAddAllToBuild = async (msg) => {
         try {
             const allIds = [];
@@ -607,12 +636,25 @@ const Chatbot = () => {
                                                                     <span className="ts-chatbot-product-price">
                                                                         {formatPrice(product.price)}
                                                                     </span>
-                                                                    <button
-                                                                        className="ts-chatbot-add-to-cart-btn"
-                                                                        onClick={(e) => handleAddToCart(e, product)}
-                                                                    >
-                                                                        <FaShoppingCart /> Add to Cart
-                                                                    </button>
+                                                                    <div className="ts-chatbot-add-actions">
+                                                                        <span className="ts-chatbot-add-label">Add to:</span>
+                                                                        <div className="ts-chatbot-add-buttons-row">
+                                                                            <button
+                                                                                className="ts-chatbot-add-to-cart-btn"
+                                                                                onClick={(e) => handleAddToCart(e, product)}
+                                                                                title="Add to Cart"
+                                                                            >
+                                                                                <FaShoppingCart /> Cart
+                                                                            </button>
+                                                                            <button
+                                                                                className="ts-chatbot-add-to-builder-btn"
+                                                                                onClick={(e) => handleAddToBuilder(e, product)}
+                                                                                title="Add to PC Builder"
+                                                                            >
+                                                                                <FaWrench /> Builder
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
                                                                 </div>
                                                             </button>
                                                         ))}

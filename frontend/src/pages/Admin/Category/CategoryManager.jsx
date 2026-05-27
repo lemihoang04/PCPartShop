@@ -3,36 +3,30 @@ import { toast } from "react-toastify";
 import "./CategoryManager.css";
 import axios from "../../../setup/axios";
 
+/* ─── Helpers ─────────────────────────────────────────────── */
+const formatDate = (dateString) => {
+    if (!dateString) return "—";
+    return new Date(dateString).toLocaleDateString("vi-VN", {
+        day: "2-digit", month: "2-digit", year: "numeric",
+    });
+};
+
+/* ─── Component ───────────────────────────────────────────── */
 const CategoryManager = () => {
     const [categories, setCategories] = useState([]);
-    const [newCategory, setNewCategory] = useState("");
-    const [newDescription, setNewDescription] = useState("");
     const [editingId, setEditingId] = useState(null);
     const [editingName, setEditingName] = useState("");
     const [editingDescription, setEditingDescription] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
 
-    // Fetch categories from backend
+    /* ── Fetch ── */
     const fetchCategories = async () => {
         setIsLoading(true);
         try {
             const res = await axios.get("/categories");
             const data = Array.isArray(res) ? res : res.data;
-
-            if (!data) {
-                console.error("No data received from server");
-                setCategories([]);
-                return;
-            }
-
-            if (!Array.isArray(data)) {
-                console.error("Invalid data format - expected array");
-                setCategories([]);
-                return;
-            }
-
-            setCategories(data);
+            setCategories(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error("Error fetching categories:", error);
             toast.error("Error loading categories");
@@ -42,41 +36,11 @@ const CategoryManager = () => {
         }
     };
 
-    useEffect(() => {
-        fetchCategories();
-    }, []);
+    useEffect(() => { fetchCategories(); }, []);
 
-    // Add new category
-    // const handleAddCategory = async (e) => {
-    //     e.preventDefault();
-    //     if (!newCategory.trim()) {
-    //         toast.warning("Category name cannot be empty");
-    //         return;
-    //     }
-
-    //     setIsLoading(true);
-    //     try {
-    //         await axios.post("/categories", {
-    //             name: newCategory,
-    //             description: newDescription
-    //         });
-    //         toast.success("Category added successfully");
-    //         setNewCategory("");
-    //         setNewDescription("");
-    //         fetchCategories();
-    //     } catch (error) {
-    //         toast.error("Error adding category");
-    //         console.error(error);
-    //     } finally {
-    //         setIsLoading(false);
-    //     }
-    // };
-
-    // Delete category
-    const handleDelete = async (id) => {
-        if (!window.confirm("Are you sure you want to delete this category?")) return;
-
-        setIsLoading(true);
+    /* ── Delete ── */
+    const handleDelete = async (id, name) => {
+        if (!window.confirm(`Are you sure you want to delete category "${name}"?`)) return;
         try {
             await axios.delete(`/categories/${id}`);
             toast.success("Category deleted successfully");
@@ -84,30 +48,25 @@ const CategoryManager = () => {
         } catch (error) {
             toast.error("Error deleting category");
             console.error(error);
-        } finally {
-            setIsLoading(false);
         }
     };
 
-    // Start editing
+    /* ── Edit ── */
     const handleEdit = (id, name, description = "") => {
         setEditingId(id);
         setEditingName(name);
         setEditingDescription(description || "");
     };
 
-    // Save edits
     const handleSaveEdit = async (id) => {
         if (!editingName.trim()) {
             toast.warning("Category name cannot be empty");
             return;
         }
-
-        setIsLoading(true);
         try {
             await axios.put(`/categories/${id}`, {
                 name: editingName,
-                description: editingDescription
+                description: editingDescription,
             });
             toast.success("Category updated successfully");
             setEditingId(null);
@@ -117,179 +76,149 @@ const CategoryManager = () => {
         } catch (error) {
             toast.error("Error updating category");
             console.error(error);
-        } finally {
-            setIsLoading(false);
         }
     };
 
-    // Cancel edit
     const handleCancelEdit = () => {
         setEditingId(null);
         setEditingName("");
         setEditingDescription("");
     };
 
-    // Filter categories by search term
-    const filteredCategories = categories.filter(cat =>
+    /* ── Filter ── */
+    const filtered = categories.filter((cat) =>
         cat.category_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (cat.description && cat.description.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
-    // Format date to be more readable
-    const formatDate = (dateString) => {
-        if (!dateString) return "N/A";
-        const date = new Date(dateString);
-        return date.toLocaleString();
-    };
-
+    /* ─── Render ─────────────────────────────────────────── */
     return (
-        <div className="catmgr-category-manager-container">
-            <div className="catmgr-category-header">
-                <h2>Category Management</h2>
-                <div className="catmgr-search-container">
+        <div className="cat-container">
+            {/* Header */}
+            <div className="cat-header">
+                <div className="cat-header-left">
+                    <h2 className="cat-title">
+                        <i className="bi bi-grid-fill me-2" />
+                        Category Management
+                    </h2>
+                    <span className="cat-count">{filtered.length} categories</span>
+                </div>
+            </div>
+
+            {/* Toolbar */}
+            <div className="cat-toolbar">
+                <div className="cat-search-wrap">
+                    <i className="bi bi-search cat-search-icon" />
                     <input
-                        type="text"
-                        placeholder="Search categories..."
+                        className="cat-search"
+                        placeholder="Search by name or description..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="catmgr-search-input"
                     />
                 </div>
             </div>
 
-            {/* <div className="catmgr-card">
-                <div className="catmgr-card-header">
-                    <h3>Add New Category</h3>
-                </div>
-                <div className="catmgr-card-body">
-                    <form className="catmgr-category-add-form" onSubmit={handleAddCategory}>
-                        <div className="catmgr-form-group">
-                            <label htmlFor="categoryName">Name</label>
-                            <input
-                                id="categoryName"
-                                type="text"
-                                placeholder="Category name"
-                                value={newCategory}
-                                onChange={(e) => setNewCategory(e.target.value)}
-                            />
-                        </div>
-                        <div className="catmgr-form-group">
-                            <label htmlFor="categoryDescription">Description</label>
-                            <textarea
-                                id="categoryDescription"
-                                placeholder="Category description (optional)"
-                                value={newDescription}
-                                onChange={(e) => setNewDescription(e.target.value)}
-                            />
-                        </div>
-                        <button
-                            type="submit"
-                            className="catmgr-btn-primary"
-                            disabled={isLoading}
-                        >
-                            {isLoading ? "Adding..." : "Add Category"}
-                        </button>
-                    </form>
-                </div>
-            </div> */}
-
-            <div className="catmgr-card catmgr-mt-4">
-                <div className="catmgr-card-header">
-                    <h3>Categories List</h3>
-                    <span className="catmgr-category-count">{filteredCategories.length} categories</span>
-                </div>
-                <div className="catmgr-card-body">
-                    {isLoading && <div className="catmgr-loading-indicator">Loading...</div>}
-
-                    {!isLoading && filteredCategories.length === 0 && (
-                        <div className="catmgr-empty-state">
-                            {searchTerm ? "No categories match your search" : "No categories available"}
-                        </div>
-                    )}
-
-                    {!isLoading && filteredCategories.length > 0 && (
-                        <div className="catmgr-table-responsive">
-                            <table className="catmgr-category-table">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Name</th>
-                                        <th>Description</th>
-                                        <th>Created</th>
-                                        <th>Updated</th>
-                                        {/* <th>Actions</th> */}
+            {/* Table */}
+            <div className="cat-card">
+                {isLoading ? (
+                    <div className="cat-loading">
+                        <div className="cat-spinner" />
+                        <span>Loading...</span>
+                    </div>
+                ) : filtered.length === 0 ? (
+                    <div className="cat-empty">
+                        <i className="bi bi-grid" />
+                        <p>{searchTerm ? "No categories match your search" : "No categories available"}</p>
+                    </div>
+                ) : (
+                    <div className="cat-table-wrap">
+                        <table className="cat-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Description</th>
+                                    <th>Created</th>
+                                    <th>Updated</th>
+                                    {/* <th>Actions</th> */}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filtered.map((cat) => (
+                                    <tr key={cat.category_id}>
+                                        <td>
+                                            <span className="cat-id-badge">#{cat.category_id}</span>
+                                        </td>
+                                        <td>
+                                            {editingId === cat.category_id ? (
+                                                <input
+                                                    type="text"
+                                                    value={editingName}
+                                                    onChange={(e) => setEditingName(e.target.value)}
+                                                    className="cat-edit-input"
+                                                />
+                                            ) : (
+                                                <span className="cat-name-cell">{cat.category_name}</span>
+                                            )}
+                                        </td>
+                                        <td>
+                                            {editingId === cat.category_id ? (
+                                                <textarea
+                                                    value={editingDescription}
+                                                    onChange={(e) => setEditingDescription(e.target.value)}
+                                                    className="cat-edit-textarea"
+                                                />
+                                            ) : (
+                                                <span className="cat-desc-cell" title={cat.description}>
+                                                    {cat.description || "—"}
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="cat-date-cell">{formatDate(cat.created_at)}</td>
+                                        <td className="cat-date-cell">{formatDate(cat.updated_at)}</td>
+                                        {/* <td className="cat-actions-cell">
+                                            {editingId === cat.category_id ? (
+                                                <>
+                                                    <button
+                                                        className="cat-btn-save"
+                                                        onClick={() => handleSaveEdit(cat.category_id)}
+                                                        title="Save"
+                                                    >
+                                                        <i className="bi bi-check-lg" />
+                                                    </button>
+                                                    <button
+                                                        className="cat-btn-cancel"
+                                                        onClick={handleCancelEdit}
+                                                        title="Cancel"
+                                                    >
+                                                        <i className="bi bi-x-lg" />
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <button
+                                                        className="cat-btn-edit"
+                                                        onClick={() => handleEdit(cat.category_id, cat.category_name, cat.description)}
+                                                        title="Edit"
+                                                    >
+                                                        <i className="bi bi-pencil" />
+                                                    </button>
+                                                    <button
+                                                        className="cat-btn-delete"
+                                                        onClick={() => handleDelete(cat.category_id, cat.category_name)}
+                                                        title="Delete"
+                                                    >
+                                                        <i className="bi bi-trash" />
+                                                    </button>
+                                                </>
+                                            )}
+                                        </td> */}
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredCategories.map((cat) => (
-                                        <tr key={cat.category_id}>
-                                            <td>{cat.category_id}</td>
-                                            <td>
-                                                {editingId === cat.category_id ? (
-                                                    <input
-                                                        type="text"
-                                                        value={editingName}
-                                                        onChange={(e) => setEditingName(e.target.value)}
-                                                        className="catmgr-edit-input"
-                                                    />
-                                                ) : (
-                                                    <span className="catmgr-category-name">{cat.category_name}</span>
-                                                )}
-                                            </td>
-                                            <td>
-                                                {editingId === cat.category_id ? (
-                                                    <textarea
-                                                        value={editingDescription}
-                                                        onChange={(e) => setEditingDescription(e.target.value)}
-                                                        className="catmgr-edit-textarea"
-                                                    />
-                                                ) : (
-                                                    <span className="catmgr-category-description">{cat.description || "—"}</span>
-                                                )}
-                                            </td>
-                                            <td>{formatDate(cat.created_at)}</td>
-                                            <td>{formatDate(cat.updated_at)}</td>
-                                            {/* <td className="catmgr-actions-cell">
-                                                {editingId === cat.category_id ? (
-                                                    <>
-                                                        <button
-                                                            onClick={() => handleSaveEdit(cat.category_id)}
-                                                            className="catmgr-btn-save"
-                                                            disabled={isLoading}
-                                                        >
-                                                            Save
-                                                        </button>
-                                                        <button
-                                                            onClick={handleCancelEdit}
-                                                            className="catmgr-btn-cancel"
-                                                        >
-                                                            Cancel
-                                                        </button>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <button
-                                                            onClick={() => handleEdit(cat.category_id, cat.category_name, cat.description)}
-                                                            className="catmgr-btn-edit"
-                                                        >
-                                                            Edit
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDelete(cat.category_id)}
-                                                            className="catmgr-btn-delete"
-                                                        >
-                                                            Delete
-                                                        </button>
-                                                    </>
-                                                )}
-                                            </td> */}
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </div>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
         </div>
     );

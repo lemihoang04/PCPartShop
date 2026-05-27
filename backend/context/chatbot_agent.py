@@ -536,6 +536,10 @@ def update_compat_info(compat_info: Dict[str, Any], chosen: Any, category: str) 
         elif k in ["Length", "Maximum Video Card Length"]:
             if "Length" not in compat_info:
                 compat_info["Length"] = v
+        elif k == "TDP":
+            val = _extract_number(v)
+            if val is not None:
+                compat_info["Wattage"] = compat_info.get("Wattage", 0.0) + val
 
 
 def _is_generic_keyword(keyword: str) -> bool:
@@ -594,6 +598,18 @@ def resolve_preferred_parts(
 
 
 
+def _extract_number(value: Any) -> Optional[float]:
+    """Trích xuất giá trị số đầu tiên tìm thấy trong chuỗi hoặc trả về float/int nếu đã là số."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    m = re.search(r"([\d]+(?:[.,]\d+)?)", str(value))
+    if m:
+        return float(m.group(1).replace(",", "."))
+    return None
+
+
 def _extract_mm(value: str) -> Optional[float]:
     """Trích xuất giá trị số mm từ chuỗi như '267 mm', '400 mm / 15.748\"', '15.748\"'."""
     # Ưu tiên tìm giá trị mm trước
@@ -623,6 +639,29 @@ def filter_docs_by_compat(
     - Form Factor          : mainboard FF phải xuất hiện trong danh sách FF case hỗ trợ
     - Length               : GPU length (mm) phải <= case Maximum Video Card Length (mm)
     """
+    if category == "psu" and "Wattage" in compat_info:
+        required_wattage = (float(compat_info["Wattage"]) + 130.0) * 1.2
+        def psu_matches(doc: Any) -> bool:
+            attrs_str = getattr(doc, "metadata", {}).get("attrs_json", "{}")
+            try:
+                attrs = json.loads(attrs_str)
+            except Exception:
+                return True
+            actual_wattage_str = attrs.get("Wattage")
+            if not actual_wattage_str:
+                return False
+            actual_wattage = _extract_number(actual_wattage_str)
+            if actual_wattage is None:
+                return False
+            return actual_wattage >= required_wattage
+
+        filtered = [d for d in docs if psu_matches(d)]
+        if not filtered:
+            print(f"  [compat filter] Khong co PSU nao vuot qua bo loc Wattage (>={required_wattage}W), dung danh sach goc.")
+            return docs
+        print(f"  [compat filter] PSU: giu {len(filtered)}/{len(docs)} docs co Wattage >= {required_wattage}W.")
+        return filtered
+
     required: Dict[str, str] = {}
     for src_cat in selected_categories:
         constraint_keys = COMPATIBILITY_ATTRS.get((src_cat, category), [])
@@ -790,7 +829,7 @@ def build_pc_recommendation(
             "mainboard": "durable premium workstation mainboard",
             "cpu_cooler": "durable premium aio liquid air cooler",
             "gpu": "professional deep cuda compute workstation gpu",
-            "ram": "large capacity 32gb or 64gb ram",
+            "ram": "large capacity ram",
             "storage": "professional large capacity high endurance nvme ssd",
             "psu": "ultra durable gold platinum high wattage power supply",
             "case": "spacious sturdy good cooling case",
@@ -849,7 +888,7 @@ def build_pc_recommendation(
         remaining_budget_now = max(budget - estimated_spent, 0)
 
         dynamic_cap = min(
-            int(target * 1.25),
+            int(target * 1.2),
             max(remaining_budget_now - reserve_for_remaining, int(target * 0.80)),
         )
         dynamic_cap = max(dynamic_cap, int(target * 0.80))
@@ -863,7 +902,7 @@ def build_pc_recommendation(
 
         if category == "cpu":
             if "Socket" in compat_info: query += f" Socket : {compat_info['Socket']}"
-        if category == "mainboard":
+        elif category == "mainboard":
             if "Socket" in compat_info: query += f" Socket/CPU : {compat_info['Socket']}"
             if "Memory Type" in compat_info: query += f" Memory Type : {compat_info['Memory Type']}"
         elif category == "cpu_cooler":
@@ -873,6 +912,10 @@ def build_pc_recommendation(
         elif category == "case":
             if "Form Factor" in compat_info: query += f" Form Factor : {compat_info['Form Factor']}"
             if "Length" in compat_info: query += f" VGA Card Length : {compat_info['Length']}"
+        elif category == "psu":
+            if "Wattage" in compat_info:
+                required_wattage = int((compat_info["Wattage"] + 130) * 1.2)
+                query += f" Wattage : {required_wattage}W"
         print("Query:", query)
         docs = ranked_search(query, {"category": category}, k=100)
 
@@ -898,7 +941,7 @@ def build_pc_recommendation(
         lines.append(
             (
                 f"{idx}. [{doc_name(doc)}] | product_id={product_id} |"
-                f"category={doc_category(doc)} | {vnd(doc_price(doc))}"
+                f"category={cat} | {vnd(doc_price(doc))}"
             )
         )
 
@@ -990,7 +1033,7 @@ def search_products_by_budget(target_price: int, keyword: str = "", product_type
         return "Ngân sách phải lớn hơn 0."
 
     min_price = int(target_price * 0.8)
-    max_price = int(target_price * 1.25)
+    max_price = int(target_price * 1.2)
 
     query = f"{keyword}"
     if purpose:
@@ -1019,7 +1062,7 @@ def recommend_pc_build(budget: int, purpose: str = "gaming", preferred_parts: Op
     - Value: Tên model hoặc tên thương hiệu.
 
     Ví dụ:
-    - "PC gaming Intel 30 triệu" -> budget=30000000, preferred_parts={"cpu": "Intel"}
+    - "PC gaming Intel 1000 Đô" -> budget=1000, preferred_parts={"cpu": "Intel"}
     - "Build máy dùng card RTX" -> preferred_parts={"gpu": "RTX"}
     """
     if budget <= 0:
@@ -1056,6 +1099,7 @@ def compare_products(product_names: List[str]) -> str:
     if len(categories) > 1:
         return f"Các sản phẩm không cùng loại (tìm thấy: {', '.join(categories)}). Chỉ hỗ trợ so sánh các sản phẩm cùng loại."
         
+    category = next(iter(categories))
     lines = []
     for idx, doc in enumerate(docs, start=1):
         product_id = doc_uid(doc)
@@ -1063,10 +1107,63 @@ def compare_products(product_names: List[str]) -> str:
         line = (
             f"Sản phẩm {idx}: {doc_name(doc)} | "
             f"category={doc_category(doc)} | price={vnd(doc_price(doc))} | product_id={product_id} | "
-            # f"Thông số: {attrs}"
+            f"Thông số: {attrs}"
         )
         lines.append(line)
-        
+
+    # --- Benchmark so sánh cho CPU ---
+    if category == "cpu" and len(docs) >= 2:
+        benchmarks = []
+        for doc in docs:
+            multi = float(doc.metadata.get('cpu_multi_thread', 0) or 0)
+            single = float(doc.metadata.get('cpu_single_thread', 0) or 0)
+            benchmarks.append({"name": doc_name(doc), "multi": multi, "single": single})
+
+        lines.append("\n--- Benchmark CPU ---")
+        if len(benchmarks) == 2:
+            a, b_ = benchmarks[0], benchmarks[1]
+            if a["multi"] > 0 and b_["multi"] > 0:
+                diff_pct = abs(a["multi"] - b_["multi"]) / min(a["multi"], b_["multi"]) * 100
+                better = a["name"] if a["multi"] > b_["multi"] else b_["name"]
+                lines.append(f"  Multi-thread: {better} cao hơn {diff_pct:.1f}%")
+            if a["single"] > 0 and b_["single"] > 0:
+                diff_pct = abs(a["single"] - b_["single"]) / min(a["single"], b_["single"]) * 100
+                better = a["name"] if a["single"] > b_["single"] else b_["name"]
+                lines.append(f"  Single-thread: {better} cao hơn {diff_pct:.1f}%")
+        elif len(benchmarks) > 2:
+            best_multi = max(benchmarks, key=lambda x: x["multi"])
+            best_single = max(benchmarks, key=lambda x: x["single"])
+            for b in benchmarks:
+                if b["name"] != best_multi["name"] and best_multi["multi"] > 0 and b["multi"] > 0:
+                    diff_pct = (best_multi["multi"] - b["multi"]) / b["multi"] * 100
+                    lines.append(f"  Multi-thread: {best_multi['name']} cao hơn {b['name']} {diff_pct:.1f}%")
+            for b in benchmarks:
+                if b["name"] != best_single["name"] and best_single["single"] > 0 and b["single"] > 0:
+                    diff_pct = (best_single["single"] - b["single"]) / b["single"] * 100
+                    lines.append(f"  Single-thread: {best_single['name']} cao hơn {b['name']} {diff_pct:.1f}%")
+
+    # --- Benchmark so sánh cho GPU ---
+    elif category == "gpu" and len(docs) >= 2:
+        benchmarks = []
+        for doc in docs:
+            g3d = float(doc.metadata.get('gpu_g3d', 0) or 0)
+            benchmarks.append({"name": doc_name(doc), "g3d": g3d})
+
+        lines.append("\n--- Benchmark GPU ---")
+        if len(benchmarks) == 2:
+            a, b_ = benchmarks[0], benchmarks[1]
+            if a["g3d"] > 0 and b_["g3d"] > 0:
+                diff_pct = abs(a["g3d"] - b_["g3d"]) / min(a["g3d"], b_["g3d"]) * 100
+                better = a["name"] if a["g3d"] > b_["g3d"] else b_["name"]
+                lines.append(f"  G3D Mark: {better} cao hơn {diff_pct:.1f}%")
+        elif len(benchmarks) > 2:
+            best = max(benchmarks, key=lambda x: x["g3d"])
+            for b in benchmarks:
+                if b["name"] != best["name"] and best["g3d"] > 0 and b["g3d"] > 0:
+                    diff_pct = (best["g3d"] - b["g3d"]) / b["g3d"] * 100
+                    lines.append(f"  G3D Mark: {best['name']} cao hơn {b['name']} {diff_pct:.1f}%")
+
+
     return "\n".join(lines)
 
 
@@ -1362,29 +1459,25 @@ system_prompt = SystemMessage(
 Bạn là trợ lý tư vấn cho shop linh kiện PC.
 
 Quy tắc:
-- Chỉ trả lời dựa trên dữ liệu từ tools, nếu bị hỏi ngoài dữ liệu thì trả lời không biết.
-- Khi đã có đủ dữ liệu, trả lời ngắn gọn, rõ ràng, ưu tiên dạng danh sách.
+- Chỉ trả lời dựa trên dữ liệu từ tools. Nếu ngoài dữ liệu, trả lời không biết.
 - Các product_type: cpu, gpu, mainboard, cpu_cooler, ram, storage, psu, case.
-Tool_Guidance:
-- Nếu người dùng hỏi chung về loại sản phẩm hoặc tìm kiếm sản phẩm, dùng get_available_types hoặc search_products.
-- Nếu người dùng yêu cầu so sánh sản phẩm, dùng compare_products, thêm một chút nhận xét cho mỗi thông số được so sánh, và kết luận ngắn gọn cuối cùng.
-- Nếu người dùng yêu cầu kiểm tra tương thích giữa các linh kiện đã có (ví dụ: "CPU này có tương thích với mainboard này không?"), dùng check_compatibility.
-- Nếu người dùng yêu cầu tìm sản phẩm tương thích với sản phẩm người dùng đưa ra, dùng find_compatible_products.
-- Nếu có ngân sách, dùng search_products_by_budget.
-- Nếu người dùng muốn build PC, hãy hỏi thêm nếu thiếu ngân sách hoặc nhu cầu (gaming, office, workstation, creator), và thêm một câu nhận xét ngắn gọn sau khi nhận câu trả lời.
-- Nếu người dùng yêu cầu build PC và chỉ định linh kiện cụ thể (ví dụ: "build PC dùng Ryzen 7 và RTX 4060"), hãy truyền preferred_parts cho recommend_pc_build với key là category (cpu, gpu, ram, mainboard, cpu_cooler, storage, psu, case) và value là tên/từ khóa linh kiện người dùng đưa ra.
-Output_Requirements:
-- Trả lời bằng JSON hợp lệ với 4 khóa bắt buộc: "message", "product_groups", "intent" và "suggested_prompts".
-- "intent" là ý định ngắn gọn của người dùng (ví dụ: "build pc", "tìm kiếm", "so sánh").
-- "suggested_prompts" là mảng tối đa 2 câu prompt gợi ý hành động tiếp theo phù hợp cho người dùng (chỉ gợi ý những gì mà các tool trong hệ thống có thể làm được như tìm kiếm sản phẩm theo ngân sách, so sánh linh kiện, kiểm tra tương thích, hoặc gợi ý cấu hình PC). Nếu không cần gợi ý thêm gì, để trống [].
-- "message" phải là nội dung markdown ngắn gọn, rõ ràng, không sử dụng icon, có kèm danh sách sản phẩm (không kèm product_id) nếu có. 
-- "product_groups" là mảng các nhóm sản phẩm. Mỗi nhóm gồm:
-  + "label": tên nhóm (ví dụ: "Mainboard Wi-Fi", "Tản nhiệt nước"), để trống "" nếu không cần tiêu đề nhóm.
-  + "order": số thứ tự sắp xếp (nhóm đầu tiên = 1, nhóm thứ hai = 2, ...).
-  + "product_ids": danh sách product_id thuộc nhóm đó.
-- Hạn chế chia product_groups. Nếu intent là "build pc" hoặc chỉ có 1 danh sách sản phẩm đơn, chỉ dùng 1 product_group duy nhất với label rỗng.
-- Chỉ chia nhiều product_groups khi kết quả thực sự thuộc các nhóm/category khác nhau rõ ràng (ví dụ: tìm tương thích cho nhiều loại linh kiện).
-- Nếu không có sản phẩm, trả "product_groups": [].
+- Giá tiền truyền vào tool dưới dạng USD.
+
+Tool Guidance:
+- Tìm/duyệt sản phẩm → get_available_types / search_products
+- Có ngân sách → search_products_by_budget
+- So sánh → compare_products (nhận xét từng thông số + kết luận ngắn)
+- Kiểm tra tương thích giữa các linh kiện có sẵn → check_compatibility
+- Tìm linh kiện tương thích với sản phẩm cho trước → find_compatible_products
+- Build PC / thay đổi cấu hình → recommend_pc_build; hỏi thêm nếu thiếu ngân sách/nhu cầu (gaming, office, workstation, creator); dùng preferred_parts nếu người dùng chỉ định hoặc muốn chỉnh sửa cấu hình trước đó.
+
+Output: Trả về JSON hợp lệ với 4 khóa:
+- "intent": ý định ngắn gọn bằng tiếng Anh (ví dụ: "build pc", "search", "compare", ...).
+- "message": markdown ngắn gọn, in đậm những từ cần thiết, không dùng icon, không kèm product_id.
+- "suggested_prompts": tối đa 2 gợi ý hành động tiếp theo phù hợp với khả năng của tool. Để [] nếu không cần.
+- "product_groups": mảng nhóm sản phẩm, mỗi nhóm gồm "label", "order", "product_ids".
+  Chỉ chia nhiều nhóm khi kết quả thuộc các category rõ ràng khác nhau; còn lại dùng 1 nhóm, label = "".
+  Nếu không có sản phẩm: [].
 """.strip()
 )
 

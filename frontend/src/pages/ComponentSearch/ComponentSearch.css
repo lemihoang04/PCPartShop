@@ -518,16 +518,17 @@
 .comp-search-add-button {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
+  gap: 4px;
+  padding: 5px 10px;
   background: var(--blue-500);
   border: none;
   border-radius: 6px;
   color: white;
   font-weight: 500;
-  font-size: 14px;
+  font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
 .comp-search-add-button:hover {
@@ -536,6 +537,39 @@
 }
 
 .comp-search-add-button:active {
+  transform: translateY(0);
+}
+
+.comp-search-action-buttons {
+  display: flex;
+  flex-direction: row;
+  gap: 5px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.comp-search-cart-button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  background: #16a34a;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-weight: 500;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.comp-search-cart-button:hover {
+  background: #15803d;
+  transform: translateY(-1px);
+}
+
+.comp-search-cart-button:active {
   transform: translateY(0);
 }
 

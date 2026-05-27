@@ -284,9 +284,20 @@ def chatbot_langchain_query():
         # Inject context (products + intent) if available
         context_parts = []
         if current_products_context:
+            product_titles = []
+            product_result = dal_get_products_by_ids_for_chatbot(current_products_context)
+            if isinstance(product_result, tuple) and len(product_result) == 2:
+                fetched, status_code = product_result
+                if status_code == 200 and isinstance(fetched, list):
+                    product_titles = [p.get('title') for p in fetched if p.get('title')]
+            
+            # Fallback to ID numbers if we cannot fetch titles
+            if not product_titles:
+                product_titles = [str(p) for p in current_products_context]
+
             context_parts.append(
                 "Các sản phẩm đang được thảo luận: "
-                + ", ".join(str(p) for p in current_products_context)
+                + ", ".join(product_titles)
             )
         if current_intent_context:
             context_parts.append(f"Ý định (intent) hiện tại của người dùng là: {current_intent_context}")

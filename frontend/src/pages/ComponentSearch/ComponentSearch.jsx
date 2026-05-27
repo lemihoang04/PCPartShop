@@ -1,9 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useContext } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchComponents, fetchCompatibleComponents } from '../../services/componentService';
 import './ComponentSearch.css';
 import { fetchComponentById } from '../../services/componentService';
-import { FaStar, FaStarHalfAlt, FaRegStar } from "react-icons/fa";
+import { addToCart } from '../../services/apiService.js';
+import { UserContext } from '../../context/UserProvider';
+import { FaStar, FaStarHalfAlt, FaRegStar, FaShoppingCart } from "react-icons/fa";
+import { toast } from 'react-toastify';
 
 const ComponentSearch = () => {
   const { type } = useParams();
@@ -18,6 +21,41 @@ const ComponentSearch = () => {
   const [showAllManufacturers, setShowAllManufacturers] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: 'Price', direction: 'asc' });
   const navigate = useNavigate();
+  const { user, fetchUser } = useContext(UserContext);
+
+  const handleAddToCart = async (component) => {
+    if (!component) {
+      toast.error('Product not found!');
+      return;
+    }
+    if (!(user && user.isAuthenticated)) {
+      toast.error('You must be logged in to add products to the cart!');
+      navigate('/login');
+      return;
+    }
+    const price = Number(component.price || 0);
+    if (price === 0) {
+      toast.error('Price is not available. Cannot add to cart.');
+      return;
+    }
+    const stock = Number(component.stock ?? component.quantity ?? 1);
+    if (stock <= 0) {
+      toast.error('This product is out of stock.');
+      return;
+    }
+    try {
+      const response = await addToCart(user.account.id, component.product_id, 1);
+      if (response && response.errCode === 0) {
+        toast.success(`${component.title} added to cart!`);
+        fetchUser();
+      } else {
+        toast.error(response?.error || 'Failed to add product to cart.');
+      }
+    } catch (err) {
+      console.error('Error adding to cart:', err);
+      toast.error('An error occurred while adding the product to the cart.');
+    }
+  };
 
   const validTypes = ['Storage', 'PSU', 'Mainboard', 'GPU', 'CPU', 'RAM', 'CPU Cooler', 'Case'];
 
@@ -858,42 +896,41 @@ const ComponentSearch = () => {
                           </td>
                         ))}
                         <td>
-                          <button
-                            className="comp-search-add-button"
-                            onClick={async () => {
-
-                              try {
-                                const productId = parseInt(component.product_id, 10); // Cơ số 10 để tránh các vấn đề với số bắt đầu bằng 0
-                                // Gọi API để lấy thông tin chi tiết của component
-                                const componentDetail = await fetchComponentById(productId);
-                                console.log('ProductID:', productId);
-                                console.log('Adding component:', componentDetail);
-                                if (componentDetail.error) {
-                                  console.error('Error fetching component details:', componentDetail.error);
-                                  // Có thể thêm thông báo lỗi cho người dùng ở đây
-                                  return;
+                          <div className="comp-search-action-buttons">
+                            <button
+                              className="comp-search-add-button"
+                              title="Add to PC Builder"
+                              onClick={async () => {
+                                try {
+                                  const productId = parseInt(component.product_id, 10);
+                                  const componentDetail = await fetchComponentById(productId);
+                                  console.log('ProductID:', productId);
+                                  console.log('Adding component:', componentDetail);
+                                  if (componentDetail.error) {
+                                    console.error('Error fetching component details:', componentDetail.error);
+                                    return;
+                                  }
+                                  navigate('/build', {
+                                    state: {
+                                      addedComponent: componentDetail,
+                                    },
+                                  });
+                                  console.log('Navigating to build with component:', componentDetail);
+                                } catch (error) {
+                                  console.error('Failed to fetch component details:', error);
                                 }
-                                // Nếu lấy dữ liệu thành công, chuyển hướng với dữ liệu đầy đủ
-                                navigate('/build', {
-                                  state: {
-                                    addedComponent: componentDetail,
-                                  },
-
-                                });
-                                console.log('Navigating to build with component:', componentDetail);
-                              } catch (error) {
-                                console.error('Failed to fetch component details:', error);
-                                // Fallback: Nếu API gặp lỗi, vẫn dùng dữ liệu hiện có
-                                // navigate('/build', {
-                                //   state: {
-                                //     addedComponent: component,
-                                //   },
-                                // });
-                              }
-                            }}
-                          >
-                            <i className="fas fa-plus"></i> Add
-                          </button>
+                              }}
+                            >
+                              <i className="fas fa-plus"></i> Add to Builder
+                            </button>
+                            <button
+                              className="comp-search-cart-button"
+                              title="Add to Cart"
+                              onClick={() => handleAddToCart(component)}
+                            >
+                              <FaShoppingCart /> Add to Cart
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

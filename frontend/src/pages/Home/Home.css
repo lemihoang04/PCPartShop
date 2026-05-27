@@ -17,10 +17,10 @@
   --radius: 16px;
   color: var(--ink-900);
   font-family: 'Manrope', sans-serif;
-  background:
+  /* background:
     radial-gradient(circle at 6% 5%, rgba(31, 147, 255, 0.1), transparent 35%),
     radial-gradient(circle at 96% 10%, rgba(79, 176, 255, 0.12), transparent 32%),
-    #ffffff;
+    #ffffff; */
   padding-bottom: 80px;
   /* padding-top: 20px; */
 }

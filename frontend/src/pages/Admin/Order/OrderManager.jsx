@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { GetOrdersData, CancelOrder, UpdateOrderStatus } from "../../../services/orderService";
-import { FaEye, FaTimes, FaCheck, FaTruck, FaCheckCircle } from "react-icons/fa";
+import { FaEye, FaTimes, FaCheck, FaTruck, FaCheckCircle, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import "./OrderManager.css";
 
 const OrderManager = () => {
@@ -14,6 +14,14 @@ const OrderManager = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(10);
     const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, action: null, message: '', orderId: null, newStatus: null });
+    const [expandedOrders, setExpandedOrders] = useState({});
+
+    const toggleOrderExpand = (orderId) => {
+        setExpandedOrders(prev => ({
+            ...prev,
+            [orderId]: !prev[orderId]
+        }));
+    };
 
     const fetchOrders = async () => {
         setLoading(true);
@@ -47,37 +55,56 @@ const OrderManager = () => {
             return;
         }
 
-            // Chuẩn hóa dữ liệu đầu vào
-            const normalizedOrders = ordersData.map(order => ({
-                ...order,
-                status: order.status ? order.status.toLowerCase().trim() : 'unknown'
-            }));
-
-            let filtered = normalizedOrders;
-
-            if (status !== "all") {
-                const normalizedStatus = status.toLowerCase().trim();
-                filtered = filtered.filter(order => order.status === normalizedStatus);
+        // Group orders by order_id (fallback to id)
+        const groups = {};
+        ordersData.forEach(order => {
+            const key = order.order_id || order.id;
+            if (!groups[key]) {
+                groups[key] = {
+                    ...order,
+                    order_id: key,
+                    total: 0,
+                    items: []
+                };
             }
+            groups[key].items.push(order);
+            const itemTotal = Number(order.total) || (Number(order.price) * Number(order.quantity)) || 0;
+            groups[key].total += itemTotal;
+        });
 
-            if (term) {
-                const lowerTerm = term.toLowerCase();
-                filtered = filtered.filter(order =>
-                    (order.order_id && order.order_id.toString().toLowerCase().includes(lowerTerm)) ||
-                    (order.id && order.id.toString().toLowerCase().includes(lowerTerm)) ||
-                    (order.user_name && order.user_name.toLowerCase().includes(lowerTerm)) ||
-                    (order.userId && order.userId.toString().toLowerCase().includes(lowerTerm))
-                );
-            }
+        const groupedOrdersList = Object.values(groups);
 
-            // Sắp xếp đơn hàng với đơn hàng được tạo gần đây nhất lên đầu
-            const sortedFiltered = [...filtered].sort((a, b) => {
-                return new Date(b.created_at) - new Date(a.created_at);
-            });
+        // Chuẩn hóa dữ liệu đầu vào
+        const normalizedOrders = groupedOrdersList.map(order => ({
+            ...order,
+            status: order.status ? order.status.toLowerCase().trim() : 'unknown'
+        }));
 
-            setFilteredOrders(sortedFiltered);
-            setCurrentPage(1); // Reset to page 1 on filter
-        };    // Gọi fetchOrders khi component được mount
+        let filtered = normalizedOrders;
+
+        if (status !== "all") {
+            const normalizedStatus = status.toLowerCase().trim();
+            filtered = filtered.filter(order => order.status === normalizedStatus);
+        }
+
+        if (term) {
+            const lowerTerm = term.toLowerCase();
+            filtered = filtered.filter(order =>
+                (order.order_id && order.order_id.toString().toLowerCase().includes(lowerTerm)) ||
+                (order.id && order.id.toString().toLowerCase().includes(lowerTerm)) ||
+                (order.user_name && order.user_name.toLowerCase().includes(lowerTerm)) ||
+                (order.userId && order.userId.toString().toLowerCase().includes(lowerTerm))
+            );
+        }
+
+        // Sắp xếp đơn hàng với đơn hàng được tạo gần đây nhất lên đầu
+        const sortedFiltered = [...filtered].sort((a, b) => {
+            return new Date(b.created_at) - new Date(a.created_at);
+        });
+
+        setFilteredOrders(sortedFiltered);
+        setCurrentPage(1); // Reset to page 1 on filter
+    };    // Gọi fetchOrders khi component được mount
         useEffect(() => {
             fetchOrders();
             // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -273,72 +300,121 @@ const OrderManager = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {currentOrders.map((order) => (
-                                        <tr key={order.order_id || order.id}>
-                                            <td>
-                                                <span className="om-code-badge">{order.order_id || order.id}</span>
-                                            </td>
-                                            <td className="om-value-cell">{order.user_name || order.userId || "N/A"}</td>
-                                            <td className="om-date-cell">{order.created_at ? new Date(order.created_at).toLocaleString() : "N/A"}</td>
-                                            <td>
-                                                {order.payment_method ?
-                                                    <span className="om-type-badge om-type-fixed">
-                                                        {order.payment_method === 'pay_later' ? 'Pay Later' :
-                                                            order.payment_method === 'online_payment' ? 'Online' :
-                                                                order.payment_method}
-                                                    </span>
-                                                    : "N/A"}
-                                            </td>
-                                            <td>
-                                                <span className={`om-status-badge ${getStatusClass(order.status)}`}>
-                                                    <span className="om-status-dot" />
-                                                    {formatStatus(order.status)}
-                                                </span>
-                                            </td>
-                                            <td className="om-value-cell">{formatMoney(order.total || order.price * order.quantity)}</td>
-                                            <td className="om-actions-cell">
-                                                <button className="om-btn-action om-btn-view" onClick={() => handleViewDetails(order)} title="View Details">
-                                                    <FaEye />
-                                                </button>
-                                                {order.status && order.status.toLowerCase() === "pending" && (
-                                                    <>
-                                                        <button
-                                                            className="om-btn-action om-btn-approve"
-                                                            onClick={() => openUpdateConfirm(order.order_id || order.id, "processing")}
-                                                            title="Approve"
+                                    {currentOrders.map((order) => {
+                                        const isExpanded = !!expandedOrders[order.order_id];
+                                        return (
+                                            <React.Fragment key={order.order_id}>
+                                                <tr className={isExpanded ? "om-row-expanded-parent" : ""}>
+                                                    <td>
+                                                        <button 
+                                                            className={`om-btn-expand ${isExpanded ? 'expanded' : ''}`} 
+                                                            onClick={() => toggleOrderExpand(order.order_id)}
+                                                            title={isExpanded ? "Collapse" : "Expand"}
                                                         >
-                                                            <FaCheck />
+                                                            {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
                                                         </button>
-                                                        <button
-                                                            className="om-btn-action om-btn-cancel"
-                                                            onClick={() => openCancelConfirm(order.order_id || order.id)}
-                                                            title="Cancel"
-                                                        >
-                                                            <FaTimes />
+                                                        <span className="om-code-badge" style={{ marginLeft: '8px' }}>{order.order_id}</span>
+                                                    </td>
+                                                    <td className="om-value-cell">{order.user_name || order.userId || "N/A"}</td>
+                                                    <td className="om-date-cell">{order.created_at ? new Date(order.created_at).toLocaleString() : "N/A"}</td>
+                                                    <td>
+                                                        {order.payment_method ?
+                                                            <span className="om-type-badge om-type-fixed">
+                                                                {order.payment_method === 'pay_later' ? 'Pay Later' :
+                                                                    order.payment_method === 'online_payment' ? 'Online' :
+                                                                        order.payment_method}
+                                                            </span>
+                                                            : "N/A"}
+                                                    </td>
+                                                    <td>
+                                                        <span className={`om-status-badge ${getStatusClass(order.status)}`}>
+                                                            <span className="om-status-dot" />
+                                                            {formatStatus(order.status)}
+                                                        </span>
+                                                    </td>
+                                                    <td className="om-value-cell">{formatMoney(order.total)}</td>
+                                                    <td className="om-actions-cell">
+                                                        <button className="om-btn-action om-btn-view" onClick={() => handleViewDetails(order)} title="View Details">
+                                                            <FaEye />
                                                         </button>
-                                                    </>
+                                                        {order.status && order.status.toLowerCase() === "pending" && (
+                                                            <>
+                                                                <button
+                                                                    className="om-btn-action om-btn-approve"
+                                                                    onClick={() => openUpdateConfirm(order.order_id, "processing")}
+                                                                    title="Approve"
+                                                                >
+                                                                    <FaCheck />
+                                                                </button>
+                                                                <button
+                                                                    className="om-btn-action om-btn-cancel"
+                                                                    onClick={() => openCancelConfirm(order.order_id)}
+                                                                    title="Cancel"
+                                                                >
+                                                                    <FaTimes />
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                        {order.status && order.status.toLowerCase() === "processing" && (
+                                                            <button
+                                                                className="om-btn-action om-btn-ship"
+                                                                onClick={() => openUpdateConfirm(order.order_id, "shipped")}
+                                                                title="Ship"
+                                                            >
+                                                                <FaTruck />
+                                                            </button>
+                                                        )}
+                                                        {order.status && order.status.toLowerCase() === "shipped" && (
+                                                            <button
+                                                                className="om-btn-action om-btn-complete"
+                                                                onClick={() => openUpdateConfirm(order.order_id, "completed")}
+                                                                title="Complete"
+                                                            >
+                                                                <FaCheckCircle />
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                                {isExpanded && (
+                                                    <tr className="om-expanded-row">
+                                                        <td colSpan={7}>
+                                                            <div className="om-expanded-content">
+                                                                <h4 className="om-sub-title">Order Items ({order.items.length})</h4>
+                                                                <table className="om-sub-table">
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th>Item #</th>
+                                                                            <th>Product ID</th>
+                                                                            <th>Price</th>
+                                                                            <th>Quantity</th>
+                                                                            <th>Subtotal</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {order.items.map((item, index) => (
+                                                                            <tr key={item.id || index}>
+                                                                                <td>{index + 1}</td>
+                                                                                <td>
+                                                                                    <span className="om-code-badge select-none">
+                                                                                        {item.product_id || "N/A"}
+                                                                                    </span>
+                                                                                </td>
+                                                                                <td>{formatMoney(item.price)}</td>
+                                                                                <td>{item.quantity}</td>
+                                                                                <td className="om-sub-total-cell">
+                                                                                    {formatMoney((item.price * item.quantity) || item.total)}
+                                                                                </td>
+                                                                            </tr>
+                                                                        ))}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
                                                 )}
-                                                {order.status && order.status.toLowerCase() === "processing" && (
-                                                    <button
-                                                        className="om-btn-action om-btn-ship"
-                                                        onClick={() => openUpdateConfirm(order.order_id || order.id, "shipped")}
-                                                        title="Ship"
-                                                    >
-                                                        <FaTruck />
-                                                    </button>
-                                                )}
-                                                {order.status && order.status.toLowerCase() === "shipped" && (
-                                                    <button
-                                                        className="om-btn-action om-btn-complete"
-                                                        onClick={() => openUpdateConfirm(order.order_id || order.id, "completed")}
-                                                        title="Complete"
-                                                    >
-                                                        <FaCheckCircle />
-                                                    </button>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
+                                            </React.Fragment>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
@@ -378,32 +454,61 @@ const OrderManager = () => {
                 )}
             </div>
 
-                {selectedOrder && (
-                    <div className="order-modal">
-                        <div className="order-modal-content">
-                            <h3>Order Details</h3>
-                            <p><b>Order ID:</b> {selectedOrder.order_id || selectedOrder.id}</p>
-                            <p><b>Customer:</b> {selectedOrder.user_name || selectedOrder.userId}</p>
-                            <p><b>Created Date:</b> {selectedOrder.created_at ? new Date(selectedOrder.created_at).toLocaleString() : "N/A"}</p>
-                            <p><b>Payment Method:</b> {selectedOrder.payment_method ? 
-                                (selectedOrder.payment_method === 'pay_later' ? 'Pay Later' : 
-                                 selectedOrder.payment_method === 'online_payment' ? 'Online' : 
-                                 selectedOrder.payment_method) : "N/A"}
-                            </p>
-                            <p><b>Payment Status:</b> <span style={{
-                                color: selectedOrder.payment_status === 'paid' || selectedOrder.payment_status === 'completed' ? '#16a34a' : 
-                                       selectedOrder.payment_status === 'pending' ? '#d97706' : '#64748b',
-                                fontWeight: 600,
-                                textTransform: 'capitalize'
-                            }}>
-                                {selectedOrder.payment_status || "N/A"}
-                            </span></p>
-                            <p><b>Status:</b> <span className={`order-status ${getStatusClass(selectedOrder.status)}`}>{formatStatus(selectedOrder.status)}</span></p>
-                            <p><b>Total:</b> {formatMoney(selectedOrder.total || selectedOrder.price * selectedOrder.quantity)}</p>
-                            <button className="close-modal-btn" onClick={closeModal}>Close</button>
+            {selectedOrder && (
+                <div className="order-modal">
+                    <div className="order-modal-content">
+                        <h3>Order Details</h3>
+                        <p><b>Order ID:</b> {selectedOrder.order_id || selectedOrder.id}</p>
+                        <p><b>Customer:</b> {selectedOrder.user_name || selectedOrder.userId}</p>
+                        <p><b>Created Date:</b> {selectedOrder.created_at ? new Date(selectedOrder.created_at).toLocaleString() : "N/A"}</p>
+                        <p><b>Payment Method:</b> {selectedOrder.payment_method ? 
+                            (selectedOrder.payment_method === 'pay_later' ? 'Pay Later' : 
+                             selectedOrder.payment_method === 'online_payment' ? 'Online' : 
+                             selectedOrder.payment_method) : "N/A"}
+                        </p>
+                        <p><b>Payment Status:</b> <span style={{
+                            color: selectedOrder.payment_status === 'paid' || selectedOrder.payment_status === 'completed' ? '#16a34a' : 
+                                   selectedOrder.payment_status === 'pending' ? '#d97706' : '#64748b',
+                            fontWeight: 600,
+                            textTransform: 'capitalize'
+                         }}>
+                            {selectedOrder.payment_status || "N/A"}
+                        </span></p>
+                        <p><b>Status:</b> <span className={`order-status ${getStatusClass(selectedOrder.status)}`}>{formatStatus(selectedOrder.status)}</span></p>
+                        <p><b>Total:</b> {formatMoney(selectedOrder.total)}</p>
+
+                        <div className="om-modal-items-section">
+                            <h4 className="om-modal-items-title">Items in this Order</h4>
+                            <div className="om-modal-table-wrap">
+                                <table className="om-modal-items-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Product ID</th>
+                                            <th>Price</th>
+                                            <th>Qty</th>
+                                            <th>Subtotal</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {selectedOrder.items && selectedOrder.items.map((item, idx) => (
+                                            <tr key={item.id || idx}>
+                                                <td>
+                                                    <span className="om-code-badge" style={{ padding: '2px 6px', fontSize: '0.75rem' }}>{item.product_id}</span>
+                                                </td>
+                                                <td>{formatMoney(item.price)}</td>
+                                                <td>{item.quantity}</td>
+                                                <td>{formatMoney(item.price * item.quantity)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
+
+                        <button className="close-modal-btn" onClick={closeModal}>Close</button>
                     </div>
-                )}
+                </div>
+            )}
 
                 {/* Confirm Dialog */}
                 {confirmDialog.isOpen && (

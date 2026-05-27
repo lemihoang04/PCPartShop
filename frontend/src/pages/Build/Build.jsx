@@ -773,6 +773,7 @@ const Build = () => {
 
       // Clear the location state to prevent re-adding on refresh
       window.history.replaceState({}, document.title);
+      toast.success("Component added successfully");
     } else if (location.state?.addedComponents) {
       const componentDetails = location.state.addedComponents;
       console.log('Adding multiple components from Chatbot:', componentDetails);

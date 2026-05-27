@@ -982,9 +982,8 @@ const MotherboardUsage = ({ motherboard, rams, cpu, storages, gpus, components }
           </div>
         </div>
       </div>
-
+{/* 
       <div className="motherboard-footer">
-        {/* Power consumption summary */}
         <div className="power-summary">
           <div className="power-item">
             <div className="power-label">System Power Consumption</div>
@@ -1074,7 +1073,6 @@ const MotherboardUsage = ({ motherboard, rams, cpu, storages, gpus, components }
             <div className="detail-text">{powerCompatibility.message}</div>
           </div>
 
-          {/* Show detailed issues if any */}
           {[...ramCompatibility.issues, ...storageCompatibility.issues, ...gpuCompatibility.issues, ...powerCompatibility.issues, ...coolerCompatibility.issues].map((issue, index) => (
             <div key={index} className="detail-item incompatible warning">
               <div className="detail-icon warning">
@@ -1084,7 +1082,7 @@ const MotherboardUsage = ({ motherboard, rams, cpu, storages, gpus, components }
             </div>
           ))}
         </div>
-      </div>
+      </div> */}
     </div>
   );
 };

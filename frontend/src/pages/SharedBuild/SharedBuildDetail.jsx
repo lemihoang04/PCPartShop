@@ -140,7 +140,8 @@ const SharedBuildDetail = () => {
     let totalPrice = 0;
     let cpu = 'Chưa chọn CPU';
     let gpu = 'Chưa chọn GPU';
-    let memory = 'Chưa chọn RAM';
+    const ramParts = [];
+    const ramTypes = new Set();
     let storage = 'Chưa chọn Storage';
     let cases = 'Chưa chọn Case';
     let psu = 'Chưa chọn Nguồn (PSU)';
@@ -183,7 +184,17 @@ const SharedBuildDetail = () => {
       } else if (catName === 'ram') {
         const modules = item.attributes?.['Modules'] || '';
         const speed = item.attributes?.['Speed'] || '';
-        memory = modules ? `${modules} ${speed}` : item.title;
+        // Parse "2 x 16GB" format to get total GB
+        const match = modules.match(/(\d+)\s*x\s*(\d+)\s*GB/i);
+        if (match) {
+          ramParts.push(parseInt(match[1]) * parseInt(match[2]));
+        } else {
+          const gbMatch = modules.match(/(\d+)\s*GB/i);
+          if (gbMatch) ramParts.push(parseInt(gbMatch[1]));
+        }
+        // Extract RAM type (e.g. "DDR5" from "DDR5-6000")
+        const typeMatch = speed.match(/(DDR\d+)/i);
+        if (typeMatch) ramTypes.add(typeMatch[1].toUpperCase());
       } else if (catName === 'storage') {
         const cap = item.attributes?.['Capacity'] || '';
         const type = item.attributes?.['Type'] || '';
@@ -196,6 +207,10 @@ const SharedBuildDetail = () => {
         psu = watt ? `${watt} ${eff}`.trim() : item.title;
       }
     });
+
+    const totalRamGB = ramParts.length > 0 ? ramParts.reduce((a, b) => a + b, 0) : 0;
+    const ramTypeStr = ramTypes.size > 0 ? ` (${[...ramTypes].join(', ')})` : '';
+    const memory = totalRamGB > 0 ? `${totalRamGB}GB${ramTypeStr}` : 'Chưa chọn RAM';
 
     return {
       images: imagesList,
@@ -259,7 +274,7 @@ const SharedBuildDetail = () => {
               <span className="sbd-date">
                 <FaCalendarAlt className="sbd-icon-inline" /> {new Date(build.created_at).toLocaleDateString('vi-VN')}
               </span>
-              <RatingStars rating={5} />
+              {/* <RatingStars rating={5} /> */}
             </div>
           </div>
 

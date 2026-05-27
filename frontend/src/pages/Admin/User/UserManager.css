@@ -1,109 +1,241 @@
-.user-manager-container {
-    max-width: 1100px;
-    margin: 30px auto;
-    background: #fff;
-    padding: 32px 24px;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+/* ── Layout ──────────────────────────────────────────────── */
+.usr-container {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    font-family: 'Inter', 'Segoe UI', sans-serif;
 }
 
-.user-manager-container h2 {
-    font-size: 2rem;
+/* ── Header ──────────────────────────────────────────────── */
+.usr-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.usr-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.usr-title {
+    margin: 0;
+    font-size: 1.4rem;
     font-weight: 700;
-    margin-bottom: 24px;
-    color: #1976d2;
-    letter-spacing: 1px;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
 }
 
-.user-manager-table {
+.usr-count {
+    background: #e0e7ff;
+    color: #4338ca;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 999px;
+}
+
+/* ── Toolbar ─────────────────────────────────────────────── */
+.usr-toolbar {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.usr-search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 200px;
+}
+
+.usr-search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    font-size: 0.9rem;
+}
+
+.usr-search {
+    width: 100%;
+    padding: 9px 12px 9px 36px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 0.875rem;
+    background: #fff;
+    color: #1e293b;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+}
+
+.usr-search:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+}
+
+/* ── Card / Table ────────────────────────────────────────── */
+.usr-card {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.usr-table-wrap {
+    overflow-x: auto;
+}
+
+.usr-table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 24px;
-    background: #fafbfc;
+    font-size: 0.875rem;
 }
 
-.user-manager-table th, .user-manager-table td {
-    padding: 12px 16px;
-    border-bottom: 1px solid #eaeaea;
+.usr-table thead {
+    background: #f8fafc;
+}
+
+.usr-table th {
+    padding: 13px 14px;
     text-align: left;
-    font-size: 15px;
-}
-
-.user-manager-table th {
-    background: #f5f7fa;
     font-weight: 600;
-    color: #333;
+    color: #64748b;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 2px solid #e2e8f0;
+    white-space: nowrap;
 }
 
-.user-manager-table tr:hover {
-    background: #f0f4fa;
+.usr-table td {
+    padding: 13px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    vertical-align: middle;
 }
 
-.user-manager-status {
-    padding: 4px 12px;
-    border-radius: 8px;
-    font-weight: 500;
-    text-transform: capitalize;
+.usr-table tbody tr:hover {
+    background: #f8fafc;
 }
 
-.user-manager-status-active {
-    background: #e6f4ea;
-    color: #388e3c;
+/* ── Name cell ───────────────────────────────────────────── */
+.usr-name-cell {
+    font-weight: 600;
+    color: #1e293b;
 }
 
-.user-manager-status-inactive {
-    background: #ffeaea;
-    color: #d32f2f;
-}
-
-.user-manager-status-other {
-    background: #e3eafc;
-    color: #1976d2;
-}
-
-.user-manager-btn {
-    border: none;
-    outline: none;
-    padding: 6px 14px;
-    margin-right: 8px;
+/* ── ID badge ────────────────────────────────────────────── */
+.usr-id-badge {
+    display: inline-block;
+    background: #ede9fe;
+    color: #6d28d9;
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    font-size: 0.8rem;
+    padding: 3px 10px;
     border-radius: 6px;
-    font-size: 14px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
+    letter-spacing: 0.06em;
+}
+
+/* ── Info cells ──────────────────────────────────────────── */
+.usr-email-cell {
+    color: #475569;
+    font-size: 0.84rem;
+}
+
+.usr-phone-cell {
+    color: #64748b;
+    font-size: 0.84rem;
+    white-space: nowrap;
+}
+
+.usr-address-cell {
+    color: #64748b;
+    font-size: 0.84rem;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── Action buttons ──────────────────────────────────────── */
+.usr-actions-cell {
+    display: flex;
     gap: 6px;
-    transition: background 0.2s;
 }
 
-.user-manager-btn-view {
-    background: #e3eafc;
-    color: #1976d2;
+.usr-btn-delete {
+    border: none;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: #fee2e2;
+    color: #dc2626;
 }
 
-.user-manager-btn-delete {
-    background: #ffeaea;
-    color: #d32f2f;
+.usr-btn-delete:hover {
+    background: #fecaca;
+    transform: translateY(-1px);
 }
 
-.user-manager-btn-delete:hover {
-    background: #d32f2f;
-    color: #fff;
+/* ── Loading / Empty ─────────────────────────────────────── */
+.usr-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 60px;
+    gap: 12px;
+    color: #94a3b8;
 }
 
-.user-manager-btn-view:hover {
-    background: #1976d2;
-    color: #fff;
+.usr-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #e2e8f0;
+    border-top-color: #6366f1;
+    border-radius: 50%;
+    animation: usrSpin 0.75s linear infinite;
 }
 
+@keyframes usrSpin {
+    to { transform: rotate(360deg); }
+}
+
+.usr-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 60px;
+    gap: 8px;
+    color: #94a3b8;
+    font-size: 0.95rem;
+}
+
+.usr-empty i {
+    font-size: 2.5rem;
+    opacity: 0.5;
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 700px) {
-    .user-manager-container {
-        padding: 16px 4px;
+    .usr-container {
+        padding: 16px 8px;
     }
-    .user-manager-table th, .user-manager-table td {
-        padding: 8px 6px;
-        font-size: 13px;
+    .usr-table th,
+    .usr-table td {
+        padding: 10px 8px;
+        font-size: 0.8rem;
     }
-    .user-manager-container h2 {
-        font-size: 1.3rem;
+    .usr-title {
+        font-size: 1.15rem;
     }
 }

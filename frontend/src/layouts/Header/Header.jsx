@@ -180,11 +180,7 @@ const Header = () => {
             <i className="nav-icon fas fa-house"></i>
             <span>Home</span>
           </div>
-          <div className="nav-item" onClick={() => goTo('/build')}>
-            <i className="nav-icon fas fa-wand-magic-sparkles"></i>
-            <span>PC Builder</span>
-          </div>
-          <div
+                    <div
             className={`nav-item ${isProductsOpen ? 'active' : ''}`}
             onClick={toggleProducts}
             ref={productsRef}
@@ -193,10 +189,15 @@ const Header = () => {
             <span>Components</span>
             <i className={`nav-arrow fas fa-chevron-${isProductsOpen ? 'up' : 'down'}`}></i>
           </div>
-          <div className="nav-item" onClick={() => goTo('/laptops')}>
+          <div className="nav-item" onClick={() => goTo('/build')}>
+            <i className="nav-icon fas fa-wrench"></i>
+            <span>PC Builder</span>
+          </div>
+
+          {/* <div className="nav-item" onClick={() => goTo('/laptops')}>
             <i className="nav-icon fas fa-laptop"></i>
             <span>Laptops</span>
-          </div>
+          </div> */}
           <div className="nav-item" onClick={() => goTo('/shared-builds')}>
             <i className="nav-icon fas fa-share-alt"></i>
             <span>Shared Builds</span>
@@ -397,53 +398,7 @@ const Header = () => {
               </div>
             </div>
 
-            <div className="categories-column lists">
-              <div className="category-list">
-                <h3 className="list-title">Peripherals</h3>
-                <ul>
-                  <li >Headphones</li>
-                  <li >Keyboards</li>
-                  <li >Mice</li>
-                  <li >Speakers</li>
-                  <li >Webcams</li>
-                </ul>
-              </div>
 
-              <div className="category-list">
-                <h3 className="list-title">Displays</h3>
-                <ul>
-                  <li >Monitors</li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="categories-column lists">
-              <div className="category-list">
-                <h3 className="list-title">Expansion</h3>
-                <ul>
-                  <li >Sound Cards</li>
-                  <li >Wired Networking</li>
-                  <li >Wireless Networking</li>
-                </ul>
-              </div>
-
-              <div className="category-list">
-                <h3 className="list-title">Accessories</h3>
-                <ul>
-                  <li >Case Fans</li>
-                  <li >Fan Controllers</li>
-                  <li >Thermal Compound</li>
-                  <li >External Drives</li>
-                </ul>
-              </div>
-
-              <div className="category-list">
-                <h3 className="list-title">Software</h3>
-                <ul>
-                  <li >Operating Systems</li>
-                </ul>
-              </div>
-            </div>
 
             <div className="categories-column promo">
               <div className="promo-card">
