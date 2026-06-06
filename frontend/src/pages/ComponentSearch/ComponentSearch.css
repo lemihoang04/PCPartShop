@@ -520,7 +520,7 @@
   align-items: center;
   gap: 4px;
   padding: 5px 10px;
-  background: var(--blue-500);
+  background: #16a34a;
   border: none;
   border-radius: 6px;
   color: white;
@@ -532,7 +532,7 @@
 }
 
 .comp-search-add-button:hover {
-  background: var(--blue-600);
+  background: #15803d;;
   transform: translateY(-1px);
 }
 
@@ -553,7 +553,7 @@
   align-items: center;
   gap: 4px;
   padding: 5px 10px;
-  background: #16a34a;
+  background: var(--blue-500);
   border: none;
   border-radius: 6px;
   color: white;
@@ -565,7 +565,7 @@
 }
 
 .comp-search-cart-button:hover {
-  background: #15803d;
+  background: var(--blue-600);
   transform: translateY(-1px);
 }
 

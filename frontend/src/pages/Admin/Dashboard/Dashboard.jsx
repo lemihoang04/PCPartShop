@@ -1,16 +1,13 @@
 import React, { useEffect, useState } from "react";
-import "bootstrap/dist/css/bootstrap.min.css";
 import "./Dashboard.css";
 import { getDashboardStats } from "../../../services/adminService";
 import {
   FaShoppingCart,
   FaDollarSign,
-  FaCheckCircle,
-  FaUndo,
-  FaChartLine,
   FaUsers,
   FaBox,
-  FaCalendarAlt
+  FaExclamationTriangle,
+  FaCalendarAlt,
 } from "react-icons/fa";
 import {
   Chart as ChartJS,
@@ -22,11 +19,10 @@ import {
   Title,
   Tooltip,
   Legend,
-  ArcElement
-} from 'chart.js';
-import { Line, Bar, Doughnut } from 'react-chartjs-2';
+  Filler,
+} from "chart.js";
+import { Line, Bar } from "react-chartjs-2";
 
-// Register ChartJS components
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -36,354 +32,364 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  ArcElement
+  Filler
 );
 
+const CHART_COLORS = {
+  blue: "#1a73e8",
+  teal: "#0d9488",
+  orange: "#ea580c",
+  red: "#dc2626",
+  purple: "#7c3aed",
+  blueBg: "rgba(26,115,232,0.12)",
+  tealBg: "rgba(13,148,136,0.12)",
+};
+
+const formatCurrency = (value) => {
+  if (value == null) return "$0";
+  return "$" + Number(value).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+};
+
+const formatDateLabel = (dateStr) => {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
 
 const Dashboard = ({ setActiveMenu }) => {
-  // Stats for the top cards
-  const [dataStats, setStats] = useState({});
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchStats = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getDashboardStats();
+      setStats(data.stats);
+    } catch (err) {
+      console.error("Failed to fetch dashboard stats:", err);
+      setError("Unable to load dashboard data.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const data = await getDashboardStats();
-        setStats(data.stats);
-      } catch (error) {
-        console.error("Failed to fetch dashboard stats:", error);
-      }
-    };
-
     fetchStats();
   }, []);
-  // Data for the sales chart
-  const stats = [
-    {
-      value: dataStats.totalOrders,
-      label: "Orders",
-      color: "primary",
-      icon: <FaShoppingCart />,
-      growth: "+8.4%",
-      period: "vs. last month"
+
+  const today = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  if (loading) {
+    return (
+      <div className="dashboard-container">
+        <div className="dashboard-loading">
+          <div className="spinner" />
+          <span>Loading dashboard...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="dashboard-container">
+        <div className="dashboard-error">
+          <FaExclamationTriangle size={28} />
+          <p>{error}</p>
+          <button onClick={fetchStats}>Retry</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Chart configs ──
+  const baseBarOptions = (titleText, isCurrency = false) => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      title: { display: false },
+      tooltip: {
+        backgroundColor: "#1a1a2e",
+        titleFont: { size: 12, weight: "600" },
+        bodyFont: { size: 12 },
+        padding: 10,
+        cornerRadius: 2,
+        callbacks: isCurrency
+          ? { label: (ctx) => formatCurrency(ctx.parsed.y || ctx.parsed.x) }
+          : {},
+      },
     },
-    {
-      value: dataStats.totalRevenue,
-      label: "Revenue",
-      color: "success",
-      icon: <FaDollarSign />,
-      growth: "+5.3%",
-      period: "vs. last month"
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: { color: "#f3f4f6", drawBorder: false },
+        ticks: {
+          font: { size: 11 },
+          color: "#9ca3af",
+          ...(isCurrency ? { callback: (v) => "$" + v.toLocaleString() } : {}),
+        },
+        border: { display: false },
+      },
+      x: {
+        grid: { display: false },
+        ticks: { font: { size: 11 }, color: "#9ca3af" },
+        border: { display: false },
+      },
     },
-    {
-      value: dataStats.totalUsers,
-      label: "Customers",
-      color: "info",
-      icon: <FaUsers />,
-      growth: "+12.7%",
-      period: "vs. last month"
+  });
+
+  const horizontalBarOptions = (titleText, isCurrency = false) => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    indexAxis: "y",
+    plugins: {
+      legend: { display: false },
+      title: { display: false },
+      tooltip: {
+        backgroundColor: "#1a1a2e",
+        titleFont: { size: 12, weight: "600" },
+        bodyFont: { size: 12 },
+        padding: 10,
+        cornerRadius: 2,
+      },
     },
-    {
-      value: "435",
-      label: "Returns",
-      color: "warning",
-      icon: <FaUndo />,
-      growth: "-2.3%",
-      period: "vs. last month",
-      negative: true
+    scales: {
+      x: {
+        beginAtZero: true,
+        grid: { color: "#f3f4f6", drawBorder: false },
+        ticks: {
+          font: { size: 11 },
+          color: "#9ca3af",
+          ...(isCurrency ? { callback: (v) => "$" + v.toLocaleString() } : {}),
+        },
+        border: { display: false },
+      },
+      y: {
+        grid: { display: false },
+        ticks: { font: { size: 11 }, color: "#374151" },
+        border: { display: false },
+      },
     },
-  ];
-  const salesData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+  });
+
+  // Revenue by day — Bar
+  const revenueChartData = {
+    labels: (stats.dailyRevenue?.labels || []).map(formatDateLabel),
     datasets: [
       {
-        label: 'Monthly Revenue',
-        data: [30000, 35000, 25000, 40000, 45000, 55000, 48000, 52000, 60000, 62000, 65000, 70000],
-        borderColor: 'rgba(75, 192, 192, 1)',
-        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-        tension: 0.4,
+        label: "Revenue",
+        data: stats.dailyRevenue?.values || [],
+        backgroundColor: CHART_COLORS.blue,
+        borderColor: CHART_COLORS.blue,
+        borderWidth: 0,
+        borderRadius: 1,
+        barPercentage: 0.6,
+        categoryPercentage: 0.7,
+      },
+    ],
+  };
+
+  // Orders by day — Line
+  const ordersChartData = {
+    labels: (stats.dailyOrders?.labels || []).map(formatDateLabel),
+    datasets: [
+      {
+        label: "Orders",
+        data: stats.dailyOrders?.values || [],
+        borderColor: CHART_COLORS.teal,
+        backgroundColor: CHART_COLORS.tealBg,
+        borderWidth: 2,
+        pointRadius: 3,
+        pointBackgroundColor: CHART_COLORS.teal,
+        pointBorderColor: "#fff",
+        pointBorderWidth: 1.5,
+        tension: 0.3,
         fill: true,
-      }
+      },
     ],
   };
 
-  const salesOptions = {
+  const lineOptions = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
-      legend: {
-        position: 'top',
-      },
-      title: {
-        display: true,
-        text: '2025 Revenue Performance'
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: "#1a1a2e",
+        titleFont: { size: 12, weight: "600" },
+        bodyFont: { size: 12 },
+        padding: 10,
+        cornerRadius: 2,
       },
     },
     scales: {
       y: {
         beginAtZero: true,
-        grid: {
-          color: 'rgba(0, 0, 0, 0.05)'
-        }
+        grid: { color: "#f3f4f6", drawBorder: false },
+        ticks: { font: { size: 11 }, color: "#9ca3af", stepSize: 1 },
+        border: { display: false },
       },
       x: {
-        grid: {
-          display: false
-        }
-      }
-    }
+        grid: { display: false },
+        ticks: { font: { size: 11 }, color: "#9ca3af" },
+        border: { display: false },
+      },
+    },
   };
 
-  // Data for the top products chart
+  // Top categories — Horizontal Bar
+  const topCategoriesData = {
+    labels: stats.topCategories?.labels || [],
+    datasets: [
+      {
+        label: "Sold",
+        data: stats.topCategories?.values || [],
+        backgroundColor: CHART_COLORS.orange,
+        borderWidth: 0,
+        borderRadius: 1,
+        barPercentage: 0.5,
+        categoryPercentage: 0.7,
+      },
+    ],
+  };
+
+  // Top products — Horizontal Bar
   const topProductsData = {
-    labels: ['Laptops', 'Graphics Cards', 'Processors', 'Memory', 'Motherboards'],
+    labels: (stats.topProducts?.labels || []).map((name) =>
+      name.length > 35 ? name.substring(0, 35) + "…" : name
+    ),
     datasets: [
       {
-        label: 'Sales by Category',
-        data: [45, 25, 15, 10, 5],
-        backgroundColor: [
-          'rgba(54, 162, 235, 0.7)',
-          'rgba(255, 99, 132, 0.7)',
-          'rgba(255, 206, 86, 0.7)',
-          'rgba(75, 192, 192, 0.7)',
-          'rgba(153, 102, 255, 0.7)',
-        ],
-        borderColor: [
-          'rgba(54, 162, 235, 1)',
-          'rgba(255, 99, 132, 1)',
-          'rgba(255, 206, 86, 1)',
-          'rgba(75, 192, 192, 1)',
-          'rgba(153, 102, 255, 1)',
-        ],
-        borderWidth: 1,
+        label: "Sold",
+        data: stats.topProducts?.values || [],
+        backgroundColor: CHART_COLORS.purple,
+        borderWidth: 0,
+        borderRadius: 1,
+        barPercentage: 0.5,
+        categoryPercentage: 0.7,
       },
     ],
   };
 
-  // Data for recent orders
-  // const recentOrders = [
-  //   { id: '#ORD-7243', customer: 'John Doe', date: 'May 6, 2025', status: 'Completed', total: '$1,240.00' },
-  //   { id: '#ORD-7242', customer: 'Jane Smith', date: 'May 5, 2025', status: 'Processing', total: '$857.50' },
-  //   { id: '#ORD-7241', customer: 'Robert Johnson', date: 'May 5, 2025', status: 'Completed', total: '$2,170.00' },
-  //   { id: '#ORD-7240', customer: 'Emily Davis', date: 'May 4, 2025', status: 'Shipped', total: '$990.25' },
-  //   { id: '#ORD-7239', customer: 'Michael Brown', date: 'May 4, 2025', status: 'Completed', total: '$1,450.75' },
-  // ];
-  const recentOrders = dataStats.recentOrders;
-
-  // Data for customer activities
-  const customerActivities = [
-    { action: 'New account created', user: 'Thomas Wilson', time: '10 minutes ago' },
-    { action: 'Placed an order', user: 'Sarah Johnson', time: '45 minutes ago' },
-    { action: 'Submitted a review', user: 'Richard Davis', time: '1 hour ago' },
-    { action: 'Started a return', user: 'Laura Thompson', time: '2 hours ago' },
-    { action: 'Contacted support', user: 'Kevin Martin', time: '3 hours ago' },
-  ];
-
-  const getStatusClass = (status) => {
-    switch (status) {
-      case 'completed': return 'bg-success';
-      case 'pending': return 'bg-warning';
-      case 'canceled': return 'bg-danger';
-      default: return 'bg-secondary';
-    }
-  };
-
-  const capitalizeFirstLetter = (string) => {
-    return string.charAt(0).toUpperCase() + string.slice(1);
-  };
-
-  // Data for the daily revenue chart
-  const dailyRevenueData = {
-    labels: dataStats.dailyRevenue?.labels || [],
-    datasets: [
-      {
-        label: 'Daily Revenue',
-        data: dataStats.dailyRevenue?.values || [],
-        backgroundColor: 'rgba(54, 162, 235, 0.7)',
-        borderColor: 'rgba(54, 162, 235, 1)',
-        borderWidth: 1,
-        borderRadius: 4,
-        borderSkipped: false,
-      }
-    ],
-  };
-
-  const dailyRevenueOptions = {
-    responsive: true,
-    plugins: {
-      legend: {
-        position: 'top',
-      },
-      title: {
-        display: true,
-        text: 'Daily Revenue Overview (Last 7 Days)'
-      },
+  const statCards = [
+    {
+      label: "Total Revenue",
+      value: formatCurrency(stats.totalRevenue),
+      icon: <FaDollarSign />,
+      iconClass: "revenue",
     },
-    scales: {
-      y: {
-        beginAtZero: true,
-        grid: {
-          color: 'rgba(0, 0, 0, 0.05)'
-        },
-        ticks: {
-          callback: function (value) {
-            return '$' + value.toLocaleString();
-          }
-        }
-      },
-      x: {
-        grid: {
-          display: false
-        },
-        ticks: {
-          callback: function (value, index) {
-            const date = new Date(this.getLabelForValue(value));
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-          }
-        }
-      }
-    }
-  };
+    {
+      label: "Orders Today",
+      value: stats.todayOrders,
+      icon: <FaShoppingCart />,
+      iconClass: "orders",
+    },
+    {
+      label: "Total Customers",
+      value: stats.totalCustomers,
+      icon: <FaUsers />,
+      iconClass: "customers",
+    },
+    {
+      label: "Active Products",
+      value: stats.activeProducts,
+      icon: <FaBox />,
+      iconClass: "products",
+    },
+    {
+      label: "Low Stock",
+      value: stats.lowStockProducts,
+      icon: <FaExclamationTriangle />,
+      iconClass: "lowstock",
+    },
+  ];
 
   return (
     <div className="dashboard-container">
-      <div className="dashboard-header mb-4">
-        <div className="d-flex justify-content-between align-items-center">
+      {/* Header */}
+      <div className="dashboard-header">
+        <div className="dashboard-header-row">
           <h2 className="dashboard-title">Dashboard</h2>
-          <div className="date-filter d-flex align-items-center">
-            <FaCalendarAlt className="me-2" />
-            <span>Today: May 6, 2025</span>
+          <div className="dashboard-date">
+            <FaCalendarAlt />
+            <span>{today}</span>
           </div>
         </div>
-        <p className="text-muted">Welcome to your admin dashboard. Here's what's happening with your store today.</p>
+        <p className="dashboard-subtitle">
+          Overview of your store performance and key metrics.
+        </p>
       </div>
 
-      {/* Stat cards */}
-      <div className="row g-4 mb-4">
-        {stats.map((stat, index) => (
-          <div key={index} className="col-xl-3 col-md-6">
-            <div className={`stat-card card border-0 shadow-sm`}>
-              <div className="card-body">
-                <div className="d-flex justify-content-between align-items-start">
-                  <div>
-                    <h6 className="stat-label text-muted mb-1">{stat.label}</h6>
-                    <h3 className="stat-value mb-1">{stat.value}</h3>
-                    <div className={`stat-growth ${stat.negative ? 'text-danger' : 'text-success'}`}>
-                      {stat.growth} <span className="period">{stat.period}</span>
-                    </div>
-                  </div>
-                  <div className={`stat-icon-wrapper bg-${stat.color}`}>
-                    {stat.icon}
-                  </div>
-                </div>
-              </div>
+      {/* Stat Cards */}
+      <div className="stats-row">
+        {statCards.map((card, i) => (
+          <div key={i} className="stat-card">
+            <div className="stat-card-info">
+              <span className="stat-card-label">{card.label}</span>
+              <span className="stat-card-value">{card.value}</span>
+            </div>
+            <div className={`stat-card-icon ${card.iconClass}`}>
+              {card.icon}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Charts row */}
-      <div className="row g-4 mb-4">
-        <div className="col-xl-8">
-          <div className="card border-0 shadow-sm h-100">
-            <div className="card-header bg-transparent border-0">
-              <h5 className="card-title">Daily Revenue Overview</h5>
-            </div>
-            <div className="card-body">
-              <Bar data={dailyRevenueData} options={dailyRevenueOptions} />
-            </div>
+      {/* Charts */}
+      <div className="charts-grid">
+        {/* Revenue by day */}
+        <div className="chart-card">
+          <div className="chart-card-header">
+            <h3 className="chart-card-title">Revenue by Day (Last 30 Days)</h3>
+          </div>
+          <div className="chart-card-body" style={{ height: 300 }}>
+            <Bar
+              data={revenueChartData}
+              options={baseBarOptions("Revenue", true)}
+            />
           </div>
         </div>
-        <div className="col-xl-4">
-          <div className="card border-0 shadow-sm h-100">
-            <div className="card-header bg-transparent border-0">
-              <h5 className="card-title">Sales by Category</h5>
-            </div>
-            <div className="card-body d-flex align-items-center justify-content-center">
-              <Doughnut
-                data={topProductsData}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      position: 'bottom',
-                    }
-                  }
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Activity row */}
-      <div className="row g-4">
-        <div className="col-xl-8">
-          <div className="card border-0 shadow-sm">
-            <div className="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
-              <h5 className="card-title">Recent Orders</h5>
-              <button className="btn btn-sm btn-outline-primary">View All</button>
-            </div>
-            <div className="card-body p-0">
-              <div className="table-responsive">
-                <table className="table table-hover align-middle mb-0">
-                  <thead className="table-light">
-                    <tr>
-                      <th>Order ID</th>
-                      <th>Customer</th>
-                      <th>Date</th>
-                      <th>Status</th>
-                      <th className="text-end">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentOrders && recentOrders.length > 0 ? (
-                      recentOrders.map((order, index) => (
-                        <tr key={index}>
-                          <td><strong>{order.id}</strong></td>
-                          <td>{order.user_name}</td>
-                          <td>{order.created_at}</td>
-                          <td>
-                            <span className={`badge ${getStatusClass(order.status)}`}>{capitalizeFirstLetter(order.status)}</span>
-                          </td>
-                          <td className="text-end">{order.price}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="5" className="text-center py-3">No recent orders available</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+        {/* Orders over time */}
+        <div className="chart-card">
+          <div className="chart-card-header">
+            <h3 className="chart-card-title">Orders Over Time (Last 30 Days)</h3>
+          </div>
+          <div className="chart-card-body" style={{ height: 300 }}>
+            <Line data={ordersChartData} options={lineOptions} />
           </div>
         </div>
-        <div className="col-xl-4">
-          <div className="card border-0 shadow-sm">
-            <div className="card-header bg-transparent border-0">
-              <h5 className="card-title">Recent Activities</h5>
-            </div>
-            <div className="card-body p-0">
-              <ul className="list-group list-group-flush activity-list">
-                {customerActivities.map((activity, index) => (
-                  <li key={index} className="list-group-item border-0 py-3">
-                    <div className="d-flex">
-                      <div className="activity-icon me-3">
-                        <span className="avatar-initials">
-                          {activity.user.charAt(0)}
-                        </span>
-                      </div>
-                      <div>
-                        <p className="mb-0"><strong>{activity.action}</strong></p>
-                        <p className="mb-0">{activity.user}</p>
-                        <small className="text-muted">{activity.time}</small>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
+
+        {/* Top categories */}
+        <div className="chart-card">
+          <div className="chart-card-header">
+            <h3 className="chart-card-title">Top Categories by Sales</h3>
+          </div>
+          <div className="chart-card-body" style={{ height: 300 }}>
+            <Bar
+              data={topCategoriesData}
+              options={horizontalBarOptions("Top Categories")}
+            />
+          </div>
+        </div>
+
+        {/* Top products */}
+        <div className="chart-card">
+          <div className="chart-card-header">
+            <h3 className="chart-card-title">Top Products by Sales</h3>
+          </div>
+          <div className="chart-card-body" style={{ height: 300 }}>
+            <Bar
+              data={topProductsData}
+              options={horizontalBarOptions("Top Products")}
+            />
           </div>
         </div>
       </div>

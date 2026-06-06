@@ -898,6 +898,13 @@ const ComponentSearch = () => {
                         <td>
                           <div className="comp-search-action-buttons">
                             <button
+                              className="comp-search-cart-button"
+                              title="Add to Cart"
+                              onClick={() => handleAddToCart(component)}
+                            >
+                              <FaShoppingCart /> Add to Cart
+                            </button>
+                            <button
                               className="comp-search-add-button"
                               title="Add to PC Builder"
                               onClick={async () => {
@@ -923,13 +930,7 @@ const ComponentSearch = () => {
                             >
                               <i className="fas fa-plus"></i> Add to Builder
                             </button>
-                            <button
-                              className="comp-search-cart-button"
-                              title="Add to Cart"
-                              onClick={() => handleAddToCart(component)}
-                            >
-                              <FaShoppingCart /> Add to Cart
-                            </button>
+
                           </div>
                         </td>
                       </tr>
