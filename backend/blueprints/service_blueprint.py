@@ -1,8 +1,8 @@
 import os
 
-from flask import Blueprint, redirect, request, jsonify, session
+from flask import Blueprint, request, jsonify, session
 from DAL.service_dal import *
-import stripe, time, hmac, hashlib, json, requests, urllib.request, urllib.parse
+import stripe
 from context.email_utils import send_order_confirmation_email
 
 service_blueprint = Blueprint('service', __name__)
