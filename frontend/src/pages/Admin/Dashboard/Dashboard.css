@@ -23,16 +23,79 @@
   margin: 0;
 }
 
-.dashboard-date {
+/* Date Filters Styling */
+.dashboard-filters-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.dashboard-date-filters {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.85rem;
-  color: #6b7280;
+  gap: 12px;
   background: #fff;
   border: 1px solid #e5e7eb;
   padding: 6px 14px;
   border-radius: 2px;
+}
+
+.dashboard-date-filters .filter-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dashboard-date-filters label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #6b7280;
+  letter-spacing: 0.5px;
+}
+
+.dashboard-date-filters input[type="date"] {
+  border: 1px solid #e5e7eb;
+  padding: 4px 8px;
+  font-size: 0.82rem;
+  font-family: inherit;
+  color: #1a1a2e;
+  border-radius: 2px;
+  outline: none;
+  background: transparent;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dashboard-date-filters input[type="date"]:focus {
+  border-color: #1a73e8;
+}
+
+.date-filter-error {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #dc2626;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  padding: 4px 10px;
+  border-radius: 2px;
+  display: inline-block;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+/* Background updates opacity indicator */
+.dashboard-body {
+  transition: opacity 0.2s ease;
+}
+
+.dashboard-body-updating {
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .dashboard-subtitle {

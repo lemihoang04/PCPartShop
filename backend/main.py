@@ -24,7 +24,8 @@ os.makedirs(os.path.join(static_folder, 'uploads'), exist_ok=True)
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 app.secret_key = "phuocnopro123" 
-CORS(app, origins="http://localhost:3000", supports_credentials=True)
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+CORS(app, origins=FRONTEND_URL, supports_credentials=True)
 
 # Configure upload folder
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER

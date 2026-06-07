@@ -56,57 +56,70 @@ const formatDateLabel = (dateStr) => {
 };
 
 const Dashboard = ({ setActiveMenu }) => {
+  const getLocalYYYYMMDD = (date) => {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const todayDate = new Date();
+  const date30DaysAgo = new Date();
+  date30DaysAgo.setDate(todayDate.getDate() - 30);
+
+  const [endDate, setEndDate] = useState(getLocalYYYYMMDD(todayDate));
+  const [startDate, setStartDate] = useState(getLocalYYYYMMDD(date30DaysAgo));
+  const [dateError, setDateError] = useState("");
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchStats = async () => {
+  const fetchStats = async (start, end) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getDashboardStats();
+      const data = await getDashboardStats(start, end);
       setStats(data.stats);
     } catch (err) {
       console.error("Failed to fetch dashboard stats:", err);
-      setError("Unable to load dashboard data.");
+      setError(err?.message || "Unable to load dashboard data.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchStats();
-  }, []);
+    const sDate = new Date(startDate);
+    const eDate = new Date(endDate);
+    const today = new Date();
+    const todayStr = getLocalYYYYMMDD(today);
 
-  const today = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+    if (!startDate || !endDate) {
+      setDateError("Please select both start and end dates.");
+      return;
+    }
 
-  if (loading) {
-    return (
-      <div className="dashboard-container">
-        <div className="dashboard-loading">
-          <div className="spinner" />
-          <span>Loading dashboard...</span>
-        </div>
-      </div>
-    );
-  }
+    if (endDate > todayStr) {
+      setDateError("End date cannot exceed current date.");
+      return;
+    }
 
-  if (error) {
-    return (
-      <div className="dashboard-container">
-        <div className="dashboard-error">
-          <FaExclamationTriangle size={28} />
-          <p>{error}</p>
-          <button onClick={fetchStats}>Retry</button>
-        </div>
-      </div>
-    );
-  }
+    if (startDate > endDate) {
+      setDateError("Start date cannot be after end date.");
+      return;
+    }
+
+    const diffTime = Math.abs(eDate - sDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays > 30) {
+      setDateError("Date range cannot exceed 30 days.");
+      return;
+    }
+
+    setDateError("");
+    fetchStats(startDate, endDate);
+  }, [startDate, endDate]);
 
   // ── Chart configs ──
   const baseBarOptions = (titleText, isCurrency = false) => ({
@@ -180,7 +193,7 @@ const Dashboard = ({ setActiveMenu }) => {
   });
 
   // Revenue by day — Bar
-  const revenueChartData = {
+  const revenueChartData = stats ? {
     labels: (stats.dailyRevenue?.labels || []).map(formatDateLabel),
     datasets: [
       {
@@ -194,10 +207,10 @@ const Dashboard = ({ setActiveMenu }) => {
         categoryPercentage: 0.7,
       },
     ],
-  };
+  } : null;
 
   // Orders by day — Line
-  const ordersChartData = {
+  const ordersChartData = stats ? {
     labels: (stats.dailyOrders?.labels || []).map(formatDateLabel),
     datasets: [
       {
@@ -214,7 +227,7 @@ const Dashboard = ({ setActiveMenu }) => {
         fill: true,
       },
     ],
-  };
+  } : null;
 
   const lineOptions = {
     responsive: true,
@@ -245,7 +258,7 @@ const Dashboard = ({ setActiveMenu }) => {
   };
 
   // Top categories — Horizontal Bar
-  const topCategoriesData = {
+  const topCategoriesData = stats ? {
     labels: stats.topCategories?.labels || [],
     datasets: [
       {
@@ -258,10 +271,10 @@ const Dashboard = ({ setActiveMenu }) => {
         categoryPercentage: 0.7,
       },
     ],
-  };
+  } : null;
 
   // Top products — Horizontal Bar
-  const topProductsData = {
+  const topProductsData = stats ? {
     labels: (stats.topProducts?.labels || []).map((name) =>
       name.length > 35 ? name.substring(0, 35) + "…" : name
     ),
@@ -276,9 +289,9 @@ const Dashboard = ({ setActiveMenu }) => {
         categoryPercentage: 0.7,
       },
     ],
-  };
+  } : null;
 
-  const statCards = [
+  const statCards = stats ? [
     {
       label: "Total Revenue",
       value: formatCurrency(stats.totalRevenue),
@@ -309,90 +322,132 @@ const Dashboard = ({ setActiveMenu }) => {
       icon: <FaExclamationTriangle />,
       iconClass: "lowstock",
     },
-  ];
+  ] : [];
 
   return (
     <div className="dashboard-container">
       {/* Header */}
       <div className="dashboard-header">
         <div className="dashboard-header-row">
-          <h2 className="dashboard-title">Dashboard</h2>
-          <div className="dashboard-date">
-            <FaCalendarAlt />
-            <span>{today}</span>
+          <div>
+            <h2 className="dashboard-title">Dashboard</h2>
+            <p className="dashboard-subtitle">
+              Overview of your store performance and key metrics.
+            </p>
           </div>
-        </div>
-        <p className="dashboard-subtitle">
-          Overview of your store performance and key metrics.
-        </p>
-      </div>
-
-      {/* Stat Cards */}
-      <div className="stats-row">
-        {statCards.map((card, i) => (
-          <div key={i} className="stat-card">
-            <div className="stat-card-info">
-              <span className="stat-card-label">{card.label}</span>
-              <span className="stat-card-value">{card.value}</span>
+          <div className="dashboard-filters-container">
+            <div className="dashboard-date-filters">
+              <div className="filter-group">
+                <label htmlFor="startDate">From</label>
+                <input
+                  type="date"
+                  id="startDate"
+                  value={startDate}
+                  max={endDate || getLocalYYYYMMDD(new Date())}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+              <div className="filter-group">
+                <label htmlFor="endDate">To</label>
+                <input
+                  type="date"
+                  id="endDate"
+                  value={endDate}
+                  max={getLocalYYYYMMDD(new Date())}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </div>
             </div>
-            <div className={`stat-card-icon ${card.iconClass}`}>
-              {card.icon}
+            {dateError && <span className="date-filter-error">{dateError}</span>}
+          </div>
+        </div>
+      </div>
+
+      {loading && !stats ? (
+        <div className="dashboard-loading">
+          <div className="spinner" />
+          <span>Loading dashboard...</span>
+        </div>
+      ) : error ? (
+        <div className="dashboard-error">
+          <FaExclamationTriangle size={28} />
+          <p>{error}</p>
+          <button onClick={() => fetchStats(startDate, endDate)}>Retry</button>
+        </div>
+      ) : stats ? (
+        <div className={`dashboard-body ${loading ? "dashboard-body-updating" : ""}`}>
+          {/* Stat Cards */}
+          <div className="stats-row">
+            {statCards.map((card, i) => (
+              <div key={i} className="stat-card">
+                <div className="stat-card-info">
+                  <span className="stat-card-label">{card.label}</span>
+                  <span className="stat-card-value">{card.value}</span>
+                </div>
+                <div className={`stat-card-icon ${card.iconClass}`}>
+                  {card.icon}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Charts */}
+          <div className="charts-grid">
+            {/* Revenue by day */}
+            <div className="chart-card">
+              <div className="chart-card-header">
+                <h3 className="chart-card-title">
+                  Revenue by Day ({startDate ? formatDateLabel(startDate) : ""} - {endDate ? formatDateLabel(endDate) : ""})
+                </h3>
+              </div>
+              <div className="chart-card-body" style={{ height: 300 }}>
+                <Bar
+                  data={revenueChartData}
+                  options={baseBarOptions("Revenue", true)}
+                />
+              </div>
+            </div>
+
+            {/* Orders over time */}
+            <div className="chart-card">
+              <div className="chart-card-header">
+                <h3 className="chart-card-title">
+                  Orders Over Time ({startDate ? formatDateLabel(startDate) : ""} - {endDate ? formatDateLabel(endDate) : ""})
+                </h3>
+              </div>
+              <div className="chart-card-body" style={{ height: 300 }}>
+                <Line data={ordersChartData} options={lineOptions} />
+              </div>
+            </div>
+
+            {/* Top categories */}
+            <div className="chart-card">
+              <div className="chart-card-header">
+                <h3 className="chart-card-title">Top Categories by Sales</h3>
+              </div>
+              <div className="chart-card-body" style={{ height: 300 }}>
+                <Bar
+                  data={topCategoriesData}
+                  options={horizontalBarOptions("Top Categories")}
+                />
+              </div>
+            </div>
+
+            {/* Top products */}
+            <div className="chart-card">
+              <div className="chart-card-header">
+                <h3 className="chart-card-title">Top Products by Sales</h3>
+              </div>
+              <div className="chart-card-body" style={{ height: 300 }}>
+                <Bar
+                  data={topProductsData}
+                  options={horizontalBarOptions("Top Products")}
+                />
+              </div>
             </div>
           </div>
-        ))}
-      </div>
-
-      {/* Charts */}
-      <div className="charts-grid">
-        {/* Revenue by day */}
-        <div className="chart-card">
-          <div className="chart-card-header">
-            <h3 className="chart-card-title">Revenue by Day (Last 30 Days)</h3>
-          </div>
-          <div className="chart-card-body" style={{ height: 300 }}>
-            <Bar
-              data={revenueChartData}
-              options={baseBarOptions("Revenue", true)}
-            />
-          </div>
         </div>
-
-        {/* Orders over time */}
-        <div className="chart-card">
-          <div className="chart-card-header">
-            <h3 className="chart-card-title">Orders Over Time (Last 30 Days)</h3>
-          </div>
-          <div className="chart-card-body" style={{ height: 300 }}>
-            <Line data={ordersChartData} options={lineOptions} />
-          </div>
-        </div>
-
-        {/* Top categories */}
-        <div className="chart-card">
-          <div className="chart-card-header">
-            <h3 className="chart-card-title">Top Categories by Sales</h3>
-          </div>
-          <div className="chart-card-body" style={{ height: 300 }}>
-            <Bar
-              data={topCategoriesData}
-              options={horizontalBarOptions("Top Categories")}
-            />
-          </div>
-        </div>
-
-        {/* Top products */}
-        <div className="chart-card">
-          <div className="chart-card-header">
-            <h3 className="chart-card-title">Top Products by Sales</h3>
-          </div>
-          <div className="chart-card-body" style={{ height: 300 }}>
-            <Bar
-              data={topProductsData}
-              options={horizontalBarOptions("Top Products")}
-            />
-          </div>
-        </div>
-      </div>
+      ) : null}
     </div>
   );
 };

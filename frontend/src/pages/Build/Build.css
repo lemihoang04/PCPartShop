@@ -28,6 +28,8 @@
 .compatibility {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 0;
 }
 
 .compatibility .icon {
@@ -502,7 +504,8 @@
 }
 
 .issue-message {
-  font-size: 13px;
+  font-size: 15px;
+  font-weight: 600;
   line-height: 1.5;
   color: #475569;
 }

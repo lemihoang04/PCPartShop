@@ -6,78 +6,10 @@ import stripe, time, hmac, hashlib, json, requests, urllib.request, urllib.parse
 from context.email_utils import send_order_confirmation_email
 
 service_blueprint = Blueprint('service', __name__)
-ZALOPAY_CONFIG = {
-    "app_id": "2553",
-    "key1": "PcY4iZIKFCIdgZvA6ueMcMHHUbRLYjPL",
-    "key2": "kLtgPl8HHhfvMuDHPwKfgfsY4Ydm9eIz",
-    "create_order_endpoint": "https://sb-openapi.zalopay.vn/v2/create",
-    "query_order_endpoint": "https://sb-openapi.zalopay.vn/v2/query",
-}
+
 YOUR_DOMAIN = 'http://localhost:3000'
 stripe_client = stripe.StripeClient(os.getenv("STRIPE_API_KEY"))
 
-@service_blueprint.route("/create_order", methods=["POST"])
-def create_order():
-    data = request.json
-    amount = int(float(data.get("amount", 10000)))
-    embed_data = {
-        "redirecturl": f"http://localhost:3000/checkPayment",
-    }
-    app_trans_id = time.strftime("%y%m%d") + "_" + str(int(time.time()))
-    app_time = int(time.time() * 1000)
-
-    order = {
-        "app_id": ZALOPAY_CONFIG["app_id"],
-        "app_trans_id": app_trans_id,
-        "app_user": "user123",
-        "app_time": app_time,
-        "embed_data": json.dumps(embed_data),
-        "item": json.dumps([{}]),
-        "amount": amount,
-        "description": f"Thanh toán đơn hàng #{app_trans_id}",
-        "bank_code": "zalopayapp",
-        "callback_url": "http://localhost:3000/products",
-    }
-
-    data = f"{order['app_id']}|{order['app_trans_id']}|{order['app_user']}|{order['amount']}|{order['app_time']}|{order['embed_data']}|{order['item']}"
-    order["mac"] = hmac.new(ZALOPAY_CONFIG["key1"].encode(), data.encode(), hashlib.sha256).hexdigest()
-
-    try:
-        response = requests.post(
-            ZALOPAY_CONFIG["create_order_endpoint"],
-            data=order,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
-        resp_json = response.json()
-        resp_json["app_trans_id"] = app_trans_id
-        return jsonify(resp_json), response.status_code
-    except requests.RequestException as e:
-        return jsonify({"error": str(e)}), 500
-
-@service_blueprint.route("/checkPayment", methods=["POST"])
-def query_order():
-    try:
-        data = request.json
-        app_trans_id = data.get("app_trans_id")
-        if not app_trans_id:
-            return jsonify({"errCode": 1, "message": "Missing app_trans_id"}), 400
-
-        params = {
-            "app_id": ZALOPAY_CONFIG["app_id"],
-            "app_trans_id": app_trans_id,
-        }
-        data_mac = f"{params['app_id']}|{params['app_trans_id']}|{ZALOPAY_CONFIG['key1']}"
-        params["mac"] = hmac.new(ZALOPAY_CONFIG["key1"].encode(), data_mac.encode(), hashlib.sha256).hexdigest()
-
-        response = requests.post(
-            ZALOPAY_CONFIG["query_order_endpoint"],
-            data=params,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
-        return jsonify(response.json()), response.status_code
-    except Exception as e:
-        return jsonify({"errCode": 1, "message": str(e)}), 500
-    
     
 @service_blueprint.route('/create-checkout-session', methods=['POST'])
 def create_checkout_session():

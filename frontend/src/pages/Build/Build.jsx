@@ -21,7 +21,8 @@ import {
   FaTimes,
   FaLock,
   FaGlobe,
-  FaTrashAlt
+  FaTrashAlt,
+  FaExclamationTriangle
 } from 'react-icons/fa';
 import { savePCBuild, getBuildHistory, deleteBuild, getBuildBySlug } from '../../services/buildpcService';
 import { addToCart } from '../../services/apiService';
@@ -1016,9 +1017,19 @@ const Build = () => {
     <div className="build-container">
       <div className={`header ${!isCompatible ? 'incompatible' : ''}`}>
         <div className="compatibility">
-          <span className="icon"><FaCheck /></span>
-          <span className="label">Compatibility Check:</span>
-          <span className="notes">See <a href="#notes">details</a> below.</span>
+          {isCompatible ? (
+            <>
+              <span className="icon"><FaCheck /></span>
+              <span className="label">Compatibility Check:</span>
+              <span className="notes">See <a href="#notes">details</a> below.</span>
+            </>
+          ) : (
+            <>
+              <span className="icon"><FaExclamationTriangle /></span>
+              <span className="label">Warning! These parts have potential incompatibilities.</span>
+              <span className="notes">See <a href="#notes">details</a> below.</span>
+            </>
+          )}
         </div>
         <div className="header-actions">
           <div className="wattage">

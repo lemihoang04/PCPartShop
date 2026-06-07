@@ -21,9 +21,14 @@ const LogoutAdmin = () => {
             console.error(error);
         });
 };
-const getDashboardStats = async () => {
+const getDashboardStats = async (startDate, endDate) => {
     try {
-        const response = await axios.get(`/admin/dashboard/stats`);
+        const params = {};
+        if (startDate && endDate) {
+            params.start_date = startDate;
+            params.end_date = endDate;
+        }
+        const response = await axios.get(`/admin/dashboard/stats`, { params });
         return response;
     } catch (error) {
         console.error("Error loading dashboard stats:", error);
