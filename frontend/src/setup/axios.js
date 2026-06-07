@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Set config defaults when creating the instance
 const instance = axios.create({
-	baseURL: "http://localhost:5000/",
+	baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000/",
 });
 
 instance.defaults.withCredentials = true;
