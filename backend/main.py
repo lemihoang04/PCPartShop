@@ -44,7 +44,10 @@ app.register_blueprint(coupon_blueprint)
 app.register_blueprint(buildpc_blueprint)
 app.register_blueprint(notification_blueprint)
 
+
+port = int(os.environ.get("PORT", 5000))
+host = os.environ.get("HOST", "127.0.0.1")
 socketio.init_app(app)
 if __name__ == "__main__":
-    socketio.run(app, debug=True, port=5000, allow_unsafe_werkzeug=True)
+    socketio.run(app, debug=True, port=port,host=host, allow_unsafe_werkzeug=True)
 
