@@ -15,6 +15,7 @@ from blueprints.buildpc_blueprint import buildpc_blueprint
 from blueprints.notification_blueprint import notification_blueprint
 from config import UPLOAD_FOLDER, socketio
 import sockets.notification_socket
+from flask_jwt_extended import JWTManager
 
  
 # Create static folder for uploads if it doesn't exist
@@ -23,10 +24,14 @@ os.makedirs(static_folder, exist_ok=True)
 os.makedirs(os.path.join(static_folder, 'uploads'), exist_ok=True)
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
+app.config["JWT_SECRET_KEY"] = "phuocnopro123"
+jwt = JWTManager(app)
 app.secret_key = "phuocnopro123" 
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 CORS(app, origins=FRONTEND_URL, supports_credentials=True)
 
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_SECURE'] = True
 # Configure upload folder
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 #16MB

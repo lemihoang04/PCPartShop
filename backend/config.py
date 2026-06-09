@@ -2,6 +2,7 @@ import mysql.connector
 import os
 from flask_socketio import SocketIO
 
+
 # Sử dụng os.getenv ngắn gọn hơn, kết quả trả về y hệt os.environ.get
 DATABASE_CONFIG = {
     'user': os.getenv('DB_USER', 'root'),
@@ -13,7 +14,7 @@ DATABASE_CONFIG = {
 
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 socketio = SocketIO(
-    cors_allowed_origins=FRONTEND_URL,
+    cors_allowed_origins="*",
     ping_timeout=60,
     ping_interval=25
 )

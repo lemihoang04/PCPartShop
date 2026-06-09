@@ -35,7 +35,10 @@ const Login = () => {
             const response = await LoginUser(formValues);
             if (response && response.errCode === 0) {
                 toast.success('Login successful!');
-
+                localStorage.setItem(
+                    "access_token",
+                    response.access_token
+                );
                 let data = {
                     isAuthenticated: true,
                     account: response.user,

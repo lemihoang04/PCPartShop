@@ -88,6 +88,7 @@ const UserProvider = ({ children }) => {
 
 
 	const logoutUser = useCallback(() => {
+		localStorage.removeItem("access_token");
 		setUser(USER_LOGGED_OUT);
 		sessionStorage.removeItem("user");
 		sessionStorage.removeItem("chatMessages");

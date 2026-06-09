@@ -2,8 +2,50 @@ from flask import Blueprint, request, jsonify, session
 from DAL.user_dal import *
 from datetime import datetime, timedelta
 from context.email_utils import send_otp_email
+from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required
 
 user_blueprint = Blueprint('user', __name__)
+
+@user_blueprint.route('/login', methods=['POST'])
+def api_login():
+    data = request.form
+    email = data.get('email')
+    password = data.get('password')
+
+    if not email or not password:
+        return jsonify({"error": "Missing email or password"}), 400
+
+    user = login(email, password)
+
+    if user:
+        session['user_id'] = user['id']
+        access_token = create_access_token(
+        identity=str(user["id"])
+    )
+        print("AFTER LOGIN:", dict(session))
+        print(f"User ID {session['user_id']} logged in")
+        session['email'] = email
+        return jsonify({"errCode": 0, "user": user, "access_token": access_token}), 200
+    else:
+        return jsonify({"error": "Wrong email or password"}), 404
+
+@user_blueprint.route('/api/account', methods=['GET'])
+@jwt_required()
+def get_user():
+    # print("ORIGIN:", request.headers.get("Origin"))
+    # print("COOKIE:", request.headers.get("Cookie"))
+    # print("SESSION:", dict(session))
+    # user_id = session.get('user_id')
+    user_id = get_jwt_identity()
+    if not user_id:
+        return jsonify({"errCode": 1, "message": "Not authenticated"}), 401
+    user = get_user_by_id(user_id)
+    cart_items_count = get_number_of_cart_items(user_id)
+    print(f"User ID: {user_id}, Cart Items Count: {cart_items_count}")
+    if user:
+        return jsonify({"errCode": 0, "user": user, "cart_items_count": cart_items_count}), 200
+    else:
+        return jsonify({"errCode": 1, "message": "User not found"}), 404
 
 @user_blueprint.route('/register', methods=['POST'])
 def api_create_user():
@@ -21,20 +63,6 @@ def api_create_user():
 
     create_user(name, email, password, phone)
     return jsonify({"errCode": 0, "message": "User successfully created"}), 201
-
-@user_blueprint.route('/api/account', methods=['GET'])
-def get_user():
-    print("SESSION:", dict(session))
-    user_id = session.get('user_id')
-    if not user_id:
-        return jsonify({"errCode": 1, "message": "Not authenticated"}), 401
-    user = get_user_by_id(user_id)
-    cart_items_count = get_number_of_cart_items(user_id)
-    print(f"User ID: {user_id}, Cart Items Count: {cart_items_count}")
-    if user:
-        return jsonify({"errCode": 0, "user": user, "cart_items_count": cart_items_count}), 200
-    else:
-        return jsonify({"errCode": 1, "message": "User not found"}), 404
 
 @user_blueprint.route('/users', methods=['GET'])
 def api_get_all_users():
@@ -72,25 +100,6 @@ def api_update_user(user_id):
 def api_delete_user(user_id):
     delete_user(user_id)
     return jsonify({"errCode": 0, "message": "User has been deleted"}), 200
-
-@user_blueprint.route('/login', methods=['POST'])
-def api_login():
-    data = request.form
-    email = data.get('email')
-    password = data.get('password')
-
-    if not email or not password:
-        return jsonify({"error": "Missing email or password"}), 400
-
-    user = login(email, password)
-
-    if user:
-        session['user_id'] = user['id']
-        print(f"User ID {session['user_id']} logged in")
-        session['email'] = email
-        return jsonify({"errCode": 0, "user": user}), 200
-    else:
-        return jsonify({"error": "Wrong email or password"}), 404
 
 @user_blueprint.route('/changePassword', methods=['PUT'])
 def api_change_password():    

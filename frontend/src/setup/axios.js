@@ -12,6 +12,12 @@ instance.defaults.withCredentials = true;
 instance.interceptors.request.use(
 	function (config) {
 		// Do something before request is sent
+		// Lấy access token từ Local Storage hoặc Session Storage (tùy cách bạn lưu)
+		const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
+
+		if (token) {
+			config.headers["Authorization"] = `Bearer ${token}`;
+		}
 		return config;
 	},
 	function (error) {

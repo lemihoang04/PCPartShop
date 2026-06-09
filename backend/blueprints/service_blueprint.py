@@ -7,7 +7,7 @@ from context.email_utils import send_order_confirmation_email
 
 service_blueprint = Blueprint('service', __name__)
 
-YOUR_DOMAIN = 'http://localhost:3000'
+YOUR_DOMAIN = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 stripe_client = stripe.StripeClient(os.getenv("STRIPE_API_KEY"))
 
     
