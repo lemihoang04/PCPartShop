@@ -991,7 +991,7 @@ def build_pc_recommendation(
         #         query += f" Wattage : {required_wattage}W"
         print("Query:", query)
         if category in generic_parts:
-            k=50
+            k=30
         else:
             k=150
         docs = ranked_search(query, {"category": category}, k=k)

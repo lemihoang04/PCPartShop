@@ -273,7 +273,7 @@
   top: calc(100% + 10px);
   right: 0;
   width: 250px;
-  background: #0d172a;
+  background: rgb(28 28 28);
   border-radius: 12px;
   box-shadow: var(--shadow-heavy);
   overflow: hidden;
@@ -293,7 +293,7 @@
 
 .menu-header {
   padding: 16px;
-  background: linear-gradient(145deg, #0b1f3a, #0d1627);
+  background: rgb(28 28 28);
   border-bottom: 1px solid #1d2f4d;
   display: flex;
   flex-direction: column;
@@ -713,7 +713,7 @@
   right: 0;
   width: 380px;
   background: #f8f9fa;
-  /* border-radius: 12px; */
+  border-radius: 12px;
   box-shadow: var(--shadow-heavy);
   border: 1px solid #e2e8f0;
   z-index: 1005;

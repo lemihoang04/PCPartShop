@@ -31,17 +31,7 @@ const UserProvider = ({ children }) => {
 	const [user, setUser] = useState(USER_DEFAULT);
 	const [admin, setAdmin] = useState(USER_DEFAULT);
 
-	useEffect(() => {
-		setUser(parseSessionData("user", USER_DEFAULT));
-		setAdmin(parseSessionData("admin", USER_DEFAULT));
-	}, []);
-
-	// const loginUser = (userData) => {
-	// 	setUser(userData);
-	// 	fetchUser();
-	// 	// sessionStorage.setItem("user", JSON.stringify(userData));
-	// };
-	const fetchUser = useCallback(async () => {
+		const fetchUser = useCallback(async () => {
 		try {
 			const response = await getUserAccount();
 			if (response && response.errCode === 0) {
@@ -63,6 +53,27 @@ const UserProvider = ({ children }) => {
 			sessionStorage.removeItem("user");
 		}
 	}, []);
+	useEffect(() => {
+    const token = localStorage.getItem("access_token");
+
+    if (token) {
+        fetchUser();
+    } else {
+        setUser(USER_LOGGED_OUT);
+    }
+}, [fetchUser]);
+
+	useEffect(() => {
+		// setUser(parseSessionData("user", USER_DEFAULT));
+		setAdmin(parseSessionData("admin", USER_DEFAULT));
+	}, []);
+
+	// const loginUser = (userData) => {
+	// 	setUser(userData);
+	// 	fetchUser();
+	// 	// sessionStorage.setItem("user", JSON.stringify(userData));
+	// };
+
 
 	const loginUser = useCallback(async () => {
 		await fetchUser(); // chỉ gọi 1 lần
