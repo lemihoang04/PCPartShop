@@ -3,7 +3,11 @@ import axios from "axios";
 // Set config defaults when creating the instance
 const instance = axios.create({
 	baseURL: process.env.REACT_APP_API_URL || "http://localhost:5000/",
-});
+	headers: {
+        "ngrok-skip-browser-warning": "true" // <-- Thêm dòng này ở đây
+    }
+}
+);
 
 instance.defaults.withCredentials = true;
 // Alter defaults after instance has been created
