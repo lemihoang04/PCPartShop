@@ -651,7 +651,7 @@ const Chatbot = () => {
                                                                                 onClick={(e) => handleAddToBuilder(e, product)}
                                                                                 title="Add to PC Builder"
                                                                             >
-                                                                                <FaWrench /> Builder
+                                                                                <FaPlus /> Builder
                                                                             </button>
                                                                         </div>
                                                                     </div>

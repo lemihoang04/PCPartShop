@@ -718,7 +718,7 @@
 /* ---------- Product Card ---------- */
 .ts-chatbot-product-card {
     flex: 0 0 auto;
-    width: 220px;
+    width: 225px;
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -834,7 +834,7 @@
     background-color: #1f93ff;
     color: #ffffff;
     border: none;
-    border-radius: 8px;
+    border-radius: 10px;
     font-size: 10px;
     font-weight: 500;
     cursor: pointer;
@@ -855,10 +855,10 @@
     align-items: center;
     gap: 4px;
     padding: 3px 8px;
-    background-color: #16a34a;
-    color: #ffffff;
-    border: none;
-    border-radius: 8px;
+    background-color: transparent;
+    color: #1f93ff; 
+    border: 1px solid #1f93ff;
+    border-radius: 10px;
     font-size: 10px;
     font-weight: 500;
     cursor: pointer;
@@ -867,7 +867,7 @@
 }
 
 .ts-chatbot-add-to-builder-btn:hover {
-    background-color: #15803d;
+    background: rgba(0, 102, 204, 0.06);
 }
 
 .ts-chatbot-add-to-builder-btn:active {

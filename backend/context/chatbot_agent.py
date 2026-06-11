@@ -58,7 +58,7 @@ CATEGORY_KEYWORDS = {
     "case": ["case", "vo may", "vỏ máy"],
 }
 
-COMPARE_ATTRS: Dict[str, List[str]] = {
+VITAL_ATTRS: Dict[str, List[str]] = {
     "cpu": [
         "Core Count",
         "Performance Core Clock",
@@ -67,6 +67,7 @@ COMPARE_ATTRS: Dict[str, List[str]] = {
         "L3 Cache",
         "Memory Type",
         "Integrated Graphics",
+        "Thread"
     ],
     "gpu": [
         "Chipset",
@@ -315,9 +316,11 @@ def build_context_block(docs: List[Any]) -> str:
         #     f"[{idx}] [{doc_name(doc)}]({product_link}) | "
         #     f"category={doc_category(doc)} | price={vnd(doc_price(doc))}\n"
         # )
+        attrs = doc_filtered_attrs(doc)
         line = (
-            f"[{idx}] [{doc_name(doc)}] | "
+            f"[{idx}]: [{doc_name(doc)}] | "
             f"category={doc_category(doc)} | product_id={product_id}"
+            f"Thông số: {attrs}"
         )
         # if image_url:
         #     line += f"image: [![{doc_name(doc)}]({image_url})]({product_link})\n"
@@ -339,6 +342,47 @@ def format_markdown_output(text: str) -> str:
 
     return cleaned
 
+def _is_generic_keyword(keyword: str) -> bool:
+    if not keyword or not keyword.strip():
+        return True
+
+    text = keyword.strip().lower()
+    words = text.split()
+    word_count = len(words)
+
+    # ================= SPECIFIC DETECTION =================
+
+    model_patterns = [
+        r'\bi[3579]-\d{3,5}[a-z]?\b',          # Intel CPU
+        r'\bryzen\s+[3579]\s+\d{4}[a-z0-9]*\b', # AMD CPU
+        r'\brtx\s*\d{3,4}(\s*(ti|super))?\b',   # NVIDIA GPU
+        r'\brx\s*\d{4}(\s*(xt|xtx))?\b',        # AMD GPU
+        r'\b\d{4,5}[a-z]{0,3}\b',               # generic model like 9950x3d, 7800x3d
+    ]
+
+    # Nếu match model → KHÔNG phải generic
+    for p in model_patterns:
+        if re.search(p, text):
+            return False
+
+    # ================= VERY GENERIC =================
+
+    generic_terms = {
+        "cpu", "gpu", "vga", "ram", "ssd",
+        "mainboard", "psu", "case",
+        "tản nhiệt", "cooler", "nguồn"
+    }
+
+    if any(t in text for t in generic_terms):
+        return True
+
+    # ================= FALLBACK =================
+
+    # ít từ → thường generic
+    if word_count <= 3:
+        return True
+
+    return True
 
 def ranked_search(query: str, filters: Optional[Dict[str, Any]], k: int = 8) -> List[Any]:
     results: List[Any] = []
@@ -359,6 +403,9 @@ def ranked_search(query: str, filters: Optional[Dict[str, Any]], k: int = 8) -> 
 
     for q in queries:
         try:
+            if _is_generic_keyword(q):
+                w=0.8
+            else: w=0.3
             db_retriever = db.as_retriever(search_kwargs={"k": k, "filter": filters if filters else None})
             if bm25_retriever and all_docs:
                 if filters and "category" in filters:
@@ -375,7 +422,7 @@ def ranked_search(query: str, filters: Optional[Dict[str, Any]], k: int = 8) -> 
                 bm25_retriever = BM25Retriever.from_documents(filtered_docs)
                 bm25_retriever.k = max(k * 2, 20)
                 ensemble_retriever = EnsembleRetriever(
-                    retrievers=[bm25_retriever, db_retriever], weights=[0.5, 0.5]
+                    retrievers=[bm25_retriever, db_retriever], weights=[w, 1-w]
                 )
                 docs = ensemble_retriever.invoke(q)
                 
@@ -557,64 +604,9 @@ def update_compat_info(compat_info: Dict[str, Any], chosen: Any, category: str) 
                 compat_info["Wattage"] = compat_info.get("Wattage", 0.0) + val
 
 
-def _is_generic_keyword(keyword: str) -> bool:
-    """
-    Trả về True nếu keyword là GENERIC (rộng, có nhiều sản phẩm).
-    False nếu keyword khá cụ thể (chỉ còn vài sản phẩm).
-    """
-    if not keyword or not keyword.strip():
-        return True
-    
-    text = keyword.strip().lower()
-    words = text.split()
-    word_count = len(words)
-    
-    # ==================== RẤT CỤ THỂ (False) ====================
-    # Model full + số series dài (rất hẹp)
-    if re.search(r'\b(i[3-9]-\d{4,5}[a-z]?|ryzen [5-9] \d{4}|rtx [4-5]\d{3})\b', text):
-        return False
-    
-    # Có tần số RAM, Watt PSU, dung lượng Storage cụ thể
-    if re.search(r'\b(\d{4}mhz|ddr5-\d{4}|850w|1000w|2000w|1tb|2tb|4tb)\b', text):
-        return False
-    
-    # Model rất chi tiết (thường chỉ 1-3 sản phẩm)
-    specific_patterns = [
-        r'13600k|14600k|14700k|14900k',   # Intel gen 14
-        r'7800x3d|7900x3d|7950x3d',       # AMD X3D
-        r'4070 ti|4080|4090|7900 xtx',     # GPU cao cấp
-        r'b760| z790| x670e'               # Mainboard cụ thể
-    ]
-    
-    for pattern in specific_patterns:
-        if re.search(pattern, text):
-            return False
-    
-    # ==================== GENERIC (True) ====================
-    # Từ cực chung
-    if word_count <= 2:
-        return True
-    
-    # Chứa dòng CPU/GPU nhưng chưa chỉ model cụ thể
-    if re.search(r'i[3-9]|ryzen [5-9]|rtx|rx \d|ddr[4-5]', text):
-        # Nếu chỉ có "cpu i3", "ram ddr5", "vga rtx 40" → vẫn generic
-        if word_count <= 4:
-            return True
-    
-    # Các từ generic thuần
-    generic_terms = {
-        "cpu", "core i3", "core i5", "core i7", "vi xử lý",
-        "gpu", "vga", "card đồ họa", "ram", "bộ nhớ",
-        "mainboard", "main", "motherboard", "bo mạch chủ",
-        "tản nhiệt", "cpu cooler", "psu", "nguồn", 
-        "ssd", "ổ cứng", "case", "vỏ máy"
-    }
-    
-    if any(term in text for term in generic_terms):
-        return True
-    
-    # Mặc định nếu không rơi vào specific thì coi là generic
-    return True
+import re
+
+
 
 
 def resolve_preferred_parts(
@@ -1035,8 +1027,8 @@ def doc_filtered_attrs(doc: Any) -> str:
     except Exception:
         attrs = {}
         
-    if category in COMPARE_ATTRS:
-        filtered = {k: v for k, v in attrs.items() if k in COMPARE_ATTRS[category]}
+    if category in VITAL_ATTRS:
+        filtered = {k: v for k, v in attrs.items() if k in VITAL_ATTRS[category]}
         return json.dumps(filtered, ensure_ascii=False)
     
     return attrs_str
