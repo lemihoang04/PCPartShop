@@ -245,6 +245,72 @@
   border-top: 1.5px solid #e2e8f0;
 }
 
+/* ── Incompatible Row Indicator ── */
+.component-row.incompatible-row {
+  position: relative;
+}
+
+/* .component-row.incompatible-row td {
+  border-top-color: #fca5a5 !important;
+  border-bottom-color: #fca5a5 !important;
+} */
+
+.component-row.incompatible-row td:first-child {
+  border-left: 3px solid #ef4444;
+}
+
+.component-row.incompatible-row .component-name div {
+  color: #dc2626;
+}
+
+.component-row.incompatible-row .component-icon {
+  color: #ef4444;
+}
+
+/* Incompatible badge next to component name */
+.incompatible-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 2px 8px;
+  background: #ef4444;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 10px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  animation: badgePulse 2s ease-in-out infinite;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+.incompatible-badge svg {
+  font-size: 9px;
+  flex-shrink: 0;
+}
+
+@keyframes badgePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.75; }
+}
+
+/* Selected component with incompatibility */
+.selected-component.incompatible {
+  border-color: #fca5a5;
+  background: #fff5f5;
+}
+
+.selected-component.incompatible::before {
+  background: #ef4444;
+}
+
+.selected-component.incompatible:hover {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
 .add-another-btn {
   background: #f0f6ff;
   border: 1px dashed #94a3b8;

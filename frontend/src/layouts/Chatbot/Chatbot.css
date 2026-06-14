@@ -767,7 +767,7 @@
     flex-direction: column;
     /* gap: 3px; */
     overflow: hidden;
-    padding-right: 6px;
+    /* padding-right: 6px; */
 }
 
 .ts-chatbot-product-title {
@@ -860,7 +860,7 @@
     border: 1px solid #1f93ff;
     border-radius: 10px;
     font-size: 10px;
-    font-weight: 500;
+    font-weight: 900;
     cursor: pointer;
     transition: background-color 0.2s ease, transform 0.1s ease;
     white-space: nowrap;

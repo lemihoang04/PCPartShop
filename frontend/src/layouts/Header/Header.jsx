@@ -186,7 +186,7 @@ const Header = () => {
             ref={productsRef}
           >
             <i className="nav-icon fas fa-microchip"></i>
-            <span>Components</span>
+            <span>PC Components</span>
             <i className={`nav-arrow fas fa-chevron-${isProductsOpen ? 'up' : 'down'}`}></i>
           </div>
           <div className="nav-item" onClick={() => goTo('/build')}>

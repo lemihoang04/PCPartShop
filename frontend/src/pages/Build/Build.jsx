@@ -264,6 +264,9 @@ const Build = () => {
   // Add a state variable to track overall compatibility
   const [isCompatible, setIsCompatible] = useState(true);
 
+  // Track which component IDs have incompatibility issues
+  const [incompatibleComponents, setIncompatibleComponents] = useState(new Set());
+
   function calculateTotalPrice() {
     // Object to store price of each component category
     const componentTotals = {};
@@ -409,6 +412,7 @@ const Build = () => {
   useEffect(() => {
     const issues = [];
     let isCompatible = true;
+    const incompatibleIds = new Set();
 
     // Check RAM compatibility
     const motherboard = components.find(c => c.id === 'Mainboard')?.selected;
@@ -430,7 +434,9 @@ const Build = () => {
           type: 'problem',
           message: `Your motherboard only supports ${ramSlots} RAM modules, but you've selected ${totalRamModules} modules in total.`
         });
-        isCompatible = false; // RAM slots exceeded, set compatibility to false
+        isCompatible = false;
+        incompatibleIds.add('ram');
+        incompatibleIds.add('Mainboard');
       }
 
       // Check RAM capacity against motherboard max memory
@@ -444,7 +450,9 @@ const Build = () => {
             type: 'problem',
             message: `Total RAM capacity (${totalRAMCapacityGB}GB) exceeds motherboard maximum (${maxMemoryGB}GB).`
           });
-          isCompatible = false; // RAM capacity exceeded, set compatibility to false
+          isCompatible = false;
+          incompatibleIds.add('ram');
+          incompatibleIds.add('Mainboard');
         }
       }
 
@@ -461,6 +469,8 @@ const Build = () => {
               message: `Total RAM capacity (${totalRAMCapacityGB}GB) exceeds CPU maximum supported memory (${maxCpuMemGB}GB).`
             });
             isCompatible = false;
+            incompatibleIds.add('ram');
+            incompatibleIds.add('cpu');
           }
         }
       }
@@ -484,6 +494,8 @@ const Build = () => {
           message: `M.2 device count (${m2Devices.length}) exceeds available M.2 slots (${availableM2Slots}).`
         });
         isCompatible = false;
+        incompatibleIds.add('storage');
+        incompatibleIds.add('Mainboard');
       }
 
       // Check SATA compatibility
@@ -493,6 +505,8 @@ const Build = () => {
           message: `SATA device count (${sataDevices.length}) exceeds available SATA ports (${availableSataPorts}).`
         });
         isCompatible = false;
+        incompatibleIds.add('storage');
+        incompatibleIds.add('Mainboard');
       }
     }
 
@@ -511,6 +525,8 @@ const Build = () => {
           message: `High-end GPUs require x16 slots: ${x16GPUs.length} GPUs for ${availablePcieX16Slots} x16 slots.`
         });
         isCompatible = false;
+        incompatibleIds.add('gpu');
+        incompatibleIds.add('Mainboard');
       }
 
       // Check total GPU count vs available slots
@@ -521,6 +537,8 @@ const Build = () => {
           message: `Too many GPUs: ${totalGPUs} GPUs for ${totalSlots} total PCIe slots.`
         });
         isCompatible = false;
+        incompatibleIds.add('gpu');
+        incompatibleIds.add('Mainboard');
       }
     }
 
@@ -537,6 +555,8 @@ const Build = () => {
             message: `Case does not support the Motherboard's form factor (${mbFormFactorStr}).`
           });
           isCompatible = false;
+          incompatibleIds.add('case');
+          incompatibleIds.add('Mainboard');
         }
       }
     }
@@ -563,6 +583,8 @@ const Build = () => {
                   message: `GPU Length (${gpuLength}mm) exceeds the Case's maximum supported length (${caseMaxGpuLength}mm).`
                 });
                 isCompatible = false;
+                incompatibleIds.add('gpu');
+                incompatibleIds.add('case');
               }
             }
           }
@@ -580,6 +602,8 @@ const Build = () => {
           message: `CPU Socket (${cpuSocket}) is incompatible with Motherboard Socket (${mbSocket}).`
         });
         isCompatible = false;
+        incompatibleIds.add('cpu');
+        incompatibleIds.add('Mainboard');
       }
     }
 
@@ -596,6 +620,9 @@ const Build = () => {
             message: `CPU Cooler does not support the required socket (${targetSocket}).`
           });
           isCompatible = false;
+          incompatibleIds.add('cpu Cooler');
+          if (cpu) incompatibleIds.add('cpu');
+          if (motherboard) incompatibleIds.add('Mainboard');
         }
       }
     }
@@ -632,6 +659,8 @@ const Build = () => {
             message: `Selected RAM (${mismatchedRamType}) is incompatible with the Motherboard's memory type (${mbMemType}).`
           });
           isCompatible = false;
+          incompatibleIds.add('ram');
+          incompatibleIds.add('Mainboard');
         }
       }
     }
@@ -657,12 +686,14 @@ const Build = () => {
           message: `The selected PSU (${psuWattage}W) does not provide enough power for the estimated system load (${systemWattage}W).`
         });
         isCompatible = false;
+        incompatibleIds.add('psu');
       }
     }
 
     // Update the overall compatibility state
     setIsCompatible(isCompatible);
     setCompatibilityIssues(issues);
+    setIncompatibleComponents(incompatibleIds);
   }, [components]);
 
   // Compatibility config: which component depends on which, and what attribute to pass
@@ -1138,11 +1169,16 @@ const Build = () => {
                 <>
                   {/* Display component name if no selection yet */}
                   {component.selected.length === 0 && (
-                    <tr className="component-row">
+                    <tr className={`component-row ${incompatibleComponents.has(component.id) ? 'incompatible-row' : ''}`}>
                       <td className="component-name">
                         <div>
                           <span className="component-icon">{component.icon}</span>
                           {component.name}
+                          {incompatibleComponents.has(component.id) && (
+                            <span className="incompatible-badge" title="This component has compatibility issues">
+                              <FaExclamationTriangle /> Incompatible
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="selection">
@@ -1161,19 +1197,24 @@ const Build = () => {
 
                   {/* Display selected items */}
                   {component.selected.map((item, index) => (
-                    <tr key={`${component.id}-${index}`} className="component-row">
+                    <tr key={`${component.id}-${index}`} className={`component-row ${incompatibleComponents.has(component.id) ? 'incompatible-row' : ''}`}>
                       {/* Only show component name in first row */}
                       {index === 0 && (
                         <td className="component-name" rowSpan={component.selected.length}>
                           <div>
                             <span className="component-icon">{component.icon}</span>
                             {component.name}
+                            {incompatibleComponents.has(component.id) && (
+                              <span className="incompatible-badge" title="This component has compatibility issues">
+                                <FaExclamationTriangle /> Incompatible
+                              </span>
+                            )}
                           </div>
                         </td>
                       )}
                       <td className="selection">
                         <div
-                          className="selected-component"
+                          className={`selected-component ${incompatibleComponents.has(component.id) ? 'incompatible' : ''}`}
                           onClick={() => navigate(`/product-info/${item.product_id || item.id}`)}
                         >
                           <img src={item.image} alt={item.name} />
@@ -1218,17 +1259,22 @@ const Build = () => {
                 </>
               ) : (
                 // Handling for components that can only be selected once (CPU, Mainboard, etc.)
-                <tr className="component-row">
+                <tr className={`component-row ${incompatibleComponents.has(component.id) ? 'incompatible-row' : ''}`}>
                   <td className="component-name">
                     <div>
                       <span className="component-icon">{component.icon}</span>
                       {component.name}
+                      {incompatibleComponents.has(component.id) && (
+                        <span className="incompatible-badge" title="This component has compatibility issues">
+                          <FaExclamationTriangle /> Incompatible
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="selection">
                     {component.selected ? (
                       <div
-                        className="selected-component"
+                        className={`selected-component ${incompatibleComponents.has(component.id) ? 'incompatible' : ''}`}
                         onClick={() => navigate(`/product-info/${component.selected.product_id || component.selected.id}`)}
                       >
                         <img src={component.selected.image} alt={component.selected.name} />
