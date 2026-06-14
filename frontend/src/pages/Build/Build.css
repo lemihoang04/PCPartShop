@@ -624,8 +624,15 @@
   border: 1px solid rgba(255, 255, 255, 0.35);
 }
 
-.save-build-btn:hover {
+.save-build-btn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.35);
+}
+
+.save-build-btn:disabled {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.4);
+  cursor: not-allowed;
 }
 
 .history-btn {
@@ -654,8 +661,15 @@
   transition: all 0.2s;
 }
 
-.save-build-btn-bottom:hover {
+.save-build-btn-bottom:hover:not(:disabled) {
   background: #dbeaf9;
+}
+
+.save-build-btn-bottom:disabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+  border-color: #cbd5e1;
+  cursor: not-allowed;
 }
 
 /* ────────────────────────────────────────────

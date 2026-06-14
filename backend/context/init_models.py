@@ -23,7 +23,7 @@ def get_llm() -> ChatGoogleGenerativeAI:
         temperature=0,
     )
 
-embedding = HuggingFaceEmbeddings(model_name="BAAI/bge-base-en-v1.5")
+embedding = HuggingFaceEmbeddings(model_name="BAAI/bge-small-en-v1.5")
 db = Chroma(
     persist_directory=PERSIST_DIR,
     collection_name=COLLECTION_NAME,

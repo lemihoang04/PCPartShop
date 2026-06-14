@@ -16,6 +16,7 @@ from blueprints.notification_blueprint import notification_blueprint
 from config import UPLOAD_FOLDER, socketio
 import sockets.notification_socket
 from flask_jwt_extended import JWTManager
+from datetime import timedelta
 
  
 # Create static folder for uploads if it doesn't exist
@@ -24,9 +25,10 @@ os.makedirs(static_folder, exist_ok=True)
 os.makedirs(os.path.join(static_folder, 'uploads'), exist_ok=True)
 
 app = Flask(__name__, static_folder='static', static_url_path='/static')
-app.config["JWT_SECRET_KEY"] = "phuocnopro123"
+app.config["JWT_SECRET_KEY"] = "hoangnopro123"
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(days=7)
 jwt = JWTManager(app)
-app.secret_key = "phuocnopro123" 
+app.secret_key = "hoangnopro123" 
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 CORS(app, origins=FRONTEND_URL, supports_credentials=True)
 

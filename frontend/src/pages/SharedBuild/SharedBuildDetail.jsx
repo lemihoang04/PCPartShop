@@ -48,7 +48,7 @@ const BuildImageGallery = ({ images }) => {
   };
 
   if (!images || images.length === 0) {
-    return <div className="sbd-product-no-image">Không có hình ảnh cấu hình</div>;
+    return <div className="sbd-product-no-image">No build images available</div>;
   }
 
   return (
@@ -103,7 +103,7 @@ const SharedBuildDetail = () => {
       await loadComments(build.id);
     } catch (err) {
       console.error('Error adding comment:', err);
-      alert('Không thể thêm bình luận. Vui lòng đăng nhập hoặc thử lại sau.');
+      alert('Cannot add comment. Please log in or try again later.');
     } finally {
       setSubmittingComment(false);
     }
@@ -118,11 +118,11 @@ const SharedBuildDetail = () => {
           setBuild(response);
           await loadComments(response.id);
         } else {
-          setError('Không tìm thấy cấu hình này.');
+          setError('Build configuration not found.');
         }
       } catch (err) {
         console.error('Error loading build details:', err);
-        setError('Có lỗi xảy ra khi tải chi tiết cấu hình. Vui lòng thử lại sau.');
+        setError('An error occurred while loading the build details. Please try again later.');
       } finally {
         setLoading(false);
       }
@@ -138,13 +138,13 @@ const SharedBuildDetail = () => {
     if (!build || !build.items) return null;
 
     let totalPrice = 0;
-    let cpu = 'Chưa chọn CPU';
-    let gpu = 'Chưa chọn GPU';
+    let cpu = 'No CPU selected';
+    let gpu = 'No GPU selected';
     const ramParts = [];
     const ramTypes = new Set();
-    let storage = 'Chưa chọn Storage';
-    let cases = 'Chưa chọn Case';
-    let psu = 'Chưa chọn Nguồn (PSU)';
+    let storage = 'No storage selected';
+    let cases = 'No case selected';
+    let psu = 'No PSU selected';
 
     const caseItem = build.items.find(item => String(item.category_name).toLowerCase() === 'case');
     const otherItems = build.items.filter(item => String(item.category_name).toLowerCase() !== 'case');
@@ -210,7 +210,7 @@ const SharedBuildDetail = () => {
 
     const totalRamGB = ramParts.length > 0 ? ramParts.reduce((a, b) => a + b, 0) : 0;
     const ramTypeStr = ramTypes.size > 0 ? ` (${[...ramTypes].join(', ')})` : '';
-    const memory = totalRamGB > 0 ? `${totalRamGB}GB${ramTypeStr}` : 'Chưa chọn RAM';
+    const memory = totalRamGB > 0 ? `${totalRamGB}GB${ramTypeStr}` : 'No RAM selected';
 
     return {
       images: imagesList,
@@ -228,7 +228,7 @@ const SharedBuildDetail = () => {
     return (
       <div className="sbd-loading-container">
         <div className="sbd-spinner"></div>
-        <p>Đang tải chi tiết cấu hình PC...</p>
+        <p>Loading PC build details...</p>
       </div>
     );
   }
@@ -237,10 +237,10 @@ const SharedBuildDetail = () => {
     return (
       <div className="sbd-error-container">
         <div className="sbd-error-card">
-          <h2>Có lỗi xảy ra</h2>
-          <p>{error || 'Không tìm thấy cấu hình bạn yêu cầu.'}</p>
+          <h2>An error occurred</h2>
+          <p>{error || 'The requested build configuration was not found.'}</p>
           <button className="sbd-back-btn" onClick={() => navigate('/shared-builds')}>
-            <FaArrowLeft /> Quay lại danh sách
+            <FaArrowLeft /> Back to list
           </button>
         </div>
       </div>
@@ -252,7 +252,7 @@ const SharedBuildDetail = () => {
       {/* Back button link */}
       {/* <div className="sbd-breadcrumb-row">
         <button className="sbd-back-text-btn" onClick={() => navigate('/shared-builds')}>
-          <FaArrowLeft /> Quay lại danh sách shared builds
+          <FaArrowLeft /> Back to shared builds list
         </button>
       </div> */}
 
@@ -269,10 +269,10 @@ const SharedBuildDetail = () => {
 
             <div className="sbd-build-meta-row">
               <span className="sbd-author">
-                <FaUser className="sbd-icon-inline" /> {build.creator_name || 'Cộng đồng'}
+                <FaUser className="sbd-icon-inline" /> {build.creator_name || 'Community'}
               </span>
               <span className="sbd-date">
-                <FaCalendarAlt className="sbd-icon-inline" /> {new Date(build.created_at).toLocaleDateString('vi-VN')}
+                <FaCalendarAlt className="sbd-icon-inline" /> {new Date(build.created_at).toLocaleDateString('en-US')}
               </span>
               {/* <RatingStars rating={5} /> */}
             </div>
@@ -280,7 +280,7 @@ const SharedBuildDetail = () => {
 
           {/* Pricing Block */}
           <div className="sbd-product-pricing">
-            <span className="sbd-price-label">Tổng chi phí dự kiến:</span>
+            <span className="sbd-price-label">Estimated Total Price:</span>
             <div className="sbd-current-price">
               <FaDollarSign className="sbd-currency-icon" />
               <span>{buildData.totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -289,7 +289,7 @@ const SharedBuildDetail = () => {
 
           {/* Description Block */}
           <div className="sbd-build-description">
-            <p>{build.description || 'Cấu hình tối ưu được chia sẻ bởi cộng đồng TechShop.'}</p>
+            <p>{build.description || 'Optimized PC configuration shared by the TechShop community.'}</p>
           </div>
 
           {/* Call-to-action Action Bar redirects to Build Page with slug */}
@@ -298,13 +298,13 @@ const SharedBuildDetail = () => {
               className="sbd-use-build-btn"
               onClick={() => navigate(`/build/${build.slug}`)}
             >
-              <FaTools /> Sử dụng cấu hình này
+              <FaTools /> Use this build
             </button>
           </div>
 
           {/* Core 6-index specifications block (as requested in mockup) */}
           <div className="sbd-six-specs-section">
-            <h2 className="sbd-specs-title">Thông số cấu hình cốt lõi</h2>
+            <h2 className="sbd-specs-title">Core Specifications</h2>
             <div className="sbd-six-specs-grid">
 
               <div className="sbd-grid-spec-item">
@@ -375,17 +375,17 @@ const SharedBuildDetail = () => {
       <div className="sbd-bottom-grid">
         {/* Structured Components Table List (replaces Similar Products) */}
         <section className="sbd-components-table-section">
-          <h2 className="sbd-section-title">Danh sách chi tiết linh kiện</h2>
+          <h2 className="sbd-section-title">Detailed Parts List</h2>
           <div className="sbd-table-wrapper">
             <table className="sbd-components-table">
               <thead>
                 <tr>
-                  <th style={{ width: '18%' }}>Loại linh kiện</th>
-                  <th style={{ width: '10%', textAlign: 'center' }}>Hình ảnh</th>
-                  <th>Tên sản phẩm</th>
-                  <th style={{ width: '10%', textAlign: 'center' }}>Số lượng</th>
-                  <th style={{ width: '15%', textAlign: 'right' }}>Đơn giá</th>
-                  <th style={{ width: '15%', textAlign: 'right' }}>Thành tiền</th>
+                  <th style={{ width: '18%' }}>Component Type</th>
+                  <th style={{ width: '10%', textAlign: 'center' }}>Image</th>
+                  <th>Product Name</th>
+                  <th style={{ width: '10%', textAlign: 'center' }}>Quantity</th>
+                  <th style={{ width: '15%', textAlign: 'right' }}>Unit Price</th>
+                  <th style={{ width: '15%', textAlign: 'right' }}>Total Price</th>
                 </tr>
               </thead>
               <tbody>
@@ -423,7 +423,7 @@ const SharedBuildDetail = () => {
               <tfoot>
                 <tr>
                   <td colSpan="4"></td>
-                  <td className="sbd-table-footer-label">Tổng cộng:</td>
+                  <td className="sbd-table-footer-label">Total:</td>
                   <td className="sbd-table-footer-value">${buildData.totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                 </tr>
               </tfoot>
@@ -433,11 +433,11 @@ const SharedBuildDetail = () => {
 
         {/* Comments Section */}
         <section className="sbd-comments-section">
-          <h2 className="sbd-section-title">Bình luận</h2>
+          <h2 className="sbd-section-title">Comments</h2>
           
           <div className="sbd-comments-list">
             {comments.length === 0 ? (
-              <p className="sbd-no-comments">Chưa có bình luận nào. Hãy là người đầu tiên!</p>
+              <p className="sbd-no-comments">No comments yet. Be the first to comment!</p>
             ) : (
               comments.map(comment => (
                 <div 
@@ -450,14 +450,14 @@ const SharedBuildDetail = () => {
                   <div className="sbd-comment-content-wrapper">
                     <div className="sbd-comment-header">
                       <span className="sbd-comment-author">{comment.user_name || 'Anonymous'}</span>
-                      <span className="sbd-comment-date">{new Date(comment.created_at).toLocaleString('vi-VN')}</span>
+                      <span className="sbd-comment-date">{new Date(comment.created_at).toLocaleString('en-US')}</span>
                     </div>
                     <p className="sbd-comment-text">{comment.content}</p>
                     <button 
                       className="sbd-comment-reply-btn"
                       onClick={() => setReplyTo(comment.parent_comment_id ? comment.parent_comment_id : comment.id)}
                     >
-                      Trả lời
+                      Reply
                     </button>
                   </div>
                 </div>
@@ -470,13 +470,13 @@ const SharedBuildDetail = () => {
               <>
                 {replyTo && (
                   <div className="sbd-replying-indicator">
-                    Đang trả lời bình luận...
-                    <button onClick={() => setReplyTo(null)}>Hủy</button>
+                    Replying to comment...
+                    <button onClick={() => setReplyTo(null)}>Cancel</button>
                   </div>
                 )}
                 <textarea
                   className="sbd-comment-textarea"
-                  placeholder="Nhập bình luận của bạn..."
+                  placeholder="Write a comment..."
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
                   rows="3"
@@ -486,11 +486,11 @@ const SharedBuildDetail = () => {
                   onClick={handleAddComment}
                   disabled={submittingComment || !commentText.trim()}
                 >
-                  {submittingComment ? 'Đang gửi...' : 'Gửi bình luận'}
+                  {submittingComment ? 'Submitting...' : 'Post comment'}
                 </button>
               </>
             ) : (
-              <p className="sbd-login-prompt">Vui lòng <a onClick={() => navigate('/login')}>đăng nhập</a> để bình luận.</p>
+              <p className="sbd-login-prompt">Please <a onClick={() => navigate('/login')}>log in</a> to comment.</p>
             )}
           </div>
         </section>

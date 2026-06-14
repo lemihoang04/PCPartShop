@@ -342,45 +342,72 @@ def format_markdown_output(text: str) -> str:
 
     return cleaned
 
+
+import re
+
 def _is_generic_keyword(keyword: str) -> bool:
     if not keyword or not keyword.strip():
         return True
 
     text = keyword.strip().lower()
-    words = text.split()
+    words = [w for w in text.split() if w]
     word_count = len(words)
 
-    # ================= SPECIFIC DETECTION =================
-
-    model_patterns = [
-        r'\bi[3579]-\d{3,5}[a-z]?\b',          # Intel CPU
-        r'\bryzen\s+[3579]\s+\d{4}[a-z0-9]*\b', # AMD CPU
-        r'\brtx\s*\d{3,4}(\s*(ti|super))?\b',   # NVIDIA GPU
-        r'\brx\s*\d{4}(\s*(xt|xtx))?\b',        # AMD GPU
-        r'\b\d{4,5}[a-z]{0,3}\b',               # generic model like 9950x3d, 7800x3d
+    # ================= SPECIFIC PATTERNS =================
+    specific_patterns = [
+        r'i[3579]-\d{3,5}[a-z]?',
+        r'core\s+i[3579]',
+        r'\b1[1-9]\d{3,4}[a-z]?\b',
+        r'ryzen\s*[3579]?\s*\d{3,5}[a-z0-9x]*',
+        r'\b[579]?(950|780|700)x3d?\b',
+        r'rtx\s*\d{3,4}\s*(ti|super|black)?',
+        r'rx\s*\d{3,4}\s*(xt|xtx)?',
+        r'\b(b|z|x|h)\d{3,4}[a-z]?[e]?\b',
+        r'\b(\d{2,4}gb?)\s*(ddr[45])',
+        r'(\d{3,4}gb?|\d{1,2}tb?)\s*(nvme|ssd|m\.2)',
+        r'\d{3,4}w?\s*(psu|nguồn)',
     ]
 
-    # Nếu match model → KHÔNG phải generic
-    for p in model_patterns:
-        if re.search(p, text):
+    for pattern in specific_patterns:
+        if re.search(pattern, text):
             return False
 
-    # ================= VERY GENERIC =================
-
-    generic_terms = {
-        "cpu", "gpu", "vga", "ram", "ssd",
-        "mainboard", "psu", "case",
-        "tản nhiệt", "cooler", "nguồn"
+    # ================= BRANDS (đầy đủ) =================
+    brands = {
+        'intel', 'amd', 'nvidia', 'asus', 'msi', 'gigabyte', 'asrock',
+        'corsair', 'kingston', 'crucial', 'samsung', 'wd', 'seagate',
+        'noctua', 'bequiet', 'deepcool', 'thermalright', 'arctic',
+        'nzxt', 'lianli', 'fractal', 'coolermaster', 'silverstone',
+        'evga', 'zotac', 'galax', 'sapphire', 'powercolor'
     }
+    
+    brand_in_text = any(brand in text for brand in brands)
 
-    if any(t in text for t in generic_terms):
+    # Brand + số → specific
+    if brand_in_text and re.search(r'\d', text):
+        return False
+
+    # ================= GENERIC TERMS =================
+    generic_terms = {
+        "cpu", "gpu", "vga", "main", "mainboard", "ram", "ssd", "nvme",
+        "tản nhiệt", "cooler", "nguồn", "psu", "case", "vỏ máy",
+        "linh kiện", "pc", "build", "cấu hình", "gaming", "latest", 
+        "lastest", "modern", "best", "new", "mới", "tốt"
+    }
+    
+    if any(term in text for term in generic_terms):
+        # Chỉ specific nếu có model rõ ràng (ít nhất 4 ký tự)
+        if re.search(r'(cpu|gpu|vga|ram|ssd|main)\s+[\w\d-]{4,}', text):
+            return False
         return True
 
-    # ================= FALLBACK =================
-
-    # ít từ → thường generic
+    # ================= HEURISTICS =================
     if word_count <= 3:
         return True
+
+    # Chỉ toàn số + chữ → specific (như 7800x3d, 4070ti)
+    if re.search(r'\d', text) and len(re.sub(r'\s+', '', text)) <= 18:
+        return False
 
     return True
 
@@ -404,8 +431,9 @@ def ranked_search(query: str, filters: Optional[Dict[str, Any]], k: int = 8) -> 
     for q in queries:
         try:
             if _is_generic_keyword(q):
-                w=0.8
-            else: w=0.3
+                print("Generic keyword detected")
+                w=0.2
+            else: w=0.8
             db_retriever = db.as_retriever(search_kwargs={"k": k, "filter": filters if filters else None})
             if bm25_retriever and all_docs:
                 if filters and "category" in filters:
@@ -496,7 +524,7 @@ def choose_doc_by_budget(
     max_cpu_multi = max([c["cpu_multi"] for c in candidates]) or 1.0
     max_cpu_single = max([c["cpu_single"] for c in candidates]) or 1.0
     max_gpu_g3d = max([c["gpu_g3d"] for c in candidates]) or 1.0
-    min_price = target_price * 0.7
+    min_price = target_price * (0.5 if is_pc_build else 0.8)
     within_budget = [c for c in candidates if c["price"] <= max_price and c["price"] >= min_price]
     print("within_budget count:", len(within_budget))
     if not within_budget and not is_pc_build:
@@ -983,7 +1011,7 @@ def build_pc_recommendation(
         #         query += f" Wattage : {required_wattage}W"
         print("Query:", query)
         if category in generic_parts:
-            k=30
+            k=50
         else:
             k=150
         docs = ranked_search(query, {"category": category}, k=k)
@@ -1059,7 +1087,7 @@ def build_json_response(message: str, intent: str = "") -> str:
 
 @tool
 def search_products(keyword: str = "", category: str = "", limit: int = 5, purpose: str = "") -> str:
-    """Tìm sản phẩm theo từ khóa(keyword: bằng tiếng Anh) và/hoặc loại linh kiện(category). Cả 2 đều có thể để trống nếu chỉ cần tìm theo 1 trong 2. Tham số purpose (tùy chọn) tính chất, mục đích sử dụng ngắn gọn bằng tiếng Anh(ví dụ: gaming, office, ...)."""
+    """Tìm sản phẩm theo từ khóa(keyword: bằng tiếng Anh) và loại linh kiện(category),các giá trị category có thể điền: cpu, gpu, mainboard, cpu_cooler, ram, storage, psu, case. Tham số purpose (tùy chọn) tính chất, mục đích sử dụng ngắn gọn bằng tiếng Anh(ví dụ: gaming, office, ...)."""
     keyword = (keyword or "").strip()
     category = (category or "").strip().lower()
     purpose = (purpose or "").strip()

@@ -73,11 +73,11 @@ const SharedBuild = () => {
     });
 
     // Extract specs details
-    const cpuName = cpu ? cpu.title : 'Chưa chọn CPU';
-    const gpuChipset = gpu ? (gpu.attributes?.['Chipset'] || gpu.title) : 'Chưa chọn GPU';
+    const cpuName = cpu ? cpu.title : 'No CPU selected';
+    const gpuChipset = gpu ? (gpu.attributes?.['Chipset'] || gpu.title) : 'No GPU selected';
 
     // RAM modules & speed
-    let ramText = 'Chưa chọn RAM';
+    let ramText = 'No RAM selected';
     if (ram) {
       const modules = ram.attributes?.['Modules'] || '';
       const speed = ram.attributes?.['Speed'] || '';
@@ -85,7 +85,7 @@ const SharedBuild = () => {
     }
 
     // Storage capacity & type
-    let storageText = 'Chưa chọn Storage';
+    let storageText = 'No storage selected';
     if (storages.length > 0) {
       storageText = storages.map(s => {
         const cap = s.attributes?.['Capacity'] || '';
@@ -136,7 +136,7 @@ const SharedBuild = () => {
         }
       } catch (err) {
         console.error('Failed to load shared builds:', err);
-        setError('Có lỗi xảy ra khi tải danh sách cấu hình. Vui lòng thử lại sau.');
+        setError('An error occurred while loading the shared builds. Please try again later.');
       } finally {
         setLoading(false);
       }
@@ -290,7 +290,7 @@ const SharedBuild = () => {
     return (
       <div className="sb-loader-container">
         <div className="sb-spinner"></div>
-        <p>Đang tải danh sách PC build được chia sẻ...</p>
+        <p>Loading shared PC builds...</p>
       </div>
     );
   }
@@ -299,9 +299,9 @@ const SharedBuild = () => {
     return (
       <div className="sb-error-container">
         <div className="sb-error-card">
-          <h2>Có lỗi xảy ra</h2>
+          <h2>An error occurred</h2>
           <p>{error}</p>
-          <button className="sb-retry-btn" onClick={() => window.location.reload()}>Tải lại trang</button>
+          <button className="sb-retry-btn" onClick={() => window.location.reload()}>Reload page</button>
         </div>
       </div>
     );
@@ -311,8 +311,8 @@ const SharedBuild = () => {
     <div className="sb-shared-build-container">
       {/* Page Hero Header */}
       {/* <div className="sb-hero-section">
-        <h1>Góc Chia Sẻ PC Builds</h1>
-        <p>Khám phá, tùy biến và hiện thực hóa các bộ cấu hình PC đỉnh cao được thiết kế và chia sẻ bởi cộng đồng!</p>
+        <h1>PC Builds Share Corner</h1>
+        <p>Explore, customize, and build top-tier PC configurations designed and shared by the community!</p>
       </div> */}
 
       <div className="sb-search-content">
@@ -320,8 +320,8 @@ const SharedBuild = () => {
         {showFilters && (
           <div className="sb-sidebar">
             <div className="sb-sidebar-header">
-              <h3><FaFilter /> Bộ Lọc</h3>
-              <button className="sb-reset-all-btn" onClick={resetFilters}>Xóa bộ lọc</button>
+              <h3><FaFilter /> Filters</h3>
+              <button className="sb-reset-all-btn" onClick={resetFilters}>Reset filters</button>
             </div>
 
             {/* Price Filter Section */}
@@ -330,7 +330,7 @@ const SharedBuild = () => {
                 className="sb-filter-header"
                 onClick={() => toggleFilterSection('price')}
               >
-                <h3>Khoảng giá</h3>
+                <h3>Price Range</h3>
                 {expandedFilterSections.price ? <FaChevronUp /> : <FaChevronDown />}
               </div>
               {expandedFilterSections.price && (
@@ -379,7 +379,7 @@ const SharedBuild = () => {
                   className="sb-filter-header"
                   onClick={() => toggleFilterSection('cpuName')}
                 >
-                  <h3>Vi xử lý (CPU)</h3>
+                  <h3>Processor (CPU)</h3>
                   {expandedFilterSections.cpuName ? <FaChevronUp /> : <FaChevronDown />}
                 </div>
                 {expandedFilterSections.cpuName && (
@@ -407,7 +407,7 @@ const SharedBuild = () => {
                   className="sb-filter-header"
                   onClick={() => toggleFilterSection('gpuChipset')}
                 >
-                  <h3>Card đồ họa (GPU)</h3>
+                  <h3>Graphics Card (GPU)</h3>
                   {expandedFilterSections.gpuChipset ? <FaChevronUp /> : <FaChevronDown />}
                 </div>
                 {expandedFilterSections.gpuChipset && (
@@ -437,7 +437,7 @@ const SharedBuild = () => {
               <FaSearch className="sb-search-icon" />
               <input
                 type="text"
-                placeholder="Tìm tên cấu hình, CPU, GPU..."
+                placeholder="Search build name, CPU, GPU..."
                 value={searchTerm}
                 onChange={handleSearch}
               />
@@ -445,22 +445,22 @@ const SharedBuild = () => {
 
             <div className="sb-right-controls">
               <button className="sb-toggle-filter-btn" onClick={() => setShowFilters(!showFilters)}>
-                {showFilters ? 'Ẩn bộ lọc' : 'Hiện bộ lọc'} <FaFilter />
+                {showFilters ? 'Hide Filters' : 'Show Filters'} <FaFilter />
               </button>
 
               <div className="sb-sort-control">
                 <select value={sortOption} onChange={(e) => setSortOption(e.target.value)}>
-                  <option value="Newest">Mới nhất</option>
-                  <option value="Oldest">Cũ nhất</option>
-                  <option value="Price: Low to High">Giá: Thấp đến Cao</option>
-                  <option value="Price: High to Low">Giá: Cao đến Thấp</option>
+                  <option value="Newest">Newest</option>
+                  <option value="Oldest">Oldest</option>
+                  <option value="Price: Low to High">Price: Low to High</option>
+                  <option value="Price: High to Low">Price: High to Low</option>
                 </select>
               </div>
             </div>
           </div>
 
           <div className="sb-results-meta">
-            <h2>Tìm thấy {filteredBuilds.length} cấu hình phù hợp</h2>
+            <h2>Found {filteredBuilds.length} matching builds</h2>
           </div>
 
           {currentBuilds.length > 0 ? (
@@ -506,10 +506,10 @@ const SharedBuild = () => {
                     {/* Creator and Date */}
                     <div className="sb-build-author-row">
                       <span className="sb-author">
-                        <FaUser className="sb-icon-small" /> {build.creator_name || 'Cộng đồng'}
+                        <FaUser className="sb-icon-small" /> {build.creator_name || 'Community'}
                       </span>
                       <span className="sb-date">
-                        <FaCalendarAlt className="sb-icon-small" /> {new Date(build.created_at).toLocaleDateString('vi-VN')}
+                        <FaCalendarAlt className="sb-icon-small" /> {new Date(build.created_at).toLocaleDateString('en-US')}
                       </span>
                     </div>
 
@@ -551,7 +551,7 @@ const SharedBuild = () => {
                     {/* Price and Action Button Row */}
                     <div className="sb-build-card-footer">
                       <div className="sb-price-block">
-                        <span className="sb-price-label-total">Tổng tiền</span>
+                        <span className="sb-price-label-total">Total Price</span>
                         <div className="sb-price-value">
                           <FaDollarSign className="sb-price-currency-icon" />
                           <span>{build.specs.totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -562,7 +562,7 @@ const SharedBuild = () => {
                         className="sb-use-config-btn"
                         onClick={() => navigate(`/build/${build.slug}`)}
                       >
-                        <FaTools /> Sử dụng
+                        <FaTools /> Use Build
                       </button>
                     </div>
                   </div>
@@ -571,8 +571,8 @@ const SharedBuild = () => {
             </div>
           ) : (
             <div className="sb-no-results">
-              <p>Không tìm thấy cấu hình PC nào phù hợp với bộ lọc hiện tại. Hãy thử điều chỉnh lại bộ lọc hoặc tìm kiếm.</p>
-              <button className="sb-reset-filters-btn" onClick={resetFilters}>Làm mới tìm kiếm</button>
+              <p>No PC builds found matching the current filters. Please try adjusting your filters or search term.</p>
+              <button className="sb-reset-filters-btn" onClick={resetFilters}>Reset filters</button>
             </div>
           )}
 
@@ -584,15 +584,15 @@ const SharedBuild = () => {
                 onClick={handlePreviousPage}
                 disabled={currentPage === 1}
               >
-                Trang trước
+                Previous
               </button>
-              <span className="sb-page-info">Trang {currentPage} / {totalPages}</span>
+              <span className="sb-page-info">Page {currentPage} of {totalPages}</span>
               <button
                 className="sb-page-btn"
                 onClick={handleNextPage}
                 disabled={currentPage === totalPages}
               >
-                Trang sau
+                Next
               </button>
             </div>
           )}

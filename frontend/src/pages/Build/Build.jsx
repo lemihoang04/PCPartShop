@@ -292,6 +292,15 @@ const Build = () => {
 
   const totalPrice = calculateTotalPrice();
 
+  const selectedComponentsCount = components.filter(comp => {
+    if (comp.multiple) {
+      return comp.selected && comp.selected.length > 0;
+    }
+    return comp.selected !== null && comp.selected !== undefined;
+  }).length;
+
+  const isFullySelected = selectedComponentsCount === 8;
+
   // Get selected mainboard (if any)
   const selectedMainboard = components.find(component => component.id === 'Mainboard')?.selected || null;
 
@@ -877,6 +886,10 @@ const Build = () => {
       toast.error('Vui lòng đăng nhập để lưu cấu hình!');
       return;
     }
+    if (selectedComponentsCount < 8) {
+      toast.error('Vui lòng chọn đủ 8 linh kiện để lưu/chia sẻ cấu hình!');
+      return;
+    }
     const items = collectBuildItems();
     if (items.length === 0) {
       alert('Please select at least one component before saving.');
@@ -893,6 +906,10 @@ const Build = () => {
   const handleSaveBuild = async () => {
     if (!saveBuildName.trim()) {
       setSaveError('Build name is required.');
+      return;
+    }
+    if (selectedComponentsCount < 8) {
+      setSaveError('Vui lòng chọn đủ 8 linh kiện để lưu/chia sẻ cấu hình.');
       return;
     }
     const items = collectBuildItems();
@@ -1036,9 +1053,14 @@ const Build = () => {
             <span className="icon"><FaBolt /></span>
             <span>Power Required: {calculateWattage()}W</span>
           </div>
-          <button className="save-build-btn" onClick={handleOpenSaveModal} title="Save this build">
+          <button
+            className="save-build-btn"
+            onClick={handleOpenSaveModal}
+            disabled={!isFullySelected}
+            title={isFullySelected ? "Save this build" : `Vui lòng chọn đủ 8 linh kiện để lưu/chia sẻ cấu hình (Đang chọn: ${selectedComponentsCount}/8)`}
+          >
             <FaSave style={{ marginRight: '6px' }} />
-            Save Build
+            Save Build {isFullySelected ? '' : `(${selectedComponentsCount}/8)`}
           </button>
           <button
             className={`history-btn ${showHistory ? 'active' : ''}`}
@@ -1299,9 +1321,14 @@ const Build = () => {
         <div className="total-label">Total:</div>
         <div className="total-price">{renderPrice(totalPrice)}</div>
       </div>      <div className="checkout-section">
-        {/* <button className="save-build-btn-bottom" onClick={handleOpenSaveModal}>
+        {/* <button
+          className="save-build-btn-bottom"
+          onClick={handleOpenSaveModal}
+          disabled={!isFullySelected}
+          title={isFullySelected ? "Save this build" : `Vui lòng chọn đủ 8 linh kiện để lưu/chia sẻ cấu hình (Đang chọn: ${selectedComponentsCount}/8)`}
+        >
           <FaSave style={{ marginRight: '6px' }} />
-          Save Build
+          Save Build {!isFullySelected && `(${selectedComponentsCount}/8)`}
         </button> */}
         <button className="amazon-buy-btn" onClick={handleAddToCart}>
           <span className="checkout-icon"><FaShoppingCart /></span>

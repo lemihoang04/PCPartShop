@@ -219,6 +219,17 @@ const Chatbot = () => {
         }
     }, [isOpen, view]);
 
+    // ── Reset chatbot state when user ID changes (login, logout, switch account) ─
+    useEffect(() => {
+        setConversationId(null);
+        setMessages([WELCOME_MSG]);
+        setConversations([]);
+        setView('chat');
+        setInput('');
+        setDeleteConfirmConvId(null);
+        setIsTyping(false);
+    }, [userId]);
+
     // ── Load conversation list ───────────────────────────────────────────────
     const loadConversations = useCallback(async () => {
         if (!userId) return;
