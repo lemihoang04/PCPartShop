@@ -156,7 +156,7 @@ const CartPage = () => {
                             <FaShoppingCart className="crt__empty-icon" />
                             <h3>Your cart is empty</h3>
                             <p>Browse our products and add something you like!</p>
-                            <button className="crt__shop-btn" onClick={() => navigate('/products')}>
+                            <button className="crt__shop-btn" onClick={() => navigate('/pc-components')}>
                                 Start Shopping <FaArrowRight />
                             </button>
                         </div>

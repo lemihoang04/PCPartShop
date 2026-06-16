@@ -20,6 +20,7 @@ import Orders from "../pages/Order/Orders";
 import SharedBuild from "../pages/SharedBuild/SharedBuild";
 import SharedBuildDetail from "../pages/SharedBuild/SharedBuildDetail";
 import CheckPayment from "../pages/Private/CheckPayment/CheckPayment";
+import PCComponents from "../pages/PCComponents/PCComponents";
 
 
 import FailPayment from "../pages/Private/failPayment/failPayment";
@@ -88,6 +89,7 @@ const AppRoutes = () => {
                             }
                         />
                         <Route path="/components/:type" element={<ComponentSearch />} />
+                        <Route path="/pc-components" element={<PCComponents />} />
                         <Route path="/checkPayment" element={<CheckPayment />} />
                         <Route path="/failPayment" element={<FailPayment />} />
                         <Route path="/forgot-password" element={<ForgetPassword />} /> {/* Added route for ForgetPassword */}

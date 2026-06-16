@@ -66,9 +66,14 @@ const Header = () => {
   }, []);
 
   const toggleProducts = () => {
-    setIsProductsOpen(!isProductsOpen);
-    setIsDropdownOpen(false);
-    setIsNotifOpen(false);
+    if (isProductsOpen) {
+      setIsProductsOpen(false);
+      goTo('/pc-components');
+    } else {
+      setIsProductsOpen(true);
+      setIsDropdownOpen(false);
+      setIsNotifOpen(false);
+    }
   };
 
   const toggleDropdown = () => {
@@ -187,7 +192,6 @@ const Header = () => {
           >
             <i className="nav-icon fas fa-microchip"></i>
             <span>PC Components</span>
-            <i className={`nav-arrow fas fa-chevron-${isProductsOpen ? 'up' : 'down'}`}></i>
           </div>
           <div className="nav-item" onClick={() => goTo('/build')}>
             <i className="nav-icon fas fa-wrench"></i>

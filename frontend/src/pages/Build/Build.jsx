@@ -1381,7 +1381,7 @@ const Build = () => {
           Add All to Cart
         </button>
         {/* Debug button - only show in development */}
-        {process.env.NODE_ENV === 'development' && (
+        {/* {process.env.NODE_ENV === 'development' && ( */}
           <button
             className="amazon-buy-btn"
             onClick={clearAllComponents}
@@ -1389,7 +1389,7 @@ const Build = () => {
           >
             <FaTrash style={{ marginRight: '6px' }} /> Clear All
           </button>
-        )}
+        {/* )} */}
       </div>
 
       {/* Compatibility issues section */}
