@@ -17,6 +17,35 @@ import pickle
 from langchain_community.retrievers import BM25Retriever
 from langchain_classic.retrievers import EnsembleRetriever
 
+# =====================================================
+# PRICE SEGMENT DEFINITION
+# =====================================================
+def price_segment(category: str, price: float) -> str:
+    """Phân loại phân khúc giá theo từng category (đơn vị: USD)."""
+    THRESHOLDS: dict[str, tuple[float, float, float]] = {
+        "cpu":         (120, 300, 700),
+        "gpu":         (200, 550, 1000),
+        "ram":         (40, 120, 250),
+        "mainboard":   (80, 200, 400),
+        "psu":         (60, 140, 220),
+        "storage":     (40, 120, 280),
+        "case":        (50, 120, 250),
+        "cpu_cooler":  (30, 100, 200),
+    }
+    budget_max, mid_max, upper_mid_max = THRESHOLDS.get(
+        category, (50, 150, 300)
+    )
+    if price < budget_max:
+        return "budget"
+    elif price < mid_max:
+        return "mid_range"
+    elif price < upper_mid_max:
+        return "upper_mid"
+    else:
+        return "premium"
+
+
+
 
 
 def check_filter_match(doc: Any, filters: Optional[Dict[str, Any]]) -> bool:
@@ -85,7 +114,7 @@ VITAL_ATTRS: Dict[str, List[str]] = {
         "Speed",
         "CAS Latency",
     ],
-    "motherboard": [
+    "mainboard": [
         "Socket/CPU",
         "Form Factor",
         "Memory Type",
@@ -111,7 +140,7 @@ VITAL_ATTRS: Dict[str, List[str]] = {
         "Motherboard Form Factor",
         "Maximum Video Card Length",
     ],
-    "cpu_cooling": [
+    "cpu_cooler": [
         "Water Cooled",
         "Height",
         "Noise Level",
@@ -137,7 +166,6 @@ COMPATIBILITY_ATTRS: Dict[tuple[str, str], List[str]] = {
     ("case", "gpu"): ["Maximum Video Card Length"],
     
     ("cpu_cooler", "cpu"): ["CPU Socket", "Socket"],
-    ("cpu_cooling", "cpu"): ["CPU Socket", "Socket"],
 }
 
 MIN_BUDGETS_FOR_BUILD_PC = {
@@ -433,7 +461,7 @@ def ranked_search(query: str, filters: Optional[Dict[str, Any]], k: int = 8) -> 
             if _is_generic_keyword(q):
                 print("Generic keyword detected")
                 w=0.2
-            else: w=0.8
+            else: w=0.9
             db_retriever = db.as_retriever(search_kwargs={"k": k, "filter": filters if filters else None})
             if bm25_retriever and all_docs:
                 if filters and "category" in filters:
@@ -524,7 +552,7 @@ def choose_doc_by_budget(
     max_cpu_multi = max([c["cpu_multi"] for c in candidates]) or 1.0
     max_cpu_single = max([c["cpu_single"] for c in candidates]) or 1.0
     max_gpu_g3d = max([c["gpu_g3d"] for c in candidates]) or 1.0
-    min_price = target_price * (0.5 if is_pc_build else 0.8)
+    min_price = target_price * (0.6 if is_pc_build else 0.9)
     within_budget = [c for c in candidates if c["price"] <= max_price and c["price"] >= min_price]
     print("within_budget count:", len(within_budget))
     if not within_budget and not is_pc_build:
@@ -554,7 +582,7 @@ def choose_doc_by_budget(
         over_budget_penalty = over_ratio * 1
 
         # Rank penalty (mỗi bậc phạt 3%)
-        rank_penalty = rank * 0.01
+        rank_penalty = rank * 0.02
 
         # --- TIÊU CHÍ MỚI (CPU & GPU) ---
         # Chuẩn hóa giá trị về khoảng [0, 1]. Hiệu năng càng cao, giá trị càng gần 1.
@@ -902,7 +930,7 @@ def build_pc_recommendation(
             "mainboard": "gaming mainboard",
             "cpu_cooler": "high performance air cooler liquid cooler",
             "gpu": "lastest gpu, modern gpu for gaming",
-            "ram": "high bus low latency gaming ram",
+            "ram": "high bus gaming ram",
             "storage": "high speed nvme ssd for gaming",
             "psu": "stable high wattage power supply",
             "case": "good airflow cooling case",
@@ -993,18 +1021,22 @@ def build_pc_recommendation(
         else:
             query = query_hint[category]
 
+        segment = price_segment(category, target)
+        query = f"{query} {segment} segment"
+
+
         if category == "cpu":
-            if "Socket" in compat_info: query += f" Socket : {compat_info['Socket']}"
+            if "Socket" in compat_info: query += f" Socket {compat_info['Socket']}"
         elif category == "mainboard":
-            if "Socket" in compat_info: query += f" Socket/CPU : {compat_info['Socket']}"
-            if "Memory Type" in compat_info: query += f" Memory Type : {compat_info['Memory Type']}"
+            if "Socket" in compat_info: query += f" Socket/CPU {compat_info['Socket']}"
+            if "Memory Type" in compat_info: query += f" Memory Type {compat_info['Memory Type']}"
         elif category == "cpu_cooler":
-            if "Socket" in compat_info: query += f" CPU Socket : {compat_info['Socket']}"
+            if "Socket" in compat_info: query += f" CPU Socket {compat_info['Socket']}"
         elif category == "ram":
-            if "Memory Type" in compat_info: query += f" Memory Type : {compat_info['Memory Type']}"
+            if "Memory Type" in compat_info: query += f" Memory Type {compat_info['Memory Type']}"
         elif category == "case":
-            if "Form Factor" in compat_info: query += f" Form Factor : {compat_info['Form Factor']}"
-            if "Length" in compat_info: query += f" VGA Card Length : {compat_info['Length']}"
+            if "Form Factor" in compat_info: query += f" Form Factor {compat_info['Form Factor']}"
+            if "Length" in compat_info: query += f" VGA Card Length {compat_info['Length']}"
         # elif category == "psu":
         #     if "Wattage" in compat_info:
         #         required_wattage = int((compat_info["Wattage"] + 130) * 1.2)
@@ -1031,7 +1063,7 @@ def build_pc_recommendation(
     if not selected_parts:
         return "Không tìm được cấu hình phù hợp với ngân sách hiện tại."
 
-    lines = [f"Đề xuất cấu hình theo ngân sách {vnd(budget)}:"]
+    lines = [f"Đề xuất cấu hình theo ngân sách {vnd(budget)}, Cấu hình dưới đây đã được kiểm tra tính tương thích giữa các linh kiện:"]
     for idx, doc in enumerate(selected_parts, start=1):
         product_id = doc_uid(doc)
         cat = doc_category(doc)
@@ -1086,7 +1118,7 @@ def build_json_response(message: str, intent: str = "") -> str:
 # =====================================================
 
 @tool
-def search_products(keyword: str = "", category: str = "", limit: int = 5, purpose: str = "") -> str:
+def search_products(keyword: str = "", category: str = "", limit: int = 10, purpose: str = "") -> str:
     """Tìm sản phẩm theo từ khóa(keyword: bằng tiếng Anh) và loại linh kiện(category),các giá trị category có thể điền: cpu, gpu, mainboard, cpu_cooler, ram, storage, psu, case. Tham số purpose (tùy chọn) tính chất, mục đích sử dụng ngắn gọn bằng tiếng Anh(ví dụ: gaming, office, ...)."""
     keyword = (keyword or "").strip()
     category = (category or "").strip().lower()
@@ -1136,7 +1168,12 @@ def search_products_by_budget(target_price: int, keyword: str = "", product_type
     if purpose:
         query = f"{query} {purpose}".strip()
 
+    category_norm = (product_type or "").strip().lower()
+    segment = price_segment(category_norm, target_price)
+    query = f"{query} {segment} segment".strip()
+
     docs = ranked_search(query, {"category": product_type}, k=100)
+
 
     if not docs:
         return "Không tìm thấy sản phẩm."
@@ -1267,7 +1304,7 @@ def compare_products(product_names: List[str]) -> str:
 @tool
 def find_compatible_products(provided_products: List[str], target_categories: List[str], target_keywords: List[str] = None) -> str:
     """
-    Tìm kiếm các sản phẩm tương thích với cấu hình hiện có (provided_products).
+    Tìm kiếm các sản phẩm tương thích với sản phẩm được người dùng đưa ra (provided_products).
     Cung cấp target_categories (bắt buộc, ví dụ: ["mainboard", "cpu_cooler"]) và target_keywords (tùy chọn, để tìm chi tiết hơn, ví dụ: ["mainboard wifi", "tản nhiệt nước"]).
     Nếu không có từ khóa chi tiết, có thể để trống target_keywords hoặc truyền chuỗi rỗng.
     """
@@ -1556,7 +1593,7 @@ system_prompt = SystemMessage(
 Bạn là trợ lý tư vấn cho shop linh kiện PC.
 
 Quy tắc:
-- Chỉ trả lời dựa trên dữ liệu từ tools. Nếu ngoài dữ liệu, trả lời không biết. Và shop chỉ sản phẩm mới, linh kiện đã qua sử dụng.
+- Chỉ trả lời dựa trên dữ liệu từ tools. Nếu ngoài dữ liệu, trả lời không biết. Và shop chỉ có sản phẩm mới, không có linh kiện đã qua sử dụng.
 - Khi điền tham số product_type cho các tools, hãy điền theo các giá trị sau: cpu, gpu, mainboard, cpu_cooler, ram, storage, psu, case.
 - Giá truyền vào tool phải ở dạng USD; nếu user nhập tiền Việt như “triệu”, “tr”, “k”, “VNĐ”, “đ” thì hãy tự hiểu và quy đổi sang USD trước khi truyền.
 
@@ -1565,8 +1602,8 @@ Tool Guidance:
 - Có ngân sách → search_products_by_budget
 - So sánh → compare_products (nhận xét từng thông số + kết luận ngắn)
 - Kiểm tra tương thích giữa các linh kiện có sẵn → check_compatibility
-- Tìm linh kiện tương thích với sản phẩm cho trước → find_compatible_products
-- Build PC / thay đổi cấu hình → recommend_pc_build; hỏi thêm nếu thiếu ngân sách/nhu cầu (gaming, office, workstation, creator); dùng preferred_parts nếu người dùng chỉ định hoặc muốn chỉnh sửa cấu hình trước đó.
+- Build PC hoặc thay đổi, nâng cấp linh kiện trong cấu hình trươc đó → recommend_pc_build; hỏi thêm nếu thiếu ngân sách/nhu cầu (gaming, office, workstation, creator); dùng preferred_parts nếu người dùng chỉ định hoặc muốn chỉnh sửa cấu hình trước đó.
+- Tìm linh kiện tương thích với sản phẩm người dùng đưa ra → find_compatible_products
 
 Output: Trả về JSON hợp lệ với 4 khóa:
 - "intent": ý định ngắn gọn bằng tiếng Anh (ví dụ: "build pc", "search", "compare", ...).

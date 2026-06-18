@@ -9,7 +9,6 @@ import OrderManager from "./Order/OrderManager.jsx";
 import CategoryManager from "./Category/CategoryManager.jsx";
 import ProductManager from "./Product/ProductManager.jsx";
 import CouponManager from "./Coupon/CouponManager.jsx";
-import adminAvatar from "./assets/images/admin-icon.svg"; // Make sure this path is correct
 // import Settings from "./Settings/Settings.jsx";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../context/UserProvider";
@@ -19,7 +18,6 @@ import { LogoutAdmin } from "../../services/adminService.js";
 const Admin = () => {
     const [activeTab, setActiveTab] = useState("Dashboard");
     const [collapsed, setCollapsed] = useState(false);
-    const [notifications, setNotifications] = useState(3); // Example notification count
     const { logoutAdmin } = useContext(UserContext);
     const toggleSidebar = () => {
         setCollapsed(!collapsed);
@@ -69,31 +67,6 @@ const Admin = () => {
                     <button className="btn btn-sm p-1 rounded-circle" onClick={toggleSidebar}>
                         <i className={`bi ${collapsed ? 'bi-chevron-right' : 'bi-chevron-left'}`}></i>
                     </button>
-                </div>
-
-                {/* Admin Profile Section */}
-                <div className="px-3 py-4 text-center">
-                    {!collapsed ? (
-                        <>
-                            <img
-                                src={adminAvatar || "https://via.placeholder.com/50"}
-                                alt="Admin"
-                                className="admin-profile-img mb-2"
-                            />
-                            <h6 className="mb-1 fw-bold">Admin User</h6>
-                            <p className="small text-muted mb-3">Administrator</p>
-                            <div className="bg-light rounded-pill py-1 px-2 small mb-3">
-                                <i className="bi bi-circle-fill text-success me-1" style={{ fontSize: '8px' }}></i>
-                                <span>Online</span>
-                            </div>
-                        </>
-                    ) : (
-                        <img
-                            src={adminAvatar || "https://via.placeholder.com/35"}
-                            alt="Admin"
-                            className="admin-logo mx-auto d-block mb-2"
-                        />
-                    )}
                 </div>
 
                 {/* Navigation Items */}

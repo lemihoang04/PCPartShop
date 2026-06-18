@@ -95,6 +95,22 @@ const deleteCoupon = async (couponId) => {
     }
 };
 
+/**
+ * Fetch available coupons for a user (active, valid, not yet used).
+ * Used on the Checkout page to display quick-apply coupon cards.
+ * @param {number} userId
+ * @returns Promise<{ errCode, data: Coupon[] }>
+ */
+const getAvailableCoupons = async (userId) => {
+    try {
+        const response = await axios.get(`/coupons/available/${userId}`);
+        return response;
+    } catch (error) {
+        console.error("Error fetching available coupons:", error);
+        throw error?.response?.data ?? error;
+    }
+};
+
 export {
     validateCoupon,
     getAllCoupons,
@@ -102,4 +118,5 @@ export {
     createCoupon,
     updateCoupon,
     deleteCoupon,
+    getAvailableCoupons,
 };

@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useContext } from "react";
 import { toast } from "react-toastify";
 import { PaymentZaloPay, PaymentStripe, CheckOut, checkOutStock } from "../../services/apiService.js";
-import { validateCoupon } from "../../services/couponService.js";
+import { validateCoupon, getAvailableCoupons } from "../../services/couponService.js";
 import { UserContext } from "../../context/UserProvider";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
     FaUser, FaEnvelope, FaPhone, FaGlobe, FaMapMarkerAlt,
     FaTags, FaCreditCard, FaMoneyBillWave, FaArrowRight,
-    FaExclamationTriangle, FaTimes, FaShoppingBag
+    FaExclamationTriangle, FaTimes, FaShoppingBag,
+    FaPercent, FaCheckCircle, FaLock
 } from "react-icons/fa";
 import "./Checkout.css";
 
@@ -43,6 +44,7 @@ const Checkout = () => {
     });
     const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
     const [totalAmount, setTotalAmount] = useState(formValue?.amount || 0);
+    const [availableCoupons, setAvailableCoupons] = useState([]);
 
     useEffect(() => {
         if (user?.account) {
@@ -62,6 +64,53 @@ const Checkout = () => {
             setTotalAmount(newTotal > 0 ? newTotal : 0);
         }
     }, [discount, formValue]);
+
+    // Fetch available coupons for the user
+    useEffect(() => {
+        const fetchCoupons = async () => {
+            if (!user?.account?.id) return;
+            try {
+                const res = await getAvailableCoupons(user.account.id);
+                if (res && res.errCode === 0) {
+                    setAvailableCoupons(res.data || []);
+                }
+            } catch (err) {
+                console.error("Failed to load available coupons", err);
+            }
+        };
+        fetchCoupons();
+    }, [user]);
+
+    const handleQuickApply = async (coupon) => {
+        // If a discount is already applied, remove it first
+        if (discount.applied) {
+            removeDiscount();
+        }
+        setDiscountCode(coupon.code);
+        setIsApplyingCoupon(true);
+        try {
+            const res = await validateCoupon(
+                coupon.code,
+                user.account.id,
+                formValue?.amount || 0
+            );
+            if (res && res.errCode === 0) {
+                setDiscount({
+                    applied: true,
+                    amount: res.discount_amount,
+                    code: res.coupon.code,
+                    coupon_id: res.coupon.id,
+                });
+                toast.success(`Mã giảm giá "${res.coupon.code}" đã được áp dụng!`);
+            } else {
+                toast.error(res?.message || "Mã giảm giá không hợp lệ");
+            }
+        } catch (err) {
+            toast.error(err?.message || "Không thể áp dụng mã giảm giá");
+        } finally {
+            setIsApplyingCoupon(false);
+        }
+    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -341,6 +390,72 @@ const Checkout = () => {
                                     >
                                         Remove
                                     </button>
+                                </div>
+                            )}
+
+                            {/* Quick-apply coupon cards */}
+                            {availableCoupons.length > 0 && (
+                                <div className="cko__coupon-cards">
+                                    <p className="cko__coupon-cards-label">Available coupons</p>
+                                    <div className="cko__coupon-cards-list">
+                                        {availableCoupons.map((coupon) => {
+                                            const orderAmt = Number(formValue?.amount || 0);
+                                            const minOrder = Number(coupon.min_order_value || 0);
+                                            const isEligible = minOrder <= 0 || orderAmt >= minOrder;
+                                            const isCurrentlyApplied = discount.applied && discount.coupon_id === coupon.id;
+
+                                            return (
+                                                <button
+                                                    key={coupon.id}
+                                                    className={`cko__coupon-card${
+                                                        !isEligible ? " cko__coupon-card--disabled" : ""
+                                                    }${isCurrentlyApplied ? " cko__coupon-card--active" : ""}`}
+                                                    onClick={() => isEligible && !isCurrentlyApplied && handleQuickApply(coupon)}
+                                                    disabled={!isEligible || isApplyingCoupon || isCurrentlyApplied}
+                                                    title={
+                                                        !isEligible
+                                                            ? `Min order: $${minOrder.toFixed(2)}`
+                                                            : isCurrentlyApplied
+                                                            ? "Currently applied"
+                                                            : "Click to apply"
+                                                    }
+                                                >
+                                                    <div className="cko__coupon-card-left">
+                                                        <span className="cko__coupon-card-badge">
+                                                            {coupon.discount_type === "percent" ? (
+                                                                <><FaPercent className="cko__coupon-card-badge-icon" /> {coupon.discount_value}%</>
+                                                            ) : (
+                                                                <>${coupon.discount_value}</>
+                                                            )}
+                                                        </span>
+                                                    </div>
+                                                    <div className="cko__coupon-card-body">
+                                                        <span className="cko__coupon-card-code">{coupon.code}</span>
+                                                        <span className="cko__coupon-card-desc">
+                                                            {coupon.discount_type === "percent"
+                                                                ? `${coupon.discount_value}% off${coupon.max_discount ? ` (max $${coupon.max_discount})` : ""}`
+                                                                : `$${coupon.discount_value} off`
+                                                            }
+                                                        </span>
+                                                        {minOrder > 0 && (
+                                                            <span className={`cko__coupon-card-min${!isEligible ? " cko__coupon-card-min--unmet" : ""}`}>
+                                                                Min order: ${minOrder.toFixed(2)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="cko__coupon-card-action">
+                                                        {isCurrentlyApplied ? (
+                                                            <FaCheckCircle className="cko__coupon-card-check" />
+                                                        ) : !isEligible ? (
+                                                            <FaLock className="cko__coupon-card-lock" />
+                                                        ) : (
+                                                            <span className="cko__coupon-card-apply">Apply</span>
+                                                        )}
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             )}
                         </div>

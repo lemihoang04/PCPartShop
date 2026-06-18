@@ -6,6 +6,7 @@ from DAL.coupon_dal import (
     update_coupon,
     delete_coupon,
     validate_coupon,
+    get_available_coupons_for_user,
 )
 
 coupon_blueprint = Blueprint('coupon', __name__)
@@ -74,6 +75,18 @@ def api_delete_coupon(coupon_id):
         if rows == 0:
             return jsonify({"errCode": 1, "message": "Coupon not found"}), 404
         return jsonify({"errCode": 0, "message": "Coupon deleted"}), 200
+    except Exception as e:
+        return jsonify({"errCode": 1, "message": str(e)}), 500
+
+
+# ─── AVAILABLE COUPONS FOR A USER ────────────────────────────────────────────
+
+@coupon_blueprint.route('/coupons/available/<int:user_id>', methods=['GET'])
+def api_get_available_coupons(user_id):
+    """Return active, valid coupons that this user has NOT used yet."""
+    try:
+        coupons = get_available_coupons_for_user(user_id)
+        return jsonify({"errCode": 0, "data": coupons}), 200
     except Exception as e:
         return jsonify({"errCode": 1, "message": str(e)}), 500
 

@@ -232,6 +232,51 @@ def _calc_discount(coupon, order_amount):
     return min(amount, float(order_amount))
 
 
+# ─── AVAILABLE COUPONS FOR USER ──────────────────────────────────────────────
+
+def get_available_coupons_for_user(user_id):
+    """
+    Return all active, currently valid coupons that `user_id` has NOT used yet.
+    Each row includes the full coupon info so the frontend can render cards
+    and decide which ones are eligible based on min_order_value.
+    """
+    connection = get_db_connection()
+    if not connection:
+        raise Exception("Database connection failed")
+    cursor = connection.cursor(dictionary=True)
+    try:
+        cursor.execute("""
+            SELECT c.*
+            FROM coupons c
+            WHERE c.is_active = 1
+              AND (c.start_date IS NULL OR c.start_date <= NOW())
+              AND (c.end_date   IS NULL OR c.end_date   >= NOW())
+              AND (c.usage_limit IS NULL OR c.used_count < c.usage_limit)
+              AND c.id NOT IN (
+                  SELECT cu.coupon_id
+                  FROM coupon_usages cu
+                  WHERE cu.user_id = %s
+              )
+            ORDER BY c.min_order_value ASC
+        """, (user_id,))
+        coupons = cursor.fetchall()
+
+        # Convert Decimal / datetime fields to JSON-safe types
+        for c in coupons:
+            for key in ('discount_value', 'max_discount', 'min_order_value'):
+                if c.get(key) is not None:
+                    c[key] = float(c[key])
+            for key in ('start_date', 'end_date', 'created_at'):
+                if c.get(key) is not None:
+                    c[key] = str(c[key])
+        return coupons
+    except Error as e:
+        raise Exception(f"Database error: {str(e)}")
+    finally:
+        cursor.close()
+        connection.close()
+
+
 # ─── RECORD USAGE (called only after successful payment) ─────────────────────
 
 def record_coupon_usage(coupon_id, user_id, order_id, cursor=None, connection=None):
