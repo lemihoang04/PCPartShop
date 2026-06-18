@@ -163,6 +163,18 @@
     flex-wrap: wrap;
 }
 
+.odrs__card-head-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.odrs__group-total {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1f93ff;
+}
+
 .odrs__meta-item {
     display: flex;
     align-items: center;
@@ -225,20 +237,27 @@
     color: #b91c1c;
 }
 
+/* ── Products list ── */
+.odrs__products-list {
+    border-top: 1px solid #f1f3f5;
+}
+
 /* ── Product row ── */
 .odrs__product-row {
     display: flex;
     align-items: center;
     gap: 14px;
     padding: 12px 0;
-    border-top: 1px solid #f1f3f5;
     border-bottom: 1px solid #f1f3f5;
-    margin-bottom: 14px;
+}
+
+.odrs__product-row:last-child {
+    border-bottom: none;
 }
 
 .odrs__thumb {
-    width: 68px;
-    height: 68px;
+    width: 60px;
+    height: 60px;
     border-radius: 8px;
     overflow: hidden;
     border: 1px solid #eee;
@@ -257,17 +276,28 @@
     min-width: 0;
 }
 
+.odrs__name-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    flex-wrap: nowrap;
+}
+
 .odrs__product-name {
     font-size: 14px;
     font-weight: 600;
     color: #222;
-    margin: 0 0 6px;
+    margin: 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     cursor: pointer;
     transition: color 0.2s;
+    flex: 1;
+    min-width: 0;
 }
+
 
 .odrs__product-name:hover {
     color: #1f93ff;
@@ -294,12 +324,53 @@
     color: #1f93ff;
 }
 
+/* ── Inline rate / reviewed ── */
+.odrs__btn-rate-inline {
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 4px 10px;
+    font-size: 12px;
+}
+
+.odrs__reviewed-inline {
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-size: 11px;
+    padding: 3px 10px;
+}
+
+/* ── See more button ── */
+.odrs__see-more-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 8px 0;
+    background: none;
+    border: none;
+    border-top: 1px dashed #e5e7eb;
+    color: #1f93ff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.18s;
+    margin-bottom: 12px;
+}
+
+.odrs__see-more-btn:hover {
+    color: #0d7de0;
+    background: #f0f8ff;
+}
+
 /* ── Actions ── */
 .odrs__actions {
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
     align-items: center;
+    padding-top: 12px;
+    border-top: 1px solid #f1f3f5;
 }
 
 .odrs__btn {
@@ -430,6 +501,11 @@
         gap: 8px;
     }
 
+    .odrs__card-head-right {
+        width: 100%;
+        justify-content: space-between;
+    }
+
     .odrs__controls {
         flex-direction: column;
         align-items: flex-start;
@@ -443,17 +519,23 @@
     }
 
     .odrs__product-row {
-        flex-direction: column;
-        align-items: flex-start;
+        flex-wrap: wrap;
     }
 
     .odrs__thumb {
-        width: 100%;
-        height: 140px;
+        width: 52px;
+        height: 52px;
     }
 
     .odrs__product-body {
+        width: calc(100% - 66px);
+    }
+
+    .odrs__btn-rate-inline,
+    .odrs__reviewed-inline {
         width: 100%;
+        justify-content: center;
+        text-align: center;
     }
 
     .odrs__actions {

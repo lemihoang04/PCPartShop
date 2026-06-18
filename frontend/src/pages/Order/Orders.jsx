@@ -23,6 +23,8 @@ import {
     FaTruck,
     FaCog,
     FaBan,
+    FaChevronDown,
+    FaChevronUp,
 } from 'react-icons/fa';
 import OrderDetailModal from './OrderDetailModal';
 import RatingModal from './RatingModal';
@@ -59,10 +61,11 @@ const Orders = () => {
     const [filter, setFilter] = useState('all');
     const [sortBy, setSortBy] = useState('date');
     const [sortOrder, setSortOrder] = useState('desc');
-    const [selectedOrderId, setSelectedOrderId] = useState(null);
+    const [selectedGroupedOrder, setSelectedGroupedOrder] = useState(null);
     const [showModal, setShowModal] = useState(false);
     const [showRatingModal, setShowRatingModal] = useState(false);
     const [selectedOrderForRating, setSelectedOrderForRating] = useState(null);
+    const [expandedOrders, setExpandedOrders] = useState({});
 
     const fetchOrders = async () => {
         try {
@@ -101,46 +104,73 @@ const Orders = () => {
         return () => setOrders([]);
     }, [user, navigate]);
 
-    const filteredOrders = orders.filter(order =>
-        filter === 'all' || order.status === filter
+    // Group orders by orderNumber (order_id)
+    const groupedOrdersMap = orders.reduce((acc, order) => {
+        const key = order.order_id;
+        if (!acc[key]) {
+            acc[key] = {
+                order_id: order.order_id,
+                orderNumber: order.orderNumber,
+                date: order.date,
+                updated_at: order.updated_at,
+                status: order.status,
+                userId: order.userId,
+                items: [],
+            };
+        }
+        acc[key].items.push(order);
+        return acc;
+    }, {});
+
+    const groupedOrders = Object.values(groupedOrdersMap);
+
+    const filteredOrders = groupedOrders.filter(group =>
+        filter === 'all' || group.status === filter
     );
 
     const sortedOrders = [...filteredOrders].sort((a, b) => {
         let cmp = 0;
+        const totalA = a.items.reduce((s, i) => s + i.total, 0);
+        const totalB = b.items.reduce((s, i) => s + i.total, 0);
         if (sortBy === 'date')   cmp = new Date(a.date) - new Date(b.date);
-        if (sortBy === 'total')  cmp = a.total - b.total;
+        if (sortBy === 'total')  cmp = totalA - totalB;
         if (sortBy === 'status') cmp = a.status.localeCompare(b.status);
         return sortOrder === 'desc' ? -cmp : cmp;
     });
 
-    const getProductImage = (order) => {
-        if (!order.productImage) return '/default-image.jpg';
-        return order.productImage.split('; ')[0];
+    const getProductImage = (item) => {
+        if (!item.productImage) return '/default-image.jpg';
+        return item.productImage.split('; ')[0];
     };
 
-    const openOrderDetails = (order) => {
-        setSelectedOrderId({ id: order.id, order_id: order.order_id });
+    const toggleExpand = (orderId) => {
+        setExpandedOrders(prev => ({ ...prev, [orderId]: !prev[orderId] }));
+    };
+
+    const openOrderDetails = (group) => {
+        setSelectedGroupedOrder(group);
         setShowModal(true);
     };
-    const closeOrderDetails = () => { setShowModal(false); setSelectedOrderId(null); };
+    const closeOrderDetails = () => { setShowModal(false); setSelectedGroupedOrder(null); };
 
-    const handleCancel = async (order) => {
+    const handleCancel = async (group) => {
         if (!window.confirm('Are you sure you want to cancel this order?')) return;
         try {
-            const response = await CancelOrder(order.id);
+            // Cancel first item's id (the order_id is shared)
+            const response = await CancelOrder(group.items[0].id);
             if (response && response.errCode === 0) {
-                toast.success(`Order ${order.orderNumber} cancelled.`);
+                toast.success(`Order ${group.orderNumber} cancelled.`);
                 await fetchOrders();
             } else {
-                toast.error(`Failed to cancel order ${order.orderNumber}.`);
+                toast.error(`Failed to cancel order ${group.orderNumber}.`);
             }
         } catch (error) {
             toast.error(`Error: ${error.message}`);
         }
     };
 
-    const openRatingModal = (order) => {
-        setSelectedOrderForRating(order);
+    const openRatingModal = (item) => {
+        setSelectedOrderForRating(item);
         setShowRatingModal(true);
     };
     const closeRatingModal = () => { setShowRatingModal(false); setSelectedOrderForRating(null); };
@@ -150,7 +180,7 @@ const Orders = () => {
             const response = await SubmitProductRating(ratingData);
             if (response && response.errCode === 0) {
                 // Update local orders list to reflect the new reviewed status
-                setOrders(prev => prev.map(o => 
+                setOrders(prev => prev.map(o =>
                     o.id === selectedOrderForRating.id ? { ...o, is_reviewed: true } : o
                 ));
             }
@@ -236,85 +266,114 @@ const Orders = () => {
                 </div>
             ) : (
                 <div className="odrs__list">
-                    {sortedOrders.map(order => {
-                        const sc = STATUS_CONFIG[order.status] || { icon: null, label: order.status, cls: '' };
-                        const isReviewed = order.is_reviewed;
+                    {sortedOrders.map(group => {
+                        const sc = STATUS_CONFIG[group.status] || { icon: null, label: group.status, cls: '' };
+                        const isExpanded = expandedOrders[group.order_id];
+                        const visibleItems = isExpanded ? group.items : group.items.slice(0, 2);
+                        const hasMore = group.items.length > 2;
+                        const groupTotal = group.items.reduce((s, i) => s + i.total, 0);
 
                         return (
-                            <div key={order.id} className="odrs__card">
+                            <div key={group.order_id} className="odrs__card">
                                 {/* Card header */}
                                 <div className="odrs__card-head">
                                     <div className="odrs__card-meta">
                                         <span className="odrs__meta-item">
                                             <FaHashtag className="odrs__meta-icon" />
-                                            <strong>{order.orderNumber}</strong>
+                                            <strong>{group.orderNumber}</strong>
                                         </span>
                                         <span className="odrs__divider" />
                                         <span className="odrs__meta-item">
                                             <FaCalendarAlt className="odrs__meta-icon" />
-                                            {formatDate(order.date)}
+                                            {formatDate(group.date)}
+                                        </span>
+                                        <span className="odrs__divider" />
+                                        <span className="odrs__meta-item">
+                                            <strong>{group.items.length}</strong>&nbsp;{group.items.length === 1 ? 'item' : 'items'}
                                         </span>
                                     </div>
-                                    <span className={`odrs__status odrs__status-${sc.cls}`}>
-                                        {sc.icon}
-                                        {sc.label}
-                                    </span>
+                                    <div className="odrs__card-head-right">
+                                        <span className="odrs__group-total">${groupTotal.toFixed(2)}</span>
+                                        <span className={`odrs__status odrs__status-${sc.cls}`}>
+                                            {sc.icon}
+                                            {sc.label}
+                                        </span>
+                                    </div>
                                 </div>
 
-                                {/* Product row */}
-                                <div className="odrs__product-row">
-                                    <div className="odrs__thumb">
-                                        <img
-                                            src={getProductImage(order)}
-                                            alt={order.title || 'Product'}
-                                            onError={e => { e.target.src = '/default-image.jpg'; }}
-                                        />
-                                    </div>
-                                    <div className="odrs__product-body">
-                                        <p 
-                                            className="odrs__product-name"
-                                            onClick={() => navigate(`/product-info/${order.productId}`)}
-                                        >
-                                            {order.title || 'Product'}
-                                        </p>
-                                        <div className="odrs__product-foot">
-                                            <span className="odrs__qty">Qty: {order.quantity}</span>
-                                            <span className="odrs__price">${(order.total || 0).toFixed(2)}</span>
+                                {/* Product rows */}
+                                <div className="odrs__products-list">
+                                    {visibleItems.map(item => (
+                                        <div key={item.id} className="odrs__product-row">
+                                            <div className="odrs__thumb">
+                                                <img
+                                                    src={getProductImage(item)}
+                                                    alt={item.title || 'Product'}
+                                                    onError={e => { e.target.src = '/default-image.jpg'; }}
+                                                />
+                                            </div>
+                                            <div className="odrs__product-body">
+                                                <div className="odrs__name-row">
+                                                    <p
+                                                        className="odrs__product-name"
+                                                        onClick={() => navigate(`/product-info/${item.productId}`)}
+                                                    >
+                                                        {item.title || 'Product'}
+                                                    </p>
+                                                    {/* Per-product rate button for completed orders */}
+                                                    {group.status === 'completed' && !item.is_reviewed && (
+                                                        <button
+                                                            className="odrs__btn odrs__btn-rate odrs__btn-rate-inline"
+                                                            onClick={() => openRatingModal(item)}
+                                                        >
+                                                            <FaStar /> Rate
+                                                        </button>
+                                                    )}
+                                                    {group.status === 'completed' && item.is_reviewed && (
+                                                        <span className="odrs__reviewed-badge odrs__reviewed-inline">
+                                                            <FaCheckCircle /> Reviewed
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="odrs__product-foot">
+                                                    <span className="odrs__qty">Qty: {item.quantity}</span>
+                                                    <span className="odrs__price">${(item.total || 0).toFixed(2)}</span>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
+                                    ))}
                                 </div>
+
+                                {/* See More / See Less */}
+                                {hasMore && (
+                                    <button
+                                        className="odrs__see-more-btn"
+                                        onClick={() => toggleExpand(group.order_id)}
+                                    >
+                                        {isExpanded ? (
+                                            <><FaChevronUp /> See Less</>
+                                        ) : (
+                                            <><FaChevronDown /> See More ({group.items.length - 2} more items)</>
+                                        )}
+                                    </button>
+                                )}
 
                                 {/* Actions */}
                                 <div className="odrs__actions">
                                     <button
                                         className="odrs__btn odrs__btn-primary"
-                                        onClick={() => openOrderDetails(order)}
+                                        onClick={() => openOrderDetails(group)}
                                     >
                                         <FaEye /> View Details
                                     </button>
 
-                                    {order.status === 'pending' && (
+                                    {group.status === 'pending' && (
                                         <button
                                             className="odrs__btn odrs__btn-danger"
-                                            onClick={() => handleCancel(order)}
+                                            onClick={() => handleCancel(group)}
                                         >
                                             <FaTimesCircle /> Cancel
                                         </button>
-                                    )}
-
-                                    {order.status === 'completed' && !isReviewed && (
-                                        <button
-                                            className="odrs__btn odrs__btn-rate"
-                                            onClick={() => openRatingModal(order)}
-                                        >
-                                            <FaStar /> Rate Product
-                                        </button>
-                                    )}
-
-                                    {order.status === 'completed' && isReviewed && (
-                                        <span className="odrs__reviewed-badge">
-                                            <FaCheckCircle /> Reviewed
-                                        </span>
                                     )}
                                 </div>
                             </div>
@@ -323,9 +382,9 @@ const Orders = () => {
                 </div>
             )}
 
-            {showModal && selectedOrderId && (
+            {showModal && selectedGroupedOrder && (
                 <OrderDetailModal
-                    order={orders.find(o => o.id === selectedOrderId.id)}
+                    groupedOrder={selectedGroupedOrder}
                     onClose={closeOrderDetails}
                 />
             )}
