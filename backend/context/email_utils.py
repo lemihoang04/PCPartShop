@@ -10,8 +10,8 @@ load_dotenv()
 # Email configuration
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
-EMAIL_USER = 'findjobtest2004@gmail.com' 
-EMAIL_CODE = 'wgqhgqflxijidrbi'  
+EMAIL_USER = os.getenv("EMAIL_USER", "")
+EMAIL_CODE = os.getenv("EMAIL_CODE", "")
 
 def send_email(recipient_email, subject, message, html_message=None):
     """

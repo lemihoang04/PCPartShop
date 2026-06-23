@@ -1570,65 +1570,6 @@ def check_compatibility(product_names: List[str]) -> str:
     return _check_all_compatibility(docs, not_found)
 
 
-tools = [
-    search_products,
-    search_products_by_budget,
-    recommend_pc_build,
-    get_available_types,
-    compare_products,
-    find_compatible_products,
-    check_compatibility,
-]
-
-
-# =====================================================
-# AGENT GRAPH
-# =====================================================
-
-llm = get_llm()
-llm_with_tools = llm.bind_tools(tools, tool_choice="auto")
-
-system_prompt = SystemMessage(
-    content="""
-Bạn là trợ lý tư vấn cho shop linh kiện PC.
-
-Quy tắc:
-- Chỉ trả lời dựa trên dữ liệu từ tools. Nếu ngoài dữ liệu, trả lời không biết. Và shop chỉ có sản phẩm mới, không có linh kiện đã qua sử dụng.
-- Khi điền tham số product_type cho các tools, hãy điền theo các giá trị sau: cpu, gpu, mainboard, cpu_cooler, ram, storage, psu, case.
-- Giá truyền vào tool phải ở dạng USD; nếu user nhập tiền Việt như “triệu”, “tr”, “k”, “VNĐ”, “đ” thì hãy tự hiểu và quy đổi sang USD trước khi truyền.
-
-Tool Guidance:
-- Tìm/duyệt sản phẩm → get_available_types / search_products
-- Có ngân sách → search_products_by_budget
-- So sánh → compare_products (nhận xét từng thông số + kết luận ngắn)
-- Kiểm tra tương thích giữa các linh kiện có sẵn → check_compatibility
-- Build PC hoặc thay đổi, nâng cấp linh kiện trong cấu hình trươc đó → recommend_pc_build; hỏi thêm nếu thiếu ngân sách/nhu cầu (gaming, office, workstation, creator); dùng preferred_parts nếu người dùng chỉ định hoặc muốn chỉnh sửa cấu hình trước đó.
-- Tìm linh kiện tương thích với sản phẩm người dùng đưa ra → find_compatible_products
-
-Output: Trả về JSON hợp lệ với 4 khóa:
-- "intent": ý định ngắn gọn bằng tiếng Anh (ví dụ: "build pc", "search", "compare", ...).
-- "message": markdown ngắn gọn, in đậm những từ cần thiết, không dùng icon,in ra danh sách sản phẩm nếu có (không kèm product_id).
-- "suggested_prompts": tối đa 2 gợi ý hành động tiếp theo phù hợp với khả năng của tool, không có suggest kiểm tra tương thích. Để [] nếu không cần.
-- "product_groups": mảng nhóm sản phẩm, mỗi nhóm gồm "label", "order", "product_ids".
-  Chỉ chia nhiều nhóm khi kết quả thuộc các category rõ ràng khác nhau; còn lại dùng 1 nhóm, label = "".
-  Nếu không có sản phẩm: [].
-""".strip()
-)
-
-
-def agent_node(state: AgentState):
-    messages = [system_prompt] + state["messages"]
-    try:
-        response = llm_with_tools.invoke(messages)
-        print("LLM response:", response)
-        return {"messages": [response]}
-    except Exception as e:
-        print("❌ ERROR in agent_node:", str(e))
-        fallback_message = "Xin lỗi, tôi đã gặp lỗi khi xử lý yêu cầu của bạn. Vui lòng thử lại sau."
-        return {"messages": [AIMessage(content=fallback_message)]}
-        
-
-
 def format_node(state: AgentState):
     messages = state.get("messages", [])
     if not messages:
@@ -1719,6 +1660,63 @@ def format_node(state: AgentState):
     
     return {"messages": [AIMessage(content=formatted_json)]}
 
+tools = [
+    search_products,
+    search_products_by_budget,
+    recommend_pc_build,
+    get_available_types,
+    compare_products,
+    find_compatible_products,
+    check_compatibility,
+]
+
+
+# =====================================================
+# AGENT GRAPH
+# =====================================================
+
+llm = get_llm()
+llm_with_tools = llm.bind_tools(tools, tool_choice="auto")
+
+system_prompt = SystemMessage(
+    content="""
+Bạn là trợ lý tư vấn cho shop linh kiện PC.
+
+Quy tắc:
+- Chỉ trả lời dựa trên dữ liệu từ tools. Nếu ngoài dữ liệu, trả lời không biết. Và shop chỉ có sản phẩm mới, không có linh kiện đã qua sử dụng.
+- Khi điền tham số product_type cho các tools, hãy điền theo các giá trị sau: cpu, gpu, mainboard, cpu_cooler, ram, storage, psu, case.
+- Giá truyền vào tool phải ở dạng USD; nếu user nhập tiền Việt như “triệu”, “tr”, “k”, “VNĐ”, “đ” thì hãy tự hiểu và quy đổi sang USD trước khi truyền.
+
+Tool Guidance:
+- Tìm/duyệt sản phẩm → get_available_types / search_products
+- Có ngân sách → search_products_by_budget
+- So sánh → compare_products (nhận xét từng thông số + kết luận ngắn)
+- Kiểm tra tương thích giữa các linh kiện có sẵn → check_compatibility
+- Build PC hoặc thay đổi, nâng cấp linh kiện trong cấu hình trươc đó → recommend_pc_build; hỏi thêm nếu thiếu ngân sách/nhu cầu (gaming, office, workstation, creator); dùng preferred_parts nếu người dùng chỉ định hoặc muốn chỉnh sửa cấu hình trước đó.
+- Tìm linh kiện tương thích với sản phẩm người dùng đưa ra → find_compatible_products
+
+Output: Trả về JSON hợp lệ với 4 khóa:
+- "intent": ý định ngắn gọn bằng tiếng Anh (ví dụ: "build pc", "search", "compare", ...).
+- "message": markdown ngắn gọn, in đậm những từ cần thiết, không dùng icon,in ra danh sách sản phẩm nếu có (không kèm product_id).
+- "suggested_prompts": tối đa 2 gợi ý hành động tiếp theo phù hợp với khả năng của tool, không có suggest kiểm tra tương thích. Để [] nếu không cần.
+- "product_groups": mảng nhóm sản phẩm, mỗi nhóm gồm "label", "order", "product_ids".
+  Chỉ chia nhiều nhóm khi kết quả thuộc các category rõ ràng khác nhau; còn lại dùng 1 nhóm, label = "".
+  Nếu không có sản phẩm: [].
+""".strip()
+)
+
+
+def agent_node(state: AgentState):
+    messages = [system_prompt] + state["messages"]
+    try:
+        response = llm_with_tools.invoke(messages)
+        print("LLM response:", response)
+        return {"messages": [response]}
+    except Exception as e:
+        print("❌ ERROR in agent_node:", str(e))
+        fallback_message = "Xin lỗi, tôi đã gặp lỗi khi xử lý yêu cầu của bạn. Vui lòng thử lại sau."
+        return {"messages": [AIMessage(content=fallback_message)]}
+        
 
 workflow = StateGraph(AgentState)
 workflow.add_node("agent", agent_node)
