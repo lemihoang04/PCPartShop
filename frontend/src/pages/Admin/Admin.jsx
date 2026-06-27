@@ -10,6 +10,7 @@ import CategoryManager from "./Category/CategoryManager.jsx";
 import ProductManager from "./Product/ProductManager.jsx";
 import CouponManager from "./Coupon/CouponManager.jsx";
 import ChatbotFAQ from "./ChatbotFAQ/ChatbotFAQ.jsx";
+import ReturnRequestManager from "./ReturnRequests/ReturnRequestManager.jsx";
 // import Settings from "./Settings/Settings.jsx";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../context/UserProvider";
@@ -38,6 +39,8 @@ const Admin = () => {
                 return <ProductManager />;
             case "Coupon":
                 return <CouponManager />;
+            case "Returns":
+                return <ReturnRequestManager />;
             case "ChatbotFAQ":
                 return <ChatbotFAQ />;
             // case "Settings":
@@ -79,6 +82,7 @@ const Admin = () => {
                         { name: "Category", icon: "bi-tag" },
                         { name: "Product", icon: "bi-box" },
                         { name: "Order", icon: "bi-cart" },
+                        { name: "Returns", icon: "bi-arrow-return-left" },
                         { name: "Customers", icon: "bi-people" },
                         { name: "Coupon", icon: "bi-ticket-perforated" },
                         { name: "ChatbotFAQ", icon: "bi-chat-dots" },

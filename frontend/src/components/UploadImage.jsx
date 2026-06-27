@@ -52,7 +52,7 @@ const UploadImage = ({ onImageUploaded }) => {
     try {
       // Using standard axios for Cloudinary direct upload (not our custom instance)
       const res = await axios.post(
-        "https://api.cloudinary.com/v1_1/dfkqjtzks/image/upload",
+        "https://api.cloudinary.com/v1_1/dptatoir3/image/upload",
         formData
       );
       

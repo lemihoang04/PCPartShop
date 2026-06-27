@@ -1,0 +1,254 @@
+/* ========================================================
+   ReturnStatusModal.css
+   ======================================================== */
+
+.rsm__overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 16px;
+    animation: rsm-fade-in 0.2s ease;
+}
+
+@keyframes rsm-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.rsm__modal {
+    background: #fff;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 500px;
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+    animation: rsm-slide-up 0.25s ease;
+    overflow: hidden;
+}
+
+@keyframes rsm-slide-up {
+    from { transform: translateY(20px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* ── Header ── */
+.rsm__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 22px 14px;
+    background: linear-gradient(135deg, #6c63ff 0%, #4e46c8 100%);
+    color: #fff;
+    border-radius: 16px 16px 0 0;
+}
+
+.rsm__header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.rsm__header-icon { font-size: 1.3rem; }
+
+.rsm__header h2 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.rsm__close-btn {
+    background: rgba(255,255,255,0.15);
+    border: none;
+    color: #fff;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+.rsm__close-btn:hover { background: rgba(255,255,255,0.28); }
+
+/* ── Body ── */
+.rsm__body {
+    padding: 18px 22px;
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* ── Status badge ── */
+.rsm__status-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.rsm__status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.rsm__badge--PENDING    { background: #fff8e1; color: #d97706; border: 1px solid #fcd34d; }
+.rsm__badge--APPROVED   { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+.rsm__badge--REJECTED   { background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; }
+.rsm__badge--RECEIVED   { background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; }
+.rsm__badge--COMPLETED  { background: #ede9fe; color: #6c63ff; border: 1px solid #c4b5fd; }
+.rsm__badge--FAILED     { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
+
+.rsm__type-chip {
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: #f0eeff;
+    color: #6c63ff;
+}
+
+/* ── Info rows ── */
+.rsm__info-block {
+    background: #f7f7fb;
+    border-radius: 12px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border: 1px solid #ebebf5;
+}
+
+.rsm__info-row {
+    display: flex;
+    gap: 8px;
+    font-size: 0.87rem;
+}
+
+.rsm__info-label {
+    color: #888;
+    min-width: 90px;
+    flex-shrink: 0;
+}
+
+.rsm__info-value {
+    color: #222;
+    font-weight: 500;
+    word-break: break-word;
+}
+
+.rsm__refund-amount {
+    color: #6c63ff;
+    font-weight: 700;
+}
+
+/* ── Admin note ── */
+.rsm__admin-note {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 0.85rem;
+    color: #92400e;
+}
+
+.rsm__admin-note-label {
+    font-weight: 700;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* ── Images ── */
+.rsm__images-label {
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 6px;
+}
+
+.rsm__images-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.rsm__img-thumb {
+    width: 70px;
+    height: 70px;
+    border-radius: 8px;
+    object-fit: cover;
+    border: 1.5px solid #ddd;
+    cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s;
+}
+
+.rsm__img-thumb:hover {
+    transform: scale(1.06);
+    border-color: #6c63ff;
+}
+
+/* ── Footer ── */
+.rsm__footer {
+    padding: 14px 22px;
+    border-top: 1px solid #f0f0f5;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    background: #fafafa;
+    border-radius: 0 0 16px 16px;
+}
+
+.rsm__btn {
+    padding: 9px 20px;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    transition: all 0.18s;
+}
+
+.rsm__btn--close {
+    background: #f0f0f5;
+    color: #555;
+}
+.rsm__btn--close:hover { background: #e4e4ec; }
+
+.rsm__btn--cancel {
+    background: #fff0f0;
+    color: #dc2626;
+    border: 1px solid #fca5a5;
+}
+.rsm__btn--cancel:hover { background: #fee2e2; }
+.rsm__btn--cancel:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* spinner */
+@keyframes rsm-spin { to { transform: rotate(360deg); } }
+.rsm__spinner {
+    width: 13px;
+    height: 13px;
+    border: 2px solid rgba(220,38,38,0.3);
+    border-top-color: #dc2626;
+    border-radius: 50%;
+    animation: rsm-spin 0.7s linear infinite;
+}

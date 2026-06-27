@@ -419,6 +419,24 @@
     background: #fef3c7;
 }
 
+.odrs__btn-return {
+    background: #f0eeff;
+    color: #6c63ff;
+    border-color: #c4bfff;
+    font-weight: 600;
+}
+
+.odrs__btn-return:hover {
+    background: #e4dfff;
+}
+
+.odrs__btn-return-inline {
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 4px 10px;
+    font-size: 12px;
+}
+
 .odrs__reviewed-badge {
     display: inline-flex;
     align-items: center;

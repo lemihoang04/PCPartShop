@@ -8,6 +8,7 @@ import {
     SubmitProductRating,
     GetOrderReviewStatus,
 } from '../../services/apiService';
+import { GetReturnRequestsByUser } from '../../services/returnReqService';
 import {
     FaBoxOpen,
     FaCalendarAlt,
@@ -25,9 +26,13 @@ import {
     FaBan,
     FaChevronDown,
     FaChevronUp,
+    FaUndo,
+    FaClipboardList,
 } from 'react-icons/fa';
 import OrderDetailModal from './OrderDetailModal';
 import RatingModal from './RatingModal';
+import ReturnReqModal from './ReturnReqModal';
+import ReturnStatusModal from './ReturnStatusModal';
 import './Orders.css';
 
 const formatDate = (dateString) => {
@@ -66,6 +71,12 @@ const Orders = () => {
     const [showRatingModal, setShowRatingModal] = useState(false);
     const [selectedOrderForRating, setSelectedOrderForRating] = useState(null);
     const [expandedOrders, setExpandedOrders] = useState({});
+    const [showReturnModal, setShowReturnModal] = useState(false);
+    const [selectedItemForReturn, setSelectedItemForReturn] = useState(null);
+    // returnRequests: { [order_item_id]: returnRequestObject }
+    const [returnRequests, setReturnRequests] = useState({});
+    const [showStatusModal, setShowStatusModal] = useState(false);
+    const [selectedReturnReq, setSelectedReturnReq] = useState(null);
 
     const fetchOrders = async () => {
         try {
@@ -90,6 +101,18 @@ const Orders = () => {
                     is_reviewed: !!item.is_reviewed,
                 }));
                 setOrders(mapped);
+
+                // Fetch return requests and build a map keyed by order_item_id
+                try {
+                    const rrRes = await GetReturnRequestsByUser(user.account.id);
+                    if (rrRes && rrRes.errCode === 0) {
+                        const map = {};
+                        (rrRes.data || []).forEach(rr => {
+                            map[rr.order_item_id] = rr;
+                        });
+                        setReturnRequests(map);
+                    }
+                } catch { /* non-fatal */ }
             }
         } catch (error) {
             console.error('Error loading orders:', error);
@@ -174,6 +197,31 @@ const Orders = () => {
         setShowRatingModal(true);
     };
     const closeRatingModal = () => { setShowRatingModal(false); setSelectedOrderForRating(null); };
+
+    const openReturnModal = (item) => {
+        setSelectedItemForReturn(item);
+        setShowReturnModal(true);
+    };
+    const closeReturnModal = () => { setShowReturnModal(false); setSelectedItemForReturn(null); };
+
+    const openStatusModal = (rr) => {
+        setSelectedReturnReq(rr);
+        setShowStatusModal(true);
+    };
+    const closeStatusModal = () => { setShowStatusModal(false); setSelectedReturnReq(null); };
+
+    const handleReturnCancelled = (requestId) => {
+        // Mark as REJECTED locally so button updates without a full refetch
+        setReturnRequests(prev => {
+            const updated = { ...prev };
+            for (const key in updated) {
+                if (updated[key].request_id === requestId) {
+                    updated[key] = { ...updated[key], status: 'REJECTED' };
+                }
+            }
+            return updated;
+        });
+    };
 
     const handleRatingSubmit = async (ratingData) => {
         try {
@@ -334,6 +382,31 @@ const Orders = () => {
                                                             <FaCheckCircle /> Reviewed
                                                         </span>
                                                     )}
+                                                    {group.status === 'completed' && (() => {
+                                                        const rr = returnRequests[item.id];
+                                                        // Active request exists (not REJECTED/FAILED)
+                                                        const activeRR = rr && !['REJECTED','FAILED'].includes(rr.status) ? rr : null;
+                                                        if (activeRR) {
+                                                            return (
+                                                                <button
+                                                                    className="odrs__btn odrs__btn-return odrs__btn-return-inline"
+                                                                    onClick={() => openStatusModal(activeRR)}
+                                                                    title="View return request status"
+                                                                >
+                                                                    <FaClipboardList /> View Request
+                                                                </button>
+                                                            );
+                                                        }
+                                                        return (
+                                                            <button
+                                                                className="odrs__btn odrs__btn-return odrs__btn-return-inline"
+                                                                onClick={() => openReturnModal(item)}
+                                                                title="Request refund or exchange"
+                                                            >
+                                                                <FaUndo /> Return
+                                                            </button>
+                                                        );
+                                                    })()}
                                                 </div>
                                                 <div className="odrs__product-foot">
                                                     <span className="odrs__qty">Qty: {item.quantity}</span>
@@ -394,6 +467,32 @@ const Orders = () => {
                     order={selectedOrderForRating}
                     onClose={closeRatingModal}
                     onSubmit={handleRatingSubmit}
+                />
+            )}
+
+            {showReturnModal && selectedItemForReturn && (
+                <ReturnReqModal
+                    item={selectedItemForReturn}
+                    onClose={closeReturnModal}
+                    onSuccess={(newReq) => {
+                        // Add to local map immediately so button switches to "View Request"
+                        setReturnRequests(prev => ({
+                            ...prev,
+                            [selectedItemForReturn.id]: {
+                                ...newReq,
+                                product_name: selectedItemForReturn.title,
+                                quantity: selectedItemForReturn.quantity,
+                            },
+                        }));
+                    }}
+                />
+            )}
+
+            {showStatusModal && selectedReturnReq && (
+                <ReturnStatusModal
+                    returnRequest={selectedReturnReq}
+                    onClose={closeStatusModal}
+                    onCancelled={handleReturnCancelled}
                 />
             )}
         </div>

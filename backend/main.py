@@ -13,7 +13,7 @@ from blueprints.admin_blueprint import admin_blueprint
 from blueprints.coupon_blueprint import coupon_blueprint
 from blueprints.buildpc_blueprint import buildpc_blueprint
 from blueprints.notification_blueprint import notification_blueprint
-from blueprints.refund_blueprint import refund_blueprint
+from blueprints.return_req_blueprint import return_req_blueprint
 from config import UPLOAD_FOLDER, socketio
 import sockets.notification_socket
 from flask_jwt_extended import JWTManager
@@ -51,7 +51,7 @@ app.register_blueprint(admin_blueprint)
 app.register_blueprint(coupon_blueprint)
 app.register_blueprint(buildpc_blueprint)
 app.register_blueprint(notification_blueprint)
-app.register_blueprint(refund_blueprint)
+app.register_blueprint(return_req_blueprint)
 
 
 port = int(os.environ.get("PORT", 5000))
