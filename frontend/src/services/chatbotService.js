@@ -99,10 +99,74 @@ const deleteConversation = async (conversationId, userId) => {
     }
 };
 
+// =====================================================
+// FAQ MANAGEMENT
+// =====================================================
+
+/**
+ * Fetch all FAQs.
+ */
+const getAllFAQs = async () => {
+    try {
+        const response = await axios.get('/chatbot/faqs');
+        return response;
+    } catch (error) {
+        console.error('Error fetching FAQs:', error);
+        return { success: false, faqs: [] };
+    }
+};
+
+/**
+ * Create a new FAQ.
+ * @param {{ question: string, answer: string, category?: string }} data
+ */
+const createFAQ = async (data) => {
+    try {
+        const response = await axios.post('/chatbot/faqs', data);
+        return response;
+    } catch (error) {
+        console.error('Error creating FAQ:', error);
+        throw error;
+    }
+};
+
+/**
+ * Update an existing FAQ.
+ * @param {number} faqId
+ * @param {{ question: string, answer: string, category?: string }} data
+ */
+const updateFAQ = async (faqId, data) => {
+    try {
+        const response = await axios.put(`/chatbot/faqs/${faqId}`, data);
+        return response;
+    } catch (error) {
+        console.error('Error updating FAQ:', error);
+        throw error;
+    }
+};
+
+/**
+ * Delete an FAQ.
+ * @param {number} faqId
+ */
+const deleteFAQ = async (faqId) => {
+    try {
+        const response = await axios.delete(`/chatbot/faqs/${faqId}`);
+        return response;
+    } catch (error) {
+        console.error('Error deleting FAQ:', error);
+        throw error;
+    }
+};
+
 export {
     sendChatbotQuery,
     getConversations,
     createConversation,
     getConversationMessages,
     deleteConversation,
+    getAllFAQs,
+    createFAQ,
+    updateFAQ,
+    deleteFAQ,
 };

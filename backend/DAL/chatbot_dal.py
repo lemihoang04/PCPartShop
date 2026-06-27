@@ -309,3 +309,111 @@ def dal_upsert_conversation_state(conversation_id, current_products=None, filter
 def log_chatbot_interaction(user_id, query, response):
     """Log chatbot interactions for future training and analysis"""
     pass
+
+
+# =====================================================
+# SHOP FAQ
+# =====================================================
+
+def dal_get_faq_by_id(faq_id):
+    """Retrieve answer from shop_faq table in MySQL by faq_id."""
+    db = get_db_connection()
+    if not db:
+        return {"error": "Database connection failed"}, 500
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute(
+            "SELECT faq_id, question, answer, category FROM shop_faq WHERE faq_id = %s",
+            (faq_id,)
+        )
+        row = cursor.fetchone()
+        if row:
+            return row, 200
+        else:
+            return {"error": "FAQ not found"}, 404
+    except Exception as e:
+        return {"error": str(e)}, 500
+    finally:
+        cursor.close()
+        db.close()
+
+
+def dal_get_all_faqs():
+    """Retrieve all FAQs from shop_faq table."""
+    db = get_db_connection()
+    if not db:
+        return {"error": "Database connection failed"}, 500
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT faq_id, question, answer, category FROM shop_faq ORDER BY faq_id ASC")
+        rows = cursor.fetchall()
+        return rows, 200
+    except Exception as e:
+        return {"error": str(e)}, 500
+    finally:
+        cursor.close()
+        db.close()
+
+
+def dal_create_faq(question, answer, category=None):
+    """Insert a new FAQ into shop_faq table. Returns new faq_id."""
+    db = get_db_connection()
+    if not db:
+        return {"error": "Database connection failed"}, 500
+    cursor = db.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO shop_faq (question, answer, category) VALUES (%s, %s, %s)",
+            (question, answer, category)
+        )
+        db.commit()
+        return cursor.lastrowid, 201
+    except Exception as e:
+        db.rollback()
+        return {"error": str(e)}, 500
+    finally:
+        cursor.close()
+        db.close()
+
+
+def dal_update_faq(faq_id, question, answer, category=None):
+    """Update an existing FAQ."""
+    db = get_db_connection()
+    if not db:
+        return {"error": "Database connection failed"}, 500
+    cursor = db.cursor()
+    try:
+        cursor.execute(
+            "UPDATE shop_faq SET question = %s, answer = %s, category = %s WHERE faq_id = %s",
+            (question, answer, category, faq_id)
+        )
+        db.commit()
+        if cursor.rowcount == 0:
+            return {"error": "FAQ not found"}, 404
+        return True, 200
+    except Exception as e:
+        db.rollback()
+        return {"error": str(e)}, 500
+    finally:
+        cursor.close()
+        db.close()
+
+
+def dal_delete_faq(faq_id):
+    """Delete an FAQ by faq_id."""
+    db = get_db_connection()
+    if not db:
+        return {"error": "Database connection failed"}, 500
+    cursor = db.cursor()
+    try:
+        cursor.execute("DELETE FROM shop_faq WHERE faq_id = %s", (faq_id,))
+        db.commit()
+        if cursor.rowcount == 0:
+            return {"error": "FAQ not found"}, 404
+        return True, 200
+    except Exception as e:
+        db.rollback()
+        return {"error": str(e)}, 500
+    finally:
+        cursor.close()
+        db.close()

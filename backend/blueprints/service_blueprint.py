@@ -41,7 +41,6 @@ def create_checkout_session():
 @service_blueprint.route('/check-payment', methods=['POST'])
 def check_payment():
     data = request.get_json()
-    print("Received data for check-payment:", data)  # Debug log
     session_id = data.get("session_id")
 
     if not session_id:
@@ -49,16 +48,18 @@ def check_payment():
 
     try:
         session = stripe_client.v1.checkout.sessions.retrieve(session_id)
-        
-        if session.payment_status == 'paid':
+
+        if session.payment_status == "paid":
             return jsonify({
                 "status": "success",
-                "payment_status": session.payment_status
+                "payment_status": session.payment_status,
+                "payment_intent": session.payment_intent
             })
         else:
             return jsonify({
                 "status": "fail",
-                "payment_status": session.payment_status
+                "payment_status": session.payment_status,
+                "payment_intent": session.payment_intent
             })
 
     except Exception as e:
@@ -68,7 +69,7 @@ def check_payment():
 def api_checkout():
     try:
         order_data = request.json
-        required_fields = ['user_id', 'order_items', 'total_amount', 'payment_method', 'shipping_address']
+        required_fields = ['user_id', 'order_items', 'total_amount', 'payment_method', 'shipping_address', 'payment_intent']
         for field in required_fields:
             if field not in order_data:
                 return jsonify({"errCode": 1, "message": f"Missing required field: {field}"}), 400

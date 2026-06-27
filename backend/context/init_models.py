@@ -3,35 +3,35 @@ from pathlib import Path
 
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
-from langchain_nvidia_ai_endpoints import ChatNVIDIA
+from langchain_google_genai import ChatGoogleGenerativeAI
+
 
 BASE_DIR = Path(__file__).resolve().parent
 COLLECTION_NAME = "pc_products"
 PERSIST_DIR = str(BASE_DIR / "chroma_db")
+MODEL_NAME = os.getenv("GOOGLE_MODEL", "gemini-3.1-flash-lite")
 
-MODEL_NAME = os.getenv(
-    "NVIDIA_MODEL",
-    "moonshotai/kimi-k2.6"
-)
+def get_llm() -> ChatGoogleGenerativeAI:
+    google_api_key = os.getenv("GOOGLE_API_KEY")
+    if not google_api_key:
+        raise ValueError("Thiếu GOOGLE_API_KEY trong biến môi trường.")
+    
 
-def get_llm() -> ChatNVIDIA:
-    nvidia_api_key = os.getenv("NVIDIA_API_KEY")
-
-    if not nvidia_api_key:
-        raise ValueError("Thiếu NVIDIA_API_KEY trong biến môi trường.")
-
-    return ChatNVIDIA(
-        api_key=nvidia_api_key,
+    return ChatGoogleGenerativeAI(
+        api_key=google_api_key,
         model=MODEL_NAME,
-        temperature=0.1,
+        temperature=0.5,
     )
 
-embedding = HuggingFaceEmbeddings(
-    model_name="intfloat/multilingual-e5-large-instruct"
-)
-
+embedding = HuggingFaceEmbeddings(model_name="BAAI/bge-m3")
 db = Chroma(
     persist_directory=PERSIST_DIR,
     collection_name=COLLECTION_NAME,
+    embedding_function=embedding,
+)
+
+faq_db = Chroma(
+    persist_directory=PERSIST_DIR,
+    collection_name="shop_faq",
     embedding_function=embedding,
 )

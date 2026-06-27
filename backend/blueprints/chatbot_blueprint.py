@@ -14,6 +14,11 @@ from DAL.chatbot_dal import (
     dal_get_conversation_state,
     dal_upsert_conversation_state,
     dal_delete_conversation,
+    dal_get_faq_by_id,
+    dal_get_all_faqs,
+    dal_create_faq,
+    dal_update_faq,
+    dal_delete_faq,
 )
 
 chatbot_blueprint = Blueprint('chatbot', __name__)
@@ -387,3 +392,74 @@ def chatbot_langchain_query():
             'error': 'Đã xảy ra lỗi khi xử lý yêu cầu. Vui lòng thử lại.',
             'detail': str(e) if __debug__ else None,
         }), 500
+
+
+# =====================================================
+# SHOP FAQ ENDPOINT
+# =====================================================
+
+@chatbot_blueprint.route("/chatbot/faq/<int:faq_id>", methods=["GET"])
+def get_faq(faq_id):
+    """Get an FAQ answer by ID from MySQL."""
+    result, status = dal_get_faq_by_id(faq_id)
+    if status != 200:
+        return jsonify({'success': False, 'error': result.get('error', 'Unknown error')}), status
+    return jsonify({'success': True, 'faq': result})
+
+
+@chatbot_blueprint.route("/chatbot/faqs", methods=["GET"])
+def get_all_faqs():
+    """Get all FAQs from MySQL."""
+    result, status = dal_get_all_faqs()
+    if status != 200:
+        return jsonify({'success': False, 'error': result.get('error', 'Unknown error')}), status
+    return jsonify({'success': True, 'faqs': result})
+
+
+@chatbot_blueprint.route("/chatbot/faqs", methods=["POST"])
+def create_faq():
+    """Create a new FAQ."""
+    data = request.get_json(silent=True) or {}
+    question = (data.get("question") or "").strip()
+    answer = (data.get("answer") or "").strip()
+    category = (data.get("category") or "").strip() or None
+
+    if not question:
+        return jsonify({'success': False, 'error': 'Missing question'}), 400
+    if not answer:
+        return jsonify({'success': False, 'error': 'Missing answer'}), 400
+
+    result, status = dal_create_faq(question, answer, category)
+    if status != 201:
+        return jsonify({'success': False, 'error': result.get('error', 'Unknown error')}), status
+    return jsonify({'success': True, 'faq_id': result}), 201
+
+
+@chatbot_blueprint.route("/chatbot/faqs/<int:faq_id>", methods=["PUT"])
+def update_faq_endpoint(faq_id):
+    """Update an existing FAQ."""
+    data = request.get_json(silent=True) or {}
+    question = (data.get("question") or "").strip()
+    answer = (data.get("answer") or "").strip()
+    category = (data.get("category") or "").strip() or None
+
+    if not question:
+        return jsonify({'success': False, 'error': 'Missing question'}), 400
+    if not answer:
+        return jsonify({'success': False, 'error': 'Missing answer'}), 400
+
+    result, status = dal_update_faq(faq_id, question, answer, category)
+    if status != 200:
+        err = result.get('error', 'Unknown error') if isinstance(result, dict) else 'Unknown error'
+        return jsonify({'success': False, 'error': err}), status
+    return jsonify({'success': True})
+
+
+@chatbot_blueprint.route("/chatbot/faqs/<int:faq_id>", methods=["DELETE"])
+def delete_faq_endpoint(faq_id):
+    """Delete an FAQ."""
+    result, status = dal_delete_faq(faq_id)
+    if status != 200:
+        err = result.get('error', 'Unknown error') if isinstance(result, dict) else 'Unknown error'
+        return jsonify({'success': False, 'error': err}), status
+    return jsonify({'success': True})

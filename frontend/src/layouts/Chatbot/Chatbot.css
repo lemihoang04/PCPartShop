@@ -79,7 +79,7 @@
 /* ---------- Header ---------- */
 .ts-chatbot-header {
     padding: 10px 12px;
-    background-color: #1f93ff;
+    background-color: rgb(50 50 50);
     color: #ffffff;
     display: flex;
     align-items: center;
@@ -626,8 +626,9 @@
 }
 
 .ts-chatbot-input input:focus {
-    border-color: #2563eb;
-    background-color: #ffffff;
+    border-width: 2px;
+    border-color: #067fd9;
+    /* background-color: #ffffff; */
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
 }
 

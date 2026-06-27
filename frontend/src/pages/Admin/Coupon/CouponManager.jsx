@@ -11,7 +11,7 @@ import "./CouponManager.css";
 /* ─── Helpers ─────────────────────────────────────────────── */
 const formatDate = (val) => {
     if (!val) return "—";
-    return new Date(val).toLocaleDateString("vi-VN", {
+    return new Date(val).toLocaleDateString("en-US", {
         day: "2-digit", month: "2-digit", year: "numeric",
     });
 };
@@ -56,7 +56,7 @@ const CouponManager = () => {
             const data = res?.data ?? res;
             setCoupons(Array.isArray(data) ? data : []);
         } catch {
-            toast.error("Không thể tải danh sách coupon");
+            toast.error("Failed to load coupon list");
             setCoupons([]);
         } finally {
             setIsLoading(false);
@@ -120,8 +120,8 @@ const CouponManager = () => {
     /* ── Save ── */
     const handleSave = async (e) => {
         e.preventDefault();
-        if (!formData.code.trim()) { toast.warning("Vui lòng nhập mã coupon"); return; }
-        if (!formData.discount_value) { toast.warning("Vui lòng nhập giá trị giảm"); return; }
+        if (!formData.code.trim()) { toast.warning("Please enter a coupon code"); return; }
+        if (!formData.discount_value) { toast.warning("Please enter a discount value"); return; }
 
         setIsSaving(true);
         try {
@@ -137,15 +137,15 @@ const CouponManager = () => {
 
             if (isEditing) {
                 await updateCoupon(editingId, payload);
-                toast.success("Cập nhật coupon thành công");
+                toast.success("Coupon updated successfully");
             } else {
                 await createCoupon(payload);
-                toast.success("Tạo coupon thành công");
+                toast.success("Coupon created successfully");
             }
             closeModal();
             fetchCoupons();
         } catch (err) {
-            toast.error(err?.message ?? "Lỗi khi lưu coupon");
+            toast.error(err?.message ?? "Error saving coupon");
         } finally {
             setIsSaving(false);
         }
@@ -153,13 +153,13 @@ const CouponManager = () => {
 
     /* ── Delete ── */
     const handleDelete = async (id, code) => {
-        if (!window.confirm(`Xoá coupon "${code}"?`)) return;
+        if (!window.confirm(`Delete coupon "${code}"?`)) return;
         try {
             await deleteCoupon(id);
-            toast.success("Đã xoá coupon");
+            toast.success("Coupon deleted successfully");
             fetchCoupons();
         } catch {
-            toast.error("Không thể xoá coupon");
+            toast.error("Failed to delete coupon");
         }
     };
 
@@ -179,7 +179,7 @@ const CouponManager = () => {
             });
             fetchCoupons();
         } catch {
-            toast.error("Không thể cập nhật trạng thái");
+            toast.error("Failed to update status");
         }
     };
 
@@ -196,7 +196,7 @@ const CouponManager = () => {
                     <span className="cpn-count">{filtered.length} coupon</span>
                 </div>
                 <button className="cpn-btn-create" onClick={openCreate}>
-                    <i className="bi bi-plus-lg me-1" /> Tạo Coupon
+                    <i className="bi bi-plus-lg me-1" /> Create Coupon
                 </button>
             </div>
 
@@ -206,20 +206,20 @@ const CouponManager = () => {
                     <i className="bi bi-search cpn-search-icon" />
                     <input
                         className="cpn-search"
-                        placeholder="Tìm theo mã coupon..."
+                        placeholder="Search by coupon code..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
                 <select className="cpn-filter-select" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-                    <option value="all">Tất cả loại</option>
-                    <option value="percent">Phần trăm (%)</option>
-                    <option value="fixed">Cố định ($)</option>
+                    <option value="all">All Types</option>
+                    <option value="percent">Percentage (%)</option>
+                    <option value="fixed">Fixed ($)</option>
                 </select>
                 <select className="cpn-filter-select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-                    <option value="all">Tất cả trạng thái</option>
-                    <option value="active">Đang hoạt động</option>
-                    <option value="inactive">Đã tắt</option>
+                    <option value="all">All Statuses</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
                 </select>
             </div>
 
@@ -228,27 +228,27 @@ const CouponManager = () => {
                 {isLoading ? (
                     <div className="cpn-loading">
                         <div className="cpn-spinner" />
-                        <span>Đang tải...</span>
+                        <span>Loading...</span>
                     </div>
                 ) : filtered.length === 0 ? (
                     <div className="cpn-empty">
                         <i className="bi bi-ticket-perforated" />
-                        <p>Không có coupon nào</p>
+                        <p>No coupons found</p>
                     </div>
                 ) : (
                     <div className="cpn-table-wrap">
                         <table className="cpn-table">
                             <thead>
                                 <tr>
-                                    <th>Mã</th>
-                                    <th>Loại</th>
-                                    <th>Giá trị</th>
-                                    <th>Giảm tối đa</th>
-                                    <th>Đơn tối thiểu</th>
-                                    <th>Lượt dùng</th>
-                                    <th>Hiệu lực</th>
-                                    <th>Trạng thái</th>
-                                    <th>Thao tác</th>
+                                    <th>Code</th>
+                                    <th>Type</th>
+                                    <th>Value</th>
+                                    <th>Max Discount</th>
+                                    <th>Min Order</th>
+                                    <th>Usage</th>
+                                    <th>Validity</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -286,17 +286,17 @@ const CouponManager = () => {
                                                 <button
                                                     className={`cpn-status-toggle ${c.is_active ? "cpn-status-on" : "cpn-status-off"}`}
                                                     onClick={() => handleToggleActive(c)}
-                                                    title={c.is_active ? "Click để tắt" : "Click để bật"}
+                                                    title={c.is_active ? "Click to deactivate" : "Click to activate"}
                                                 >
                                                     <span className="cpn-status-dot" />
-                                                    {c.is_active ? "Hoạt động" : "Đã tắt"}
+                                                    {c.is_active ? "Active" : "Inactive"}
                                                 </button>
                                             </td>
                                             <td className="cpn-actions-cell">
-                                                <button className="cpn-btn-edit" onClick={() => openEdit(c)} title="Chỉnh sửa">
+                                                <button className="cpn-btn-edit" onClick={() => openEdit(c)} title="Edit">
                                                     <i className="bi bi-pencil" />
                                                 </button>
-                                                <button className="cpn-btn-delete" onClick={() => handleDelete(c.id, c.code)} title="Xoá">
+                                                <button className="cpn-btn-delete" onClick={() => handleDelete(c.id, c.code)} title="Delete">
                                                     <i className="bi bi-trash" />
                                                 </button>
                                             </td>
@@ -314,7 +314,7 @@ const CouponManager = () => {
                 <div className="cpn-modal-overlay" onClick={closeModal}>
                     <div className="cpn-modal" onClick={(e) => e.stopPropagation()}>
                         <div className="cpn-modal-header">
-                            <h3>{isEditing ? "Chỉnh sửa Coupon" : "Tạo Coupon mới"}</h3>
+                            <h3>{isEditing ? "Edit Coupon" : "Create New Coupon"}</h3>
                             <button className="cpn-modal-close" onClick={closeModal}>
                                 <i className="bi bi-x-lg" />
                             </button>
@@ -324,23 +324,23 @@ const CouponManager = () => {
                             {/* Row 1: Code + Type */}
                             <div className="cpn-form-row">
                                 <div className="cpn-form-group">
-                                    <label>Mã coupon <span className="cpn-required">*</span></label>
+                                    <label>Coupon Code <span className="cpn-required">*</span></label>
                                     <input
                                         name="code"
                                         value={formData.code}
                                         onChange={handleChange}
-                                        placeholder="VD: SUMMER20"
+                                        placeholder="e.g. SUMMER20"
                                         className="cpn-input"
                                         style={{ textTransform: "uppercase" }}
                                         disabled={isEditing}
                                     />
-                                    {isEditing && <small className="cpn-hint">Không thể thay đổi mã</small>}
+                                    {isEditing && <small className="cpn-hint">Code cannot be changed</small>}
                                 </div>
                                 <div className="cpn-form-group">
-                                    <label>Loại giảm <span className="cpn-required">*</span></label>
+                                    <label>Discount Type <span className="cpn-required">*</span></label>
                                     <select name="discount_type" value={formData.discount_type} onChange={handleChange} className="cpn-input">
-                                        <option value="percent">Phần trăm (%)</option>
-                                        <option value="fixed">Cố định ($)</option>
+                                        <option value="percent">Percentage (%)</option>
+                                        <option value="fixed">Fixed ($)</option>
                                     </select>
                                 </div>
                             </div>
@@ -349,7 +349,7 @@ const CouponManager = () => {
                             <div className="cpn-form-row">
                                 <div className="cpn-form-group">
                                     <label>
-                                        Giá trị giảm <span className="cpn-required">*</span>
+                                        Discount Value <span className="cpn-required">*</span>
                                         <span className="cpn-unit">
                                             {formData.discount_type === "percent" ? "(%)" : "($)"}
                                         </span>
@@ -361,14 +361,14 @@ const CouponManager = () => {
                                         step="0.01"
                                         value={formData.discount_value}
                                         onChange={handleChange}
-                                        placeholder={formData.discount_type === "percent" ? "VD: 10" : "VD: 5.00"}
+                                        placeholder={formData.discount_type === "percent" ? "e.g. 10" : "e.g. 5.00"}
                                         className="cpn-input"
                                     />
                                 </div>
                                 <div className="cpn-form-group">
                                     <label>
-                                        Giảm tối đa ($)
-                                        {formData.discount_type === "fixed" && <span className="cpn-hint-inline"> (không áp dụng)</span>}
+                                        Max Discount ($)
+                                        {formData.discount_type === "fixed" && <span className="cpn-hint-inline"> (not applicable)</span>}
                                     </label>
                                     <input
                                         name="max_discount"
@@ -377,7 +377,7 @@ const CouponManager = () => {
                                         step="0.01"
                                         value={formData.max_discount}
                                         onChange={handleChange}
-                                        placeholder="Không giới hạn"
+                                        placeholder="No limit"
                                         className="cpn-input"
                                         disabled={formData.discount_type === "fixed"}
                                     />
@@ -387,7 +387,7 @@ const CouponManager = () => {
                             {/* Row 3: Min order + Usage limit */}
                             <div className="cpn-form-row">
                                 <div className="cpn-form-group">
-                                    <label>Đơn hàng tối thiểu ($)</label>
+                                    <label>Minimum Order ($)</label>
                                     <input
                                         name="min_order_value"
                                         type="number"
@@ -395,19 +395,19 @@ const CouponManager = () => {
                                         step="0.01"
                                         value={formData.min_order_value}
                                         onChange={handleChange}
-                                        placeholder="Không giới hạn"
+                                        placeholder="No limit"
                                         className="cpn-input"
                                     />
                                 </div>
                                 <div className="cpn-form-group">
-                                    <label>Giới hạn lượt dùng</label>
+                                    <label>Usage Limit</label>
                                     <input
                                         name="usage_limit"
                                         type="number"
                                         min="1"
                                         value={formData.usage_limit}
                                         onChange={handleChange}
-                                        placeholder="Không giới hạn"
+                                        placeholder="Unlimited"
                                         className="cpn-input"
                                     />
                                 </div>
@@ -416,7 +416,7 @@ const CouponManager = () => {
                             {/* Row 4: Dates */}
                             <div className="cpn-form-row">
                                 <div className="cpn-form-group">
-                                    <label>Ngày bắt đầu</label>
+                                    <label>Start Date</label>
                                     <input
                                         name="start_date"
                                         type="date"
@@ -426,7 +426,7 @@ const CouponManager = () => {
                                     />
                                 </div>
                                 <div className="cpn-form-group">
-                                    <label>Ngày kết thúc</label>
+                                    <label>End Date</label>
                                     <input
                                         name="end_date"
                                         type="date"
@@ -447,28 +447,28 @@ const CouponManager = () => {
                                         onChange={handleChange}
                                         className="cpn-checkbox"
                                     />
-                                    <span>Kích hoạt coupon ngay</span>
+                                    <span>Activate coupon immediately</span>
                                 </label>
                             </div>
 
                             {/* Preview box */}
                             <div className="cpn-preview">
-                                <span className="cpn-preview-label">Xem trước:</span>
+                                <span className="cpn-preview-label">Preview:</span>
                                 <span className="cpn-code-badge">{formData.code || "CODE"}</span>
                                 <span className="cpn-preview-value">
                                     {formData.discount_type === "percent"
-                                        ? `Giảm ${formData.discount_value || 0}%${formData.max_discount ? ` (tối đa $${formData.max_discount})` : ""}`
-                                        : `Giảm $${formData.discount_value || "0.00"}`}
+                                        ? `${formData.discount_value || 0}% off${formData.max_discount ? ` (max $${formData.max_discount})` : ""}`
+                                        : `$${formData.discount_value || "0.00"} off`}
                                 </span>
                             </div>
 
                             <div className="cpn-modal-footer">
-                                <button type="button" className="cpn-btn-cancel" onClick={closeModal}>Huỷ</button>
+                                <button type="button" className="cpn-btn-cancel" onClick={closeModal}>Cancel</button>
                                 <button type="submit" className="cpn-btn-save" disabled={isSaving}>
                                     {isSaving ? (
-                                        <><span className="cpn-btn-spinner" /> Đang lưu...</>
+                                        <><span className="cpn-btn-spinner" /> Saving...</>
                                     ) : (
-                                        <><i className="bi bi-check-lg me-1" />{isEditing ? "Cập nhật" : "Tạo mới"}</>
+                                        <><i className="bi bi-check-lg me-1" />{isEditing ? "Update" : "Create"}</>
                                     )}
                                 </button>
                             </div>

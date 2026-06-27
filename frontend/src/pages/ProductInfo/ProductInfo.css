@@ -945,3 +945,32 @@
     font-size: 0.75rem;
   }
 }
+
+/* ========== SKELETON LOADING ========== */
+@keyframes pi-shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+
+.pi-skeleton {
+  background: linear-gradient(
+    90deg,
+    #eef2f7 25%,
+    #dde6f2 50%,
+    #eef2f7 75%
+  );
+  background-size: 600px 100%;
+  animation: pi-shimmer 1.6s ease-in-out infinite;
+  border-radius: 6px;
+  display: block;
+}
+
+.pi-skeleton-text {
+  border-radius: 4px;
+}
+
+.pi-skeleton-main-img {
+  width: 300px;
+  height: 300px;
+  border-radius: 8px;
+}

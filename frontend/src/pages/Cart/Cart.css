@@ -580,3 +580,66 @@
         gap: 10px;
     }
 }
+
+/* ── Skeleton Loading ── */
+@keyframes crt-shimmer {
+    0%   { background-position: -500px 0; }
+    100% { background-position: 500px 0; }
+}
+
+.crt__skeleton {
+    background: linear-gradient(
+        90deg,
+        #eef2f7 25%,
+        #dde6f0 50%,
+        #eef2f7 75%
+    );
+    background-size: 500px 100%;
+    animation: crt-shimmer 1.6s ease-in-out infinite;
+    border-radius: 6px;
+    display: block;
+}
+
+.crt__skeleton-item {
+    pointer-events: none;
+}
+
+.crt__skeleton-checkbox {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.crt__skeleton-image {
+    width: 100px;
+    height: 100px;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.crt__skeleton-text {
+    border-radius: 4px;
+}
+
+.crt__skeleton-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+}
+
+.crt__skeleton-qty {
+    width: 102px;
+    height: 32px;
+    border-radius: 8px;
+}
+
+.crt__skeleton-price {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    white-space: nowrap;
+}

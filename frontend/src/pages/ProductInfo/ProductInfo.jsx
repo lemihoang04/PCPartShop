@@ -288,7 +288,93 @@ const ProductInfo = () => {
   };
 
   if (loading) {
-    return <div className="pi-loading">Loading product details...</div>;
+    return (
+      <div className="pi-product-page">
+        {/* ── Main product skeleton ── */}
+        <div className="pi-product-container">
+          {/* Left: image gallery skeleton */}
+          <section className="pi-product-media">
+            <div className="pi-product-gallery">
+              <div className="pi-main-image-container">
+                <div className="pi-skeleton pi-skeleton-main-img"></div>
+              </div>
+              <div className="pi-thumbnails">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="pi-thumbnail-wrapper">
+                    <div className="pi-skeleton" style={{ width: '100%', height: '100%', borderRadius: '6px' }}></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* Right: product details skeleton */}
+          <section className="pi-product-details">
+            {/* Title */}
+            <div className="pi-product-header" style={{ paddingBottom: '0.75rem', borderBottom: '1px solid var(--pi-border)' }}>
+              <div className="pi-skeleton pi-skeleton-text" style={{ width: '85%', height: '28px', marginBottom: '10px' }}></div>
+              <div className="pi-skeleton pi-skeleton-text" style={{ width: '55%', height: '22px' }}></div>
+              <div className="pi-skeleton pi-skeleton-text" style={{ width: '120px', height: '16px', marginTop: '8px' }}></div>
+            </div>
+
+            {/* Price & stock */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginTop: '0.1rem' }}>
+              <div className="pi-skeleton pi-skeleton-text" style={{ width: '110px', height: '32px' }}></div>
+              <div className="pi-skeleton pi-skeleton-text" style={{ width: '80px', height: '22px', borderRadius: '4px' }}></div>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.25rem' }}>
+              <div className="pi-skeleton" style={{ width: '112px', height: '36px', borderRadius: '10px' }}></div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+                <div className="pi-skeleton" style={{ height: '44px', borderRadius: '10px' }}></div>
+                <div className="pi-skeleton" style={{ height: '44px', borderRadius: '10px' }}></div>
+              </div>
+            </div>
+
+            {/* Specs skeleton */}
+            <div className="pi-product-specs-section">
+              <div className="pi-skeleton pi-skeleton-text" style={{ width: '130px', height: '18px', marginBottom: '0.75rem' }}></div>
+              <div className="pi-specs-card">
+                <div className="pi-specs-container">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="pi-spec-item">
+                      <div className="pi-skeleton pi-skeleton-text" style={{ width: '70%', height: '13px' }}></div>
+                      <div className="pi-skeleton pi-skeleton-text" style={{ width: `${50 + (i * 13) % 40}%`, height: '13px' }}></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        {/* ── Reviews skeleton ── */}
+        <section className="pi-reviews-section">
+          <div className="pi-skeleton pi-skeleton-text" style={{ width: '180px', height: '18px', marginBottom: '1rem' }}></div>
+          <div className="pi-reviews-list">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="pi-review-card">
+                <div className="pi-review-header">
+                  <div className="pi-skeleton" style={{ width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0 }}></div>
+                  <div className="pi-review-meta">
+                    <div className="pi-skeleton pi-skeleton-text" style={{ width: '120px', height: '13px', marginBottom: '5px' }}></div>
+                    <div className="pi-skeleton pi-skeleton-text" style={{ width: '80px', height: '11px' }}></div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '2px' }}>
+                    {Array.from({ length: 5 }).map((_, s) => (
+                      <div key={s} className="pi-skeleton" style={{ width: '13px', height: '13px', borderRadius: '3px' }}></div>
+                    ))}
+                  </div>
+                </div>
+                <div className="pi-skeleton pi-skeleton-text" style={{ width: '90%', height: '13px', marginTop: '0.5rem' }}></div>
+                <div className="pi-skeleton pi-skeleton-text" style={{ width: '70%', height: '13px', marginTop: '6px' }}></div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    );
   }
 
   if (error || !productInfo) {
@@ -513,7 +599,26 @@ const ProductInfo = () => {
         </div>
 
         {reviewsLoading ? (
-          <div className="pi-reviews-loading">Loading reviews...</div>
+          <div className="pi-reviews-list">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="pi-review-card">
+                <div className="pi-review-header">
+                  <div className="pi-skeleton" style={{ width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0 }}></div>
+                  <div className="pi-review-meta">
+                    <div className="pi-skeleton pi-skeleton-text" style={{ width: '120px', height: '13px', marginBottom: '5px' }}></div>
+                    <div className="pi-skeleton pi-skeleton-text" style={{ width: '80px', height: '11px' }}></div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '2px' }}>
+                    {Array.from({ length: 5 }).map((_, s) => (
+                      <div key={s} className="pi-skeleton" style={{ width: '13px', height: '13px', borderRadius: '3px' }}></div>
+                    ))}
+                  </div>
+                </div>
+                <div className="pi-skeleton pi-skeleton-text" style={{ width: '90%', height: '13px', marginTop: '0.5rem' }}></div>
+                <div className="pi-skeleton pi-skeleton-text" style={{ width: '70%', height: '13px', marginTop: '6px' }}></div>
+              </div>
+            ))}
+          </div>
         ) : (() => {
           const filtered = filterStar === 0 ? reviews : reviews.filter(r => r.rating === filterStar);
           if (filtered.length === 0) {

@@ -9,6 +9,7 @@ import OrderManager from "./Order/OrderManager.jsx";
 import CategoryManager from "./Category/CategoryManager.jsx";
 import ProductManager from "./Product/ProductManager.jsx";
 import CouponManager from "./Coupon/CouponManager.jsx";
+import ChatbotFAQ from "./ChatbotFAQ/ChatbotFAQ.jsx";
 // import Settings from "./Settings/Settings.jsx";
 import { useNavigate } from "react-router-dom";
 import { UserContext } from "../../context/UserProvider";
@@ -37,6 +38,8 @@ const Admin = () => {
                 return <ProductManager />;
             case "Coupon":
                 return <CouponManager />;
+            case "ChatbotFAQ":
+                return <ChatbotFAQ />;
             // case "Settings":
             //     return <Settings />;
             default:
@@ -78,6 +81,7 @@ const Admin = () => {
                         { name: "Order", icon: "bi-cart" },
                         { name: "Customers", icon: "bi-people" },
                         { name: "Coupon", icon: "bi-ticket-perforated" },
+                        { name: "ChatbotFAQ", icon: "bi-chat-dots" },
                         // { name: "Reports", icon: "bi-bar-chart" },
                         // { name: "Settings", icon: "bi-gear" },
                     ].map((item) => (

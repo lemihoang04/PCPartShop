@@ -1,4 +1,5 @@
-from flask import Blueprint, request, jsonify, session
+from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity, verify_jwt_in_request
 from DAL.buildpc_dal import (
     dal_save_pc_build,
     dal_get_user_builds,
@@ -33,8 +34,13 @@ def save_build():
     if not data:
         return jsonify({"error": "Invalid JSON body"}), 400
 
-    # User can be authenticated or guest (user_id = None)
-    user_id = session.get("user_id") or data.get("user_id") or None
+    # User can be authenticated (JWT) or guest (user_id = None)
+    user_id = None
+    try:
+        verify_jwt_in_request(optional=True)
+        user_id = get_jwt_identity()
+    except Exception:
+        pass
 
     build_name = data.get("build_name", "").strip()
     description = data.get("description", "")
@@ -61,8 +67,9 @@ def save_build():
 # Returns builds for the currently logged-in user
 # ---------------------------------------------------------------------------
 @buildpc_blueprint.route("/build/history", methods=["GET"])
+@jwt_required()
 def get_build_history():
-    user_id = session.get("user_id")
+    user_id = get_jwt_identity()
     if not user_id:
         return jsonify({"error": "Authentication required"}), 401
 
@@ -83,8 +90,13 @@ def get_build(slug):
     build = result
     # If build is not public, only the owner can view it
     if not build.get("is_public"):
-        user_id = session.get("user_id")
-        if not user_id or user_id != build.get("user_id"):
+        user_id = None
+        try:
+            verify_jwt_in_request(optional=True)
+            user_id = get_jwt_identity()
+        except Exception:
+            pass
+        if not user_id or str(user_id) != str(build.get("user_id")):
             return jsonify({"error": "Access denied"}), 403
 
     return jsonify(build), 200
@@ -95,8 +107,9 @@ def get_build(slug):
 # Deletes a build owned by the current user
 # ---------------------------------------------------------------------------
 @buildpc_blueprint.route("/build/<int:build_id>", methods=["DELETE"])
+@jwt_required()
 def delete_build(build_id):
-    user_id = session.get("user_id")
+    user_id = get_jwt_identity()
     if not user_id:
         return jsonify({"error": "Authentication required"}), 401
 
@@ -117,8 +130,9 @@ def get_build_comments(build_id):
 # Adds a comment to a build
 # ---------------------------------------------------------------------------
 @buildpc_blueprint.route("/build/<int:build_id>/comments", methods=["POST"])
+@jwt_required()
 def add_build_comment(build_id):
-    user_id = session.get("user_id")
+    user_id = get_jwt_identity()
     if not user_id:
         return jsonify({"error": "Authentication required"}), 401
     
@@ -131,4 +145,5 @@ def add_build_comment(build_id):
 
     result, status = dal_add_build_comment(build_id, user_id, content, parent_comment_id)
     return jsonify(result), status
+    
 

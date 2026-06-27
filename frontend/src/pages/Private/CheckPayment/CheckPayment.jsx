@@ -31,6 +31,7 @@ const CheckPayment = () => {
                     }
                     const orderData = JSON.parse(orderDataStr);
                     orderData.session_id = session_id;
+                    orderData.payment_intent = response.payment_intent;
                     localStorage.removeItem("pendingOrderData");
                     const responseCheckout = await CheckOut(orderData);
                     if (responseCheckout && responseCheckout.errCode === 0) {

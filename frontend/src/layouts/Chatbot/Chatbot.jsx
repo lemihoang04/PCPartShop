@@ -53,11 +53,11 @@ const formatConvTime = (isoStr) => {
     const now = new Date();
     const diffMs = now - d;
     const diffMin = Math.floor(diffMs / 60000);
-    if (diffMin < 1) return 'Vừa xong';
-    if (diffMin < 60) return `${diffMin} phút trước`;
+    if (diffMin < 1) return 'just now';
+    if (diffMin < 60) return `${diffMin} minutes ago`;
     const diffH = Math.floor(diffMin / 60);
-    if (diffH < 24) return `${diffH} giờ trước`;
-    return d.toLocaleDateString('vi-VN');
+    if (diffH < 24) return `${diffH} hours ago`;
+    return d.toLocaleDateString();
 };
 
 const getUniqueCategoryCount = (msg) => {
@@ -430,7 +430,7 @@ const Chatbot = () => {
                             <div className="ts-chatbot-header-info">
                                 <h3>
                                     {view === 'list'
-                                        ? 'Lịch sử hội thoại'
+                                        ? 'History conversations'
                                         : 'TechShop AI Assistant'}
                                 </h3>
                                 {view === 'chat' && (
@@ -488,11 +488,11 @@ const Chatbot = () => {
                     {deleteConfirmConvId && (
                         <div className="ts-chatbot-modal-overlay">
                             <div className="ts-chatbot-modal">
-                                <h4>Xác nhận xóa</h4>
-                                <p>Bạn có chắc chắn muốn xóa cuộc trò chuyện này không?</p>
+                                <h4>Delete confirmation</h4>
+                                <p>Are you sure you want to delete this conversation?</p>
                                 <div className="ts-chatbot-modal-actions">
-                                    <button className="btn-cancel" onClick={cancelDeleteConversation}>Hủy</button>
-                                    <button className="btn-confirm" onClick={confirmDeleteConversation}>Xóa</button>
+                                    <button className="btn-cancel" onClick={cancelDeleteConversation}>Cancel</button>
+                                    <button className="btn-confirm" onClick={confirmDeleteConversation}>Delete</button>
                                 </div>
                             </div>
                         </div>
@@ -502,12 +502,12 @@ const Chatbot = () => {
                     {view === 'list' && (
                         <div className="ts-conv-list">
                             {convLoading && (
-                                <div className="ts-conv-loading">Đang tải...</div>
+                                <div className="ts-conv-loading">Loading...</div>
                             )}
                             {!convLoading && conversations.length === 0 && (
                                 <div className="ts-conv-empty">
                                     <FaComments className="ts-conv-empty-icon" />
-                                    <p>Chưa có cuộc hội thoại nào.</p>
+                                    <p>No conversations yet.</p>
                                     <button
                                         className="ts-conv-new-btn"
                                         onClick={startNewConversation}
@@ -718,7 +718,7 @@ const Chatbot = () => {
                                 <div className="ts-chatbot-input-wrapper">
                                     <input
                                         type="text"
-                                        placeholder="Hỏi về linh kiện, giá hoặc build PC..."
+                                        placeholder="Ask a question"
                                         value={input}
                                         onChange={(e) => setInput(e.target.value)}
                                         onKeyDown={handleKeyDown}

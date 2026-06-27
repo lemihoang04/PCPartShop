@@ -11,7 +11,8 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
 
-from context.init_models import db, get_llm
+from context.init_models import db, get_llm, faq_db
+from DAL.chatbot_dal import dal_get_faq_by_id
 
 import pickle
 from langchain_community.retrievers import BM25Retriever
@@ -96,7 +97,7 @@ VITAL_ATTRS: Dict[str, List[str]] = {
         "L3 Cache",
         "Memory Type",
         "Integrated Graphics",
-        "Thread"
+        "Thread Count"
     ],
     "gpu": [
         "Chipset",
@@ -354,7 +355,7 @@ def build_context_block(docs: List[Any]) -> str:
         #     line += f"image: [![{doc_name(doc)}]({image_url})]({product_link})\n"
         # line += f"mo_ta={excerpt}"
         lines.append(line)
-
+    print("Lines : ", lines)
     return "\n\n".join(lines)
 
 
@@ -369,9 +370,6 @@ def format_markdown_output(text: str) -> str:
 
 
     return cleaned
-
-
-import re
 
 def _is_generic_keyword(keyword: str) -> bool:
     if not keyword or not keyword.strip():
@@ -461,7 +459,7 @@ def ranked_search(query: str, filters: Optional[Dict[str, Any]], k: int = 8) -> 
             if _is_generic_keyword(q):
                 print("Generic keyword detected")
                 w=0.2
-            else: w=0.9
+            else: w=0.7
             db_retriever = db.as_retriever(search_kwargs={"k": k, "filter": filters if filters else None})
             if bm25_retriever and all_docs:
                 if filters and "category" in filters:
@@ -554,6 +552,23 @@ def choose_doc_by_budget(
     max_gpu_g3d = max([c["gpu_g3d"] for c in candidates]) or 1.0
     min_price = target_price * (0.6 if is_pc_build else 0.9)
     within_budget = [c for c in candidates if c["price"] <= max_price and c["price"] >= min_price]
+    extra = []
+    if len(within_budget) < 3:
+        extra = sorted(
+            candidates,
+            key=lambda x: abs(x["price"] - target_price)
+        )
+
+        seen = {id(x["doc"]) for x in within_budget}
+
+    for item in extra:
+        if id(item["doc"]) in seen:
+            continue
+
+        within_budget.append(item)
+
+        if len(within_budget) >= 3:
+            break
     print("within_budget count:", len(within_budget))
     if not within_budget and not is_pc_build:
         return []
@@ -658,12 +673,6 @@ def update_compat_info(compat_info: Dict[str, Any], chosen: Any, category: str) 
             val = _extract_number(v)
             if val is not None:
                 compat_info["Wattage"] = compat_info.get("Wattage", 0.0) + val
-
-
-import re
-
-
-
 
 def resolve_preferred_parts(
     preferred_parts: Dict[str, str],
@@ -882,22 +891,22 @@ def build_pc_recommendation(
 
     allocation_by_purpose = {
         "gaming": {
-            "cpu": 0.23,
-            "mainboard": 0.12,
-            "cpu_cooler": 0.04,
-            "gpu": 0.36,
-            "ram": 0.10,
-            "storage": 0.07,
+            "gpu": 0.50,
+            "cpu": 0.18,
+            "mainboard": 0.08,
+            "ram": 0.08,
+            "storage": 0.06,
+            "cpu_cooler": 0.03,
             "psu": 0.05,
-            "case": 0.03,
+            "case": 0.02,
         },
         "office": {
             "cpu": 0.31,
             "mainboard": 0.15,
             "cpu_cooler": 0.05,
-            "gpu": 0.12,
+            "gpu": 0.10,
             "ram": 0.15,
-            "storage": 0.13,
+            "storage": 0.15,
             "psu": 0.06,
             "case": 0.03,
         },
@@ -931,7 +940,7 @@ def build_pc_recommendation(
             "cpu_cooler": "high performance air cooler liquid cooler",
             "gpu": "lastest gpu, modern gpu for gaming",
             "ram": "high bus gaming ram",
-            "storage": "high speed nvme ssd for gaming",
+            "storage": "high speed nvme M.2 form factor ssd",
             "psu": "stable high wattage power supply",
             "case": "good airflow cooling case",
         },
@@ -1022,30 +1031,44 @@ def build_pc_recommendation(
             query = query_hint[category]
 
         segment = price_segment(category, target)
-        query = f"{query} {segment} segment"
-
+  
+        prefixes = []
 
         if category == "cpu":
-            if "Socket" in compat_info: query += f" Socket {compat_info['Socket']}"
+            if "Socket" in compat_info:
+                prefixes.append(f"Socket {compat_info['Socket']}")
+
         elif category == "mainboard":
-            if "Socket" in compat_info: query += f" Socket/CPU {compat_info['Socket']}"
-            if "Memory Type" in compat_info: query += f" Memory Type {compat_info['Memory Type']}"
+            if "Socket" in compat_info:
+                prefixes.append(f"Socket/CPU {compat_info['Socket']}")
+            if "Memory Type" in compat_info:
+                prefixes.append(f"Memory Type {compat_info['Memory Type']}")
+
         elif category == "cpu_cooler":
-            if "Socket" in compat_info: query += f" CPU Socket {compat_info['Socket']}"
+            if "Socket" in compat_info:
+                prefixes.append(f"CPU Socket {compat_info['Socket']}")
+
         elif category == "ram":
-            if "Memory Type" in compat_info: query += f" Memory Type {compat_info['Memory Type']}"
+            if "Memory Type" in compat_info:
+                prefixes.append(f"Memory Type {compat_info['Memory Type']}")
+
         elif category == "case":
-            if "Form Factor" in compat_info: query += f" Form Factor {compat_info['Form Factor']}"
-            if "Length" in compat_info: query += f" VGA Card Length {compat_info['Length']}"
+            if "Form Factor" in compat_info:
+                prefixes.append(f"Form Factor {compat_info['Form Factor']}")
+            if "Length" in compat_info:
+                prefixes.append(f"VGA Card Length {compat_info['Length']}")
+
+        query = " ".join(prefixes + [query])
+        query = f"{segment} segment {query}"
         # elif category == "psu":
         #     if "Wattage" in compat_info:
         #         required_wattage = int((compat_info["Wattage"] + 130) * 1.2)
         #         query += f" Wattage : {required_wattage}W"
         print("Query:", query)
         if category in generic_parts:
-            k=50
+            k=40
         else:
-            k=150
+            k=80
         docs = ranked_search(query, {"category": category}, k=k)
 
         # --- Lọc tương thích bằng Python trên attrs_json ---
@@ -1058,6 +1081,33 @@ def build_pc_recommendation(
             selected_parts.append(chosen)
             estimated_spent += doc_price(chosen) or target
             update_compat_info(compat_info, chosen, category)
+            actual_price = doc_price(chosen) or target
+            delta = target - actual_price
+
+            remaining_cats = [
+                c
+                for c in categories[idx + 1:]
+                if c not in locked
+            ]
+
+            if remaining_cats and delta != 0:
+
+                total_ratio = sum(
+                    allocation[c]
+                    for c in remaining_cats
+                )
+
+                if total_ratio > 0:
+
+                    for c in remaining_cats:
+
+                        adjust = int(
+                            delta
+                            * allocation[c]
+                            / total_ratio
+                        )
+
+                        category_budget[c] += adjust
 
     selected_parts = dedupe_docs(selected_parts)
     if not selected_parts:
@@ -1118,8 +1168,8 @@ def build_json_response(message: str, intent: str = "") -> str:
 # =====================================================
 
 @tool
-def search_products(keyword: str = "", category: str = "", limit: int = 10, purpose: str = "") -> str:
-    """Tìm sản phẩm theo từ khóa(keyword: bằng tiếng Anh) và loại linh kiện(category),các giá trị category có thể điền: cpu, gpu, mainboard, cpu_cooler, ram, storage, psu, case. Tham số purpose (tùy chọn) tính chất, mục đích sử dụng ngắn gọn bằng tiếng Anh(ví dụ: gaming, office, ...)."""
+def search_products(keyword: str = "", category: str = "", limit: int = 5, purpose: str = "") -> str:
+    """Tìm sản phẩm theo từ khóa(keyword: bằng tiếng Anh) và loại linh kiện(category), các giá trị category có thể điền: cpu, gpu, mainboard, cpu_cooler, ram, storage, psu, case. limit là số sản phẩm được trả về. Tham số purpose (tùy chọn) tính chất, mục đích sử dụng ngắn gọn bằng tiếng Anh(ví dụ: gaming, office, ...)."""
     keyword = (keyword or "").strip()
     category = (category or "").strip().lower()
     purpose = (purpose or "").strip()
@@ -1570,6 +1620,32 @@ def check_compatibility(product_names: List[str]) -> str:
     return _check_all_compatibility(docs, not_found)
 
 
+@tool
+def query_shop_faq(question: str) -> str:
+    """Trả lời các câu hỏi liên quan đến cửa hàng (shop FAQ), thông tin liên hệ, địa chỉ, giờ mở cửa, cách thức mua hàng, phương thức thanh toán, chính sách bảo hành, đổi trả... (không liên quan đến tìm sản phẩm linh kiện). Hoặc các câu hỏi kiến thức về linh kiện PC."""
+    try:
+        results = faq_db.similarity_search_with_score(question, k=1)
+        if not results:
+            return "Không tìm thấy thông tin phù hợp với câu hỏi của bạn về cửa hàng."
+        
+        doc, score = results[0]
+        # Cosine similarity: similarity = 1.0 - (score / 2.0)
+        similarity = 1.0 - (score / 2.0)
+        print(f"[Tool: query_shop_faq] similarity: {similarity:.4f}, score (distance): {score:.4f}")
+        
+        if similarity > 0.2:
+            faq_id = doc.metadata.get("faq_id")
+            if faq_id is not None:
+                faq_result, status = dal_get_faq_by_id(faq_id)
+                if status == 200 and faq_result and "answer" in faq_result:
+                    return faq_result["answer"]
+                
+        return "Không tìm thấy thông tin phù hợp với câu hỏi của bạn về cửa hàng."
+    except Exception as e:
+        print(f"Error in query_shop_faq tool: {e}")
+        return "Đã xảy ra lỗi khi truy vấn thông tin cửa hàng."
+
+
 def format_node(state: AgentState):
     messages = state.get("messages", [])
     if not messages:
@@ -1590,74 +1666,94 @@ def format_node(state: AgentState):
         content_str = text_content.strip()
     else:
         content_str = str(content).strip()
-    
+
     if not content_str:
         return {"messages": []}
-    
+
     # Extract JSON từ markdown code block nếu có
-    json_match = re.search(r'```(?:json)?\s*\n?(.*?)\n?```', content_str, re.DOTALL)
+    json_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", content_str, re.DOTALL)
     if json_match:
         content_str = json_match.group(1).strip()
-    
-    # Helper: chuyển đổi format cũ (product_ids) sang format mới (product_groups)
+
+    # Chuyển format cũ (product_ids) sang format mới (product_groups)
     def _migrate_to_groups(parsed):
         if "product_groups" not in parsed and "product_ids" in parsed:
             pids = parsed.pop("product_ids", [])
-            if pids:
-                parsed["product_groups"] = [{"label": "", "order": 1, "product_ids": list(pids)}]
-            else:
-                parsed["product_groups"] = []
-        if "intent" not in parsed:
-            parsed["intent"] = ""
-        if "suggested_prompts" not in parsed:
-            parsed["suggested_prompts"] = []
+            parsed["product_groups"] = (
+                [{"label": "", "order": 1, "product_ids": list(pids)}]
+                if pids
+                else []
+            )
+
+        parsed.setdefault("intent", "")
+        parsed.setdefault("suggested_prompts", [])
+
         return parsed
 
-    # Thử parse JSON từ content
+    # ==========================
+    # THỬ PARSE JSON
+    # ==========================
     try:
         parsed = json.loads(content_str)
-        if isinstance(parsed, dict) and "message" in parsed:
-            if "product_groups" in parsed or "product_ids" in parsed:
-                parsed = _migrate_to_groups(parsed)
-                formatted = json.dumps(parsed, ensure_ascii=False)
-                return {"messages": [AIMessage(content=formatted)]}
+
+        if isinstance(parsed, dict):
+            # Nếu có text thì dùng làm message rồi xóa key text
+            text = str(parsed.pop("text", "")).strip()
+            if text:
+                parsed["message"] = text
+
+            parsed = _migrate_to_groups(parsed)
+            parsed.setdefault("message", "")
+
+            formatted = json.dumps(parsed, ensure_ascii=False)
+            return {"messages": [AIMessage(content=formatted)]}
+
     except (json.JSONDecodeError, ValueError):
         pass
-    
-    # Nếu không phải JSON hợp lệ, ép nó về format chuẩn
-    # Extract product_ids từ content (tìm pattern [1, 2, 3] hoặc product_id: [...])
+
+    # ==========================
+    # KHÔNG PHẢI JSON -> ÉP VỀ FORMAT CHUẨN
+    # ==========================
     product_ids = extract_product_ids_from_text(content_str)
-    
-    # Tìm product_id list trong format [1, 2, 3] hoặc product_id: [1, 2, 3]
-    id_list_pattern = r'\[[\d\s,]+\]'
+
+    id_list_pattern = r"\[[\d\s,]+\]"
     id_matches = re.findall(id_list_pattern, content_str)
+
     if id_matches:
         try:
             for match in id_matches:
-                extracted = re.findall(r'\d+', match)
+                extracted = re.findall(r"\d+", match)
                 if extracted:
                     product_ids.extend(extracted)
         except Exception:
             pass
-    
-    product_ids = list(dict.fromkeys(product_ids))  # Dedup
-    
-    # Lấy message bằng cách remove product_id list pattern
-    message = re.sub(id_list_pattern, '', content_str).strip()
-    message = re.sub(r'product_id\s*:\s*\[[\d\s,]+\]', '', message).strip()
+
+    product_ids = list(dict.fromkeys(product_ids))
+
+    message = re.sub(id_list_pattern, "", content_str).strip()
+    message = re.sub(r"product_id\s*:\s*\[[\d\s,]+\]", "", message).strip()
     message = message or content_str
-    
+
     product_groups = []
     if product_ids:
-        product_groups.append({"label": "", "order": 1, "product_ids": product_ids})
+        product_groups.append(
+            {
+                "label": "",
+                "order": 1,
+                "product_ids": product_ids,
+            }
+        )
 
-    formatted_json = json.dumps({
-        "message": message,
-        "product_groups": product_groups,
-        "intent": "",
-        "suggested_prompts": []
-    }, ensure_ascii=False)
-    
+    formatted_json = json.dumps(
+        {
+            "message": message,
+            "product_groups": product_groups,
+            "intent": "",
+            "suggested_prompts": [],
+        },
+        ensure_ascii=False,
+    )
+
     return {"messages": [AIMessage(content=formatted_json)]}
 
 tools = [
@@ -1668,6 +1764,7 @@ tools = [
     compare_products,
     find_compatible_products,
     check_compatibility,
+    query_shop_faq,
 ]
 
 
@@ -1684,20 +1781,24 @@ Bạn là trợ lý tư vấn cho shop linh kiện PC.
 
 Quy tắc:
 - Chỉ trả lời dựa trên dữ liệu từ tools. Nếu ngoài dữ liệu, trả lời không biết. Và shop chỉ có sản phẩm mới, không có linh kiện đã qua sử dụng.
+- Khi điền tham số keyword cho các tools, hãy điền bằng tiếng Anh (Ví dụ: cpu intel mới nhất → Keyword: Latest Intel)
 - Khi điền tham số product_type cho các tools, hãy điền theo các giá trị sau: cpu, gpu, mainboard, cpu_cooler, ram, storage, psu, case.
 - Giá truyền vào tool phải ở dạng USD; nếu user nhập tiền Việt như “triệu”, “tr”, “k”, “VNĐ”, “đ” thì hãy tự hiểu và quy đổi sang USD trước khi truyền.
 
 Tool Guidance:
-- Tìm/duyệt sản phẩm → get_available_types / search_products
-- Có ngân sách → search_products_by_budget
-- So sánh → compare_products (nhận xét từng thông số + kết luận ngắn)
+- Trả lời các câu hỏi về cửa hàng, chính sách, thông tin liên hệ, vận chuyển, bảo hành, giờ làm việc... hoặc kiến thức về linh kiện PC (Ví dụ: Intel Core i5 là gì?, Khác biệt giữa Intel Core i5 và Intel Core i7 là gì?, DDR4 và DDR5 khác nhau thế nào?, ...) → query_shop_faq
+- Tìm danh mục sản phẩm → get_available_types
+- Tìm/duyệt sản phẩm → search_products
+- Tìm/duyệt sản phẩm theo ngân sách → search_products_by_budget
+- So sánh các sản phẩm cụ thể (nhận xét từng thông số + kết luận ngắn) → compare_products
 - Kiểm tra tương thích giữa các linh kiện có sẵn → check_compatibility
-- Build PC hoặc thay đổi, nâng cấp linh kiện trong cấu hình trươc đó → recommend_pc_build; hỏi thêm nếu thiếu ngân sách/nhu cầu (gaming, office, workstation, creator); dùng preferred_parts nếu người dùng chỉ định hoặc muốn chỉnh sửa cấu hình trước đó.
 - Tìm linh kiện tương thích với sản phẩm người dùng đưa ra → find_compatible_products
+- Build PC hoặc thay đổi, nâng cấp linh kiện trong cấu hình trước đó → recommend_pc_build; hỏi thêm nếu thiếu ngân sách/nhu cầu (gaming, office, workstation, creator); dùng preferred_parts nếu người dùng chỉ định hoặc muốn chỉnh sửa cấu hình trước đó.
+- Khi sử dụng các tool mà có đầu vào là các sản phẩm có tên cụ thể thì cần dùng tool search_products để lấy list sản phẩm được trả về để xác nhận sản phẩm có đúng không rồi mới dùng các tool kia. (ví dụ cần dùng tool find_compatible_products để tìm mainboard nào phù hợp với cpu Intel Celeron E3400 thì dùng search_products để xác nhận cpu Intel Celeron E3400 có tồn tại không)
 
 Output: Trả về JSON hợp lệ với 4 khóa:
 - "intent": ý định ngắn gọn bằng tiếng Anh (ví dụ: "build pc", "search", "compare", ...).
-- "message": markdown ngắn gọn, in đậm những từ cần thiết, không dùng icon,in ra danh sách sản phẩm nếu có (không kèm product_id).
+- "message": markdown, hiển thị thêm bảng nếu cần, in đậm những từ cần thiết, không dùng icon, in ra danh sách sản phẩm nếu có (không kèm product_id).
 - "suggested_prompts": tối đa 2 gợi ý hành động tiếp theo phù hợp với khả năng của tool, không có suggest kiểm tra tương thích. Để [] nếu không cần.
 - "product_groups": mảng nhóm sản phẩm, mỗi nhóm gồm "label", "order", "product_ids".
   Chỉ chia nhiều nhóm khi kết quả thuộc các category rõ ràng khác nhau; còn lại dùng 1 nhóm, label = "".

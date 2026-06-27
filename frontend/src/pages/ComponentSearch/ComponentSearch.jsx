@@ -16,6 +16,7 @@ const ComponentSearch = () => {
   const [categoryFilters, setCategoryFilters] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
   const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isFilterVisible, setIsFilterVisible] = useState(true);
   const [showAllManufacturers, setShowAllManufacturers] = useState(false);
@@ -72,6 +73,7 @@ const ComponentSearch = () => {
   }, []);
   const loadComponents = async () => {
     try {
+      setIsLoading(true);
       setError(null);
 
       // Trích xuất query params từ URL
@@ -199,6 +201,8 @@ const ComponentSearch = () => {
     } catch (err) {
       console.error('Error loading components:', err);
       setError('Failed to load components');
+    } finally {
+      setIsLoading(false);
     }
   };
   useEffect(() => {
@@ -265,6 +269,22 @@ const ComponentSearch = () => {
     }
   };
 
+  // Convert capacity strings like "1 TB", "512 GB", "256 MB" to a numeric value in GB
+  const parseCapacityToGB = (str) => {
+    if (!str) return null;
+    const match = String(str).trim().match(/^([\d.]+)\s*(TB|GB|MB|KB)$/i);
+    if (!match) return null;
+    const num = parseFloat(match[1]);
+    const unit = match[2].toUpperCase();
+    switch (unit) {
+      case 'TB': return num * 1024;
+      case 'GB': return num;
+      case 'MB': return num / 1024;
+      case 'KB': return num / (1024 * 1024);
+      default: return null;
+    }
+  };
+
   const filterOptions = useMemo(() => {
     const options = {};
     const attributes = getFilterableAttributes();
@@ -279,6 +299,14 @@ const ComponentSearch = () => {
       });
       // Sort numbers numerically if possible
       options[attr] = Array.from(uniqueValues).sort((a, b) => {
+        // Handle capacity values with units (TB, GB, MB)
+        if (attr === 'Capacity') {
+          const capA = parseCapacityToGB(a);
+          const capB = parseCapacityToGB(b);
+          if (capA !== null && capB !== null) return capA - capB;
+          if (capA !== null) return -1;
+          if (capB !== null) return 1;
+        }
         const numA = parseFloat(a);
         const numB = parseFloat(b);
         if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
@@ -393,6 +421,7 @@ const ComponentSearch = () => {
     return headers[normalizedType] || ['Name', 'Price'];
   };
 
+
   const getSortableValue = (component, key) => {
     if (key === 'Name') return component.title || '';
     if (key === 'Price') return Number(component.price) || 0;
@@ -414,6 +443,12 @@ const ComponentSearch = () => {
 
     const asString = String(value).trim();
     if (asString.toLowerCase() === 'n/a' || asString === '') return null;
+
+    // Handle capacity values with units (TB, GB, MB)
+    if (key === 'Capacity') {
+      const capacityGB = parseCapacityToGB(asString);
+      if (capacityGB !== null) return capacityGB;
+    }
 
     const numeric = parseFloat(asString.replace(/[^\d.-]/g, ''));
 
@@ -817,7 +852,55 @@ const ComponentSearch = () => {
         )}
 
         <div className="comp-search-results-container">
-          {filteredComponents.length === 0 ? (
+          {isLoading ? (
+            <>
+              <div className="comp-search-results-header">
+                <div className="comp-search-skeleton comp-search-skeleton-text" style={{ width: '200px', height: '20px' }}></div>
+              </div>
+              <div className="comp-search-component-table">
+                <table>
+                  <thead>
+                    <tr>
+                      {getRawComponentHeaders().map((header, i) => (
+                        <th key={i}>
+                          <div className="comp-search-skeleton comp-search-skeleton-text" style={{ width: '80px', height: '12px' }}></div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.from({ length: 8 }).map((_, rowIdx) => (
+                      <tr key={rowIdx} className="comp-search-skeleton-row">
+                        {/* First cell: image + name */}
+                        <td>
+                          <div className="comp-search-product-name">
+                            <div className="comp-search-skeleton comp-search-skeleton-img"></div>
+                            <div style={{ flex: 1 }}>
+                              <div className="comp-search-skeleton comp-search-skeleton-text" style={{ width: '90%', height: '14px', marginBottom: '6px' }}></div>
+                              <div className="comp-search-skeleton comp-search-skeleton-text" style={{ width: '60%', height: '12px' }}></div>
+                            </div>
+                          </div>
+                        </td>
+                        {/* Remaining attribute cells */}
+                        {getRawComponentHeaders().slice(1, -1).map((_, colIdx) => (
+                          <td key={colIdx}>
+                            <div className="comp-search-skeleton comp-search-skeleton-text" style={{ width: `${55 + Math.random() * 30 | 0}%`, height: '13px' }}></div>
+                          </td>
+                        ))}
+                        {/* Action cell */}
+                        <td>
+                          <div className="comp-search-action-buttons">
+                            <div className="comp-search-skeleton comp-search-skeleton-btn"></div>
+                            <div className="comp-search-skeleton comp-search-skeleton-btn" style={{ width: '110px' }}></div>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : filteredComponents.length === 0 ? (
             <div className="comp-search-no-results">
               <i className="fas fa-search"></i>
               <h3>No {normalizedType} components found</h3>

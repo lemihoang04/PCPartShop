@@ -17,7 +17,7 @@ def checkout(order_data):
         # timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
         # random_chars = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
         order_id = order_data.get('app_trans_id', time.strftime("%y%m%d") + "_" + str(int(time.time())))
-        
+        payment_intent = order_data.get('payment_intent')
         # Get user email and name for order confirmation and history
         user_id = order_data['user_id']
         cursor.execute("SELECT email, name FROM Users WHERE id = %s", (user_id,))
@@ -77,14 +77,15 @@ def checkout(order_data):
                 
         payment_status = 'paid' if order_data['payment_method'] == 'online_payment' else 'unpaid'
         cursor.execute("""
-            INSERT INTO Payments (order_id, user_id, amount, payment_method, payment_status)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO Payments (order_id, user_id, amount, payment_method, payment_status, payment_intent)
+            VALUES (%s, %s, %s, %s, %s, %s)
         """, (
             order_id,
             order_data['user_id'],
             order_data['total_amount'],
             order_data['payment_method'],
-            payment_status  
+            payment_status,  
+            payment_intent
         ))
         
         cursor.execute("""

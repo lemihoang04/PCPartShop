@@ -15,12 +15,14 @@ const CartPage = () => {
     const { user, fetchUser } = useContext(UserContext);
     const [selectedItems, setSelectedItems] = useState([]);
     const [isCheckingOut, setIsCheckingOut] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const [outOfStockModal, setOutOfStockModal] = useState({ open: false, items: [] });
 
     useEffect(() => {
         if (user && user.account.id) {
             const loadCartData = async () => {
                 try {
+                    setIsLoading(true);
                     const response = await loadCart(user.account.id);
                     if (response && response.errCode === 0) {
                         setCartItems(response.data);
@@ -30,9 +32,13 @@ const CartPage = () => {
                 } catch (error) {
                     console.error('Error loading cart:', error);
                     toast.error("Failed to load cart items.");
+                } finally {
+                    setIsLoading(false);
                 }
             };
             loadCartData();
+        } else if (user && !user.account?.id) {
+            setIsLoading(false);
         }
     }, [user]);
 
@@ -151,7 +157,32 @@ const CartPage = () => {
                         </div>
                     )}
 
-                    {cartItems.length === 0 ? (
+                    {isLoading ? (
+                        <div className="crt__items-list">
+                            {Array.from({ length: 4 }).map((_, i) => (
+                                <div key={i} className="crt__item crt__skeleton-item">
+                                    {/* Checkbox placeholder */}
+                                    <div className="crt__skeleton crt__skeleton-checkbox"></div>
+                                    {/* Image placeholder */}
+                                    <div className="crt__skeleton crt__skeleton-image"></div>
+                                    {/* Details placeholder */}
+                                    <div className="crt__skeleton-details">
+                                        <div className="crt__skeleton crt__skeleton-text" style={{ width: '75%', height: '16px', marginBottom: '10px' }}></div>
+                                        <div className="crt__skeleton crt__skeleton-text" style={{ width: '50%', height: '14px', marginBottom: '18px' }}></div>
+                                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                            <div className="crt__skeleton crt__skeleton-qty"></div>
+                                            <div className="crt__skeleton crt__skeleton-text" style={{ width: '60px', height: '13px' }}></div>
+                                        </div>
+                                    </div>
+                                    {/* Price placeholder */}
+                                    <div className="crt__skeleton-price">
+                                        <div className="crt__skeleton crt__skeleton-text" style={{ width: '70px', height: '18px', marginBottom: '6px' }}></div>
+                                        <div className="crt__skeleton crt__skeleton-text" style={{ width: '50px', height: '12px' }}></div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : cartItems.length === 0 ? (
                         <div className="crt__empty">
                             <FaShoppingCart className="crt__empty-icon" />
                             <h3>Your cart is empty</h3>
