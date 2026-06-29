@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FaTimes, FaUndo, FaExclamationCircle, FaBan } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { CancelReturnRequest } from '../../services/returnReqService';
+import ImageModal from '../../components/ImageModal/ImageModal';
 import './ReturnStatusModal.css';
 
 const STATUS_LABEL = {
@@ -15,6 +16,7 @@ const STATUS_LABEL = {
 
 const ReturnStatusModal = ({ returnRequest, onClose, onCancelled }) => {
     const [cancelling, setCancelling] = useState(false);
+    const [imageViewer, setImageViewer] = useState({ open: false, index: 0 });
 
     const handleCancel = async () => {
         if (!window.confirm('Are you sure you want to cancel this request?')) return;
@@ -120,7 +122,7 @@ const ReturnStatusModal = ({ returnRequest, onClose, onCancelled }) => {
                                         className="rsm__img-thumb"
                                         src={url}
                                         alt={`evidence-${i + 1}`}
-                                        onClick={() => window.open(url, '_blank')}
+                                        onClick={() => setImageViewer({ open: true, index: i })}
                                         title="Click to open full size"
                                     />
                                 ))}
@@ -148,6 +150,15 @@ const ReturnStatusModal = ({ returnRequest, onClose, onCancelled }) => {
                     )}
                 </div>
             </div>
+
+            {/* ── Image Viewer Modal ── */}
+            {imageViewer.open && (
+                <ImageModal
+                    images={images}
+                    initialIndex={imageViewer.index}
+                    onClose={() => setImageViewer({ open: false, index: 0 })}
+                />
+            )}
         </div>
     );
 };

@@ -242,13 +242,13 @@
   gap: 12px;
   flex-wrap: wrap;
   background-color: var(--sbd-bg-light);
-  padding: 15px 20px;
+  padding: 10px 12px;
   border-radius: var(--sbd-radius-md);
   border: 1px solid var(--sbd-border);
 }
 
 .sbd-price-label {
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--sbd-text-sub);
 }
@@ -336,7 +336,7 @@
 .sbd-six-specs-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
+  /* gap: 16px; */
 }
 
 .sbd-grid-spec-item {
@@ -452,7 +452,7 @@
 }
 
 .sbd-components-table th {
-  background-color: #f7fafc;
+  /* background-color: #f7fafc; */
   color: #4a5568;
   font-size: 11.5px;
   font-weight: 700;

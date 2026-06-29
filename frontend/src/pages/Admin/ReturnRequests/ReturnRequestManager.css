@@ -312,7 +312,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 18px 22px 14px;
-    background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+    background: #7c3aed;
     color: #fff;
     border-radius: 18px 18px 0 0;
 }

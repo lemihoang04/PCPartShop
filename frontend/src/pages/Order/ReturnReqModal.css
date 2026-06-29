@@ -47,7 +47,7 @@
     justify-content: space-between;
     padding: 20px 24px 16px;
     border-bottom: 1px solid #f0f0f0;
-    background: linear-gradient(135deg, #6c63ff 0%, #4e46c8 100%);
+    background: #6c63ff;
     color: #fff;
     border-radius: 16px 16px 0 0;
 }
@@ -351,7 +351,7 @@
 .rrm__btn--cancel:hover { background: #e4e4ec; }
 
 .rrm__btn--submit {
-    background: linear-gradient(135deg, #6c63ff 0%, #4e46c8 100%);
+    background: #6c63ff;
     color: #fff;
     box-shadow: 0 4px 14px rgba(108,99,255,0.35);
 }

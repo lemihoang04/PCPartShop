@@ -14,7 +14,7 @@ stripe_client = stripe.StripeClient(os.getenv("STRIPE_API_KEY"))
 @service_blueprint.route('/create-checkout-session', methods=['POST'])
 def create_checkout_session():
     data = request.json
-    total_amount = int(float(data.get('amount', 10000)))*100
+    total_amount = int(round(float(data.get('amount', 10000)) * 100))
     print("Creating checkout session with amount:", total_amount)  # Debug log
     try:
         checkout_session = stripe_client.v1.checkout.sessions.create(params={

@@ -111,7 +111,7 @@ const GetOrderPayment = async (order_id) => {
 	});
 }
 const CancelOrder = async (order_id) => {
-	return axios.post(`/cancel_order/${order_id}`, {}, {
+	return axios.post(`/orders/cancel/${order_id}`, {}, {
 		headers: {
 			"Content-Type": "application/json",
 		},

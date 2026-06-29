@@ -44,7 +44,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 18px 22px 14px;
-    background: linear-gradient(135deg, #6c63ff 0%, #4e46c8 100%);
+    background: #6c63ff;
     color: #fff;
     border-radius: 16px 16px 0 0;
 }

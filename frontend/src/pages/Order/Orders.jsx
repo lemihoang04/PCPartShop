@@ -92,6 +92,7 @@ const Orders = () => {
                     date: item.created_at || new Date().toISOString(),
                     updated_at: item.updated_at || new Date().toISOString(),
                     status: (item.status || '').trim().toLowerCase(),
+                    payment_method: item.payment_method,
                     productId: item.product_id,
                     title: item.title,
                     productImage: item.image,
@@ -137,6 +138,7 @@ const Orders = () => {
                 date: order.date,
                 updated_at: order.updated_at,
                 status: order.status,
+                payment_method: order.payment_method,
                 userId: order.userId,
                 items: [],
             };
@@ -403,7 +405,7 @@ const Orders = () => {
                                                                 onClick={() => openReturnModal(item)}
                                                                 title="Request refund or exchange"
                                                             >
-                                                                <FaUndo /> Return
+                                                                <FaUndo /> Return Request
                                                             </button>
                                                         );
                                                     })()}
@@ -440,7 +442,7 @@ const Orders = () => {
                                         <FaEye /> View Details
                                     </button>
 
-                                    {group.status === 'pending' && (
+                                    {group.status === 'pending' && group.payment_method === 'pay_later' && (
                                         <button
                                             className="odrs__btn odrs__btn-danger"
                                             onClick={() => handleCancel(group)}

@@ -312,7 +312,7 @@ const OrderDetailModal = ({ groupedOrder, onClose }) => {
                         Need help? <a href="#">Contact Support</a>
                     </p>
                     <div className="odtm__footer-actions">
-                        {(groupedOrder.status === 'pending' || groupedOrder.status === 'processing') && (
+                        {(groupedOrder.status === 'pending' || groupedOrder.status === 'processing') && groupedOrder.payment_method === 'pay_later' && (
                             <button className="odtm__button odtm__button-danger">Cancel Order</button>
                         )}
                         <button className="odtm__button odtm__button-primary" onClick={onClose}>Done</button>

@@ -324,20 +324,7 @@
     color: #1f93ff;
 }
 
-/* ── Inline rate / reviewed ── */
-.odrs__btn-rate-inline {
-    flex-shrink: 0;
-    white-space: nowrap;
-    padding: 4px 10px;
-    font-size: 12px;
-}
 
-.odrs__reviewed-inline {
-    flex-shrink: 0;
-    white-space: nowrap;
-    font-size: 11px;
-    padding: 3px 10px;
-}
 
 /* ── See more button ── */
 .odrs__see-more-btn {
@@ -430,11 +417,15 @@
     background: #e4dfff;
 }
 
+/* ── Inline rate / return ── */
+.odrs__btn-rate-inline,
 .odrs__btn-return-inline {
     flex-shrink: 0;
     white-space: nowrap;
     padding: 4px 10px;
     font-size: 12px;
+    min-width: 85px;
+    justify-content: center;
 }
 
 .odrs__reviewed-badge {
@@ -448,6 +439,13 @@
     padding: 5px 12px;
     border-radius: 6px;
     border: 1px solid #bbf7d0;
+}
+
+.odrs__reviewed-inline {
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-size: 11px;
+    padding: 3px 10px;
 }
 
 /* ────────────────── Loading ────────────────── */
@@ -550,6 +548,7 @@
     }
 
     .odrs__btn-rate-inline,
+    .odrs__btn-return-inline,
     .odrs__reviewed-inline {
         width: 100%;
         justify-content: center;

@@ -296,11 +296,21 @@ def update_return_request_status(request_id, new_status, admin_note=None,
             if stripe_client is None:
                 raise ValueError("Stripe client not provided")
 
-            refund_amount_cents = int(float(rr['refund_amount']) * 100)
             try:
+                # Lấy PaymentIntent từ Stripe để biết số tiền thực tế đã charge (đơn vị: cents)
+                pi = stripe_client.v1.payment_intents.retrieve(payment_intent)
+                charge_amount_cents = pi.amount_received
+
+                # Tính số tiền refund (round để tránh sai số khi nhân float với 100)
+                refund_amount_cents = int(round(float(rr['refund_amount']) * 100))
+
+                # Đảm bảo số tiền refund không vượt quá số tiền đã charge thực tế
+                # (để xử lý các order cũ bị làm tròn số tiền charge)
+                final_refund_cents = min(refund_amount_cents, charge_amount_cents)
+
                 refund_obj = stripe_client.v1.refunds.create(params={
                     "payment_intent": payment_intent,
-                    "amount": refund_amount_cents,
+                    "amount": final_refund_cents,
                 })
                 stripe_refund_id = refund_obj.id
             except Exception as e:

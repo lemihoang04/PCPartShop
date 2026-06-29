@@ -355,7 +355,6 @@ def build_context_block(docs: List[Any]) -> str:
         #     line += f"image: [![{doc_name(doc)}]({image_url})]({product_link})\n"
         # line += f"mo_ta={excerpt}"
         lines.append(line)
-    print("Lines : ", lines)
     return "\n\n".join(lines)
 
 
@@ -376,67 +375,100 @@ def _is_generic_keyword(keyword: str) -> bool:
         return True
 
     text = keyword.strip().lower()
-    words = [w for w in text.split() if w]
-    word_count = len(words)
-
-    # ================= SPECIFIC PATTERNS =================
-    specific_patterns = [
-        r'i[3579]-\d{3,5}[a-z]?',
-        r'core\s+i[3579]',
-        r'\b1[1-9]\d{3,4}[a-z]?\b',
-        r'ryzen\s*[3579]?\s*\d{3,5}[a-z0-9x]*',
-        r'\b[579]?(950|780|700)x3d?\b',
-        r'rtx\s*\d{3,4}\s*(ti|super|black)?',
-        r'rx\s*\d{3,4}\s*(xt|xtx)?',
-        r'\b(b|z|x|h)\d{3,4}[a-z]?[e]?\b',
-        r'\b(\d{2,4}gb?)\s*(ddr[45])',
-        r'(\d{3,4}gb?|\d{1,2}tb?)\s*(nvme|ssd|m\.2)',
-        r'\d{3,4}w?\s*(psu|nguồn)',
+    score = 0
+    model_patterns = [
+        # CPU
+        r"\bi[3579]\s*-?\s*\d{4,5}[a-z]*\b",          # i5-14600k
+        r"\bcore\s+i[3579]\s*\d{4,5}[a-z]*\b",
+        r"\bryzen\s*[3579]\s*\d{3,5}[a-z0-9]*\b",    # ryzen 7 7800x3d
+        r"\bthreadripper\s+\d+\b",
+        # GPU
+        r"\b(rtx|gtx)\s*\d{3,4}\s*(ti|super|xt)?\b",
+        r"\brx\s*\d{3,4}\s*(xt|xtx)?\b",
+        # Mainboard
+        r"\b[bzxh]\d{3,4}[a-z]*\b",                  # B650 Z790
+        # RAM
+        r"\b\d+\s*gb\s*(ddr[45])\b",
+        r"\bddr[45]\s*\d+\s*gb\b",
+        # SSD
+        r"\b\d+\s*(gb|tb)\s*(nvme|ssd|m\.2)\b",
+        # PSU
+        r"\b\d{3,4}\s*w\s*(psu|nguồn)?\b",
     ]
-
-    for pattern in specific_patterns:
-        if re.search(pattern, text):
-            return False
-
-    # ================= BRANDS (đầy đủ) =================
+    # model rõ -> gần như chắc chắn specific
+    if any(re.search(p, text) for p in model_patterns):
+        score += 5
+    # ================= BRAND =================
     brands = {
-        'intel', 'amd', 'nvidia', 'asus', 'msi', 'gigabyte', 'asrock',
-        'corsair', 'kingston', 'crucial', 'samsung', 'wd', 'seagate',
-        'noctua', 'bequiet', 'deepcool', 'thermalright', 'arctic',
-        'nzxt', 'lianli', 'fractal', 'coolermaster', 'silverstone',
-        'evga', 'zotac', 'galax', 'sapphire', 'powercolor'
+        "intel", "amd", "nvidia",
+        "asus", "msi", "gigabyte", "asrock",
+        "corsair", "kingston", "crucial",
+        "samsung", "wd", "seagate",
+        "noctua", "be quiet",
+        "deepcool", "thermalright",
+        "nzxt", "lian li",
+        "fractal", "cooler master",
+        "zotac", "galax", "sapphire"
     }
-    
-    brand_in_text = any(brand in text for brand in brands)
+    if any(b in text for b in brands):
+        score += 2
+    # ================= SPEC =================
+    if re.search(r"\b\d+\s*(gb|tb)\b", text):
+        score += 1
 
-    # Brand + số → specific
-    if brand_in_text and re.search(r'\d', text):
-        return False
+    if re.search(r"\b\d+\s*(mhz|mt/s|w)\b", text):
+        score += 1
 
-    # ================= GENERIC TERMS =================
-    generic_terms = {
-        "cpu", "gpu", "vga", "main", "mainboard", "ram", "ssd", "nvme",
-        "tản nhiệt", "cooler", "nguồn", "psu", "case", "vỏ máy",
-        "linh kiện", "pc", "build", "cấu hình", "gaming", "latest", 
-        "lastest", "modern", "best", "new", "mới", "tốt"
+    if re.search(r"\bcl\d+\b", text):
+        score += 1
+    # ================= GENERIC CATEGORY =================
+    categories = {
+        "cpu", "processor",
+        "gpu", "vga",
+        "ram", "memory",
+        "ssd", "nvme", "hdd",
+        "main", "mainboard",
+        "psu", "nguồn",
+        "case",
+        "cooler", "tản nhiệt","cpu_cooler",
+        "linh kiện",
+        "build",
+        "cấu hình",
+        "pc"
     }
+    if any(x in text for x in categories):
+        score -= 2
+    # ================= GENERATION / SERIES =================
+    generic_patterns = [
+        r"^ryzen\s*[3579]$",
+        r"^intel\s+core$",
+        r"^rtx\s*\d{2}\s*series$",
+        r"^rx\s*\d{4}\s*series$",
+        r"\b\d{2}th\s*gen\b",
+        r"\bgen\s*\d+\b",
+    ]
+    if any(re.search(p, text) for p in generic_patterns):
+        score -= 3
+    # query quá ngắn
+    if len(text.split()) <= 1:
+        score -= 2
+    # score >= 3 là đủ hẹp
+    return score < 3
+
+def extract_number(value):
+    if not value:
+        return 0
+
+    match = re.search(r"\d+", str(value))
+    return float(match.group()) if match else 0
+
+def extract_ram_speed(value):
+    if not value:
+        return 0.0
+
+    match = re.search(r"(\d+(?:\.\d+)?)$", str(value))
+    return float(match.group(1)) if match else 0.0
     
-    if any(term in text for term in generic_terms):
-        # Chỉ specific nếu có model rõ ràng (ít nhất 4 ký tự)
-        if re.search(r'(cpu|gpu|vga|ram|ssd|main)\s+[\w\d-]{4,}', text):
-            return False
-        return True
-
-    # ================= HEURISTICS =================
-    if word_count <= 3:
-        return True
-
-    # Chỉ toàn số + chữ → specific (như 7800x3d, 4070ti)
-    if re.search(r'\d', text) and len(re.sub(r'\s+', '', text)) <= 18:
-        return False
-
-    return True
-
 def ranked_search(query: str, filters: Optional[Dict[str, Any]], k: int = 8) -> List[Any]:
     results: List[Any] = []
     try:
@@ -553,7 +585,7 @@ def choose_doc_by_budget(
     min_price = target_price * (0.6 if is_pc_build else 0.9)
     within_budget = [c for c in candidates if c["price"] <= max_price and c["price"] >= min_price]
     extra = []
-    if len(within_budget) < 3:
+    if len(within_budget) < 8:
         extra = sorted(
             candidates,
             key=lambda x: abs(x["price"] - target_price)
@@ -567,23 +599,13 @@ def choose_doc_by_budget(
 
         within_budget.append(item)
 
-        if len(within_budget) >= 3:
+        if len(within_budget) >= 8:
             break
     print("within_budget count:", len(within_budget))
     if not within_budget and not is_pc_build:
         return []
     pool = within_budget if within_budget else candidates
-    # csv_file = "score_debug.csv"
-    # with open(csv_file, "w", newline="", encoding="utf-8") as f:
-    #     writer = csv.writer(f)
-    #     writer.writerow([
-    #         "doc_name",
-    #         "distance_score",
-    #         "over_budget_penalty",
-    #         "rank_penalty",
-    #         "perf_penalty",
-    #         "total_score"
-    #     ])
+
     def score(item: Dict[str, Any]) -> float:
         price = item["price"]
         rank = item["rank"]
@@ -599,33 +621,74 @@ def choose_doc_by_budget(
         # Rank penalty (mỗi bậc phạt 3%)
         rank_penalty = rank * 0.02
 
-        # --- TIÊU CHÍ MỚI (CPU & GPU) ---
         # Chuẩn hóa giá trị về khoảng [0, 1]. Hiệu năng càng cao, giá trị càng gần 1.
         norm_cpu_multi = item["cpu_multi"] / max_cpu_multi
         norm_cpu_single = item["cpu_single"] / max_cpu_single
         norm_gpu_g3d = item["gpu_g3d"] / max_gpu_g3d
-
+        doc = item.get("doc")
+        attrs_json = "{}"
+        if doc:
+            attrs_json = doc.metadata.get("attrs_json", "{}")
+            attrs_dict = json.loads(attrs_json)
         perf_weight = 1
         if category == "cpu":
             performance_bonus = (norm_cpu_multi * 0.6) + (norm_cpu_single * 0.4) 
         elif category == "gpu":
             performance_bonus = norm_gpu_g3d
+        elif category == "storage":
+            performance_bonus = 0
+            if attrs_dict.get("NVME", "").lower() == "yes":
+                performance_bonus += 0.6
+            interface = attrs_dict.get("Interface","").lower()
+            if "pcie 5" in interface:
+                performance_bonus += 0.4
+            elif "pcie 4" in interface:
+                performance_bonus += 0.3
+            elif "pcie 3" in interface:
+                performance_bonus += 0.2
+        elif category == "ram":
+            performance_bonus = 0.0
+            speed = extract_ram_speed(attrs_dict.get("Speed", ""))
+            latency = extract_number(attrs_dict.get("CAS Latency", ""))
+            if speed > 0:
+                speed_score = min(speed / 6400, 1.0)
+                performance_bonus += speed_score * 0.4
+            if latency > 0:
+                latency_score = max(min(1 - latency / 40, 1.0), 0.0)
+                performance_bonus += latency_score * 0.15
+            modules = attrs_dict.get("Modules", "")
+            m = re.search(r"(\d+)\s*x\s*(\d+)", modules, re.IGNORECASE)
+            if m:
+                number_of_ram = int(m.group(1))
+                ram_size = int(m.group(2))
+
+                total_gb = number_of_ram * ram_size
+                capacity_score = min(total_gb / 128, 1.0)
+                module_score = min(number_of_ram / 2, 1.0)
+                performance_bonus += capacity_score * 0.3
+                performance_bonus += module_score * 0.15
+        elif category == "psu":
+            efficiency_score = {
+            "80+ Bronze": 0.5,
+            "80+ Silver": 0.6,
+            "80+ Gold": 0.75,
+            "80+ Platinum": 0.9,
+            "80+ Titanium": 1.0,
+            }
+            efficiency_label = attrs_dict.get("Efficiency Rating", "")
+            performance_bonus = efficiency_score.get(efficiency_label, 0)
+        elif category == "cpu_cooler":
+            performance_bonus = 0
+            if attrs_dict.get("Water Cooled", "").lower() == "yes":
+                performance_bonus = 0.6
+            noise = extract_number(attrs_dict.get("Noise Level", ""))
+            if noise:
+                performance_bonus += (1 - min(noise / 40, 1)) * 0.4
         else:
             performance_bonus = 1
         
         perf_penalty = (1.0 - performance_bonus) * perf_weight    
         total_score = distance_score + over_budget_penalty + rank_penalty + perf_penalty
-
-        # with open(csv_file, "a", newline="", encoding="utf-8") as f:
-        #     writer = csv.writer(f)
-        #     writer.writerow([
-        #         doc_name(item["doc"]),
-        #         distance_score,
-        #         over_budget_penalty,
-        #         rank_penalty,
-        #         perf_penalty,
-        #         total_score
-        #     ])
 
         return total_score
 
@@ -1068,7 +1131,7 @@ def build_pc_recommendation(
         if category in generic_parts:
             k=40
         else:
-            k=80
+            k=100
         docs = ranked_search(query, {"category": category}, k=k)
 
         # --- Lọc tương thích bằng Python trên attrs_json ---

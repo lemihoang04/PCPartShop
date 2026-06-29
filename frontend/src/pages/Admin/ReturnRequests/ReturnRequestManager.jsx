@@ -5,6 +5,7 @@ import {
     FaUndo, FaEye, FaCheck, FaTimes, FaArrowRight,
     FaChevronDown, FaChevronUp,
 } from "react-icons/fa";
+import ImageModal from "../../../components/ImageModal/ImageModal";
 import "./ReturnRequestManager.css";
 
 // ── Status flow ──────────────────────────────────────────────
@@ -61,6 +62,9 @@ const ReturnRequestManager = () => {
         open: false, id: null, newStatus: null, label: "", danger: false,
     });
     const [acting, setActing] = useState(false);
+
+    // Image viewer modal
+    const [imageViewer, setImageViewer] = useState({ open: false, images: [], index: 0 });
 
     // ── Fetch ────────────────────────────────────────────────
     const loadData = async () => {
@@ -380,7 +384,7 @@ const ReturnRequestManager = () => {
                                                 className="rrm-modal-img"
                                                 src={url}
                                                 alt={`evidence-${i + 1}`}
-                                                onClick={() => window.open(url, "_blank")}
+                                                onClick={() => setImageViewer({ open: true, images: detailItem.images.split(";").filter(Boolean), index: i })}
                                                 title="Click to open full size"
                                             />
                                         ))}
@@ -469,6 +473,15 @@ const ReturnRequestManager = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* ── Image Viewer Modal ── */}
+            {imageViewer.open && (
+                <ImageModal
+                    images={imageViewer.images}
+                    initialIndex={imageViewer.index}
+                    onClose={() => setImageViewer({ open: false, images: [], index: 0 })}
+                />
             )}
         </div>
     );
