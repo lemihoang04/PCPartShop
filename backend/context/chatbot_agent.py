@@ -18,170 +18,18 @@ import pickle
 from langchain_community.retrievers import BM25Retriever
 from langchain_classic.retrievers import EnsembleRetriever
 
-# =====================================================
-# PRICE SEGMENT DEFINITION
-# =====================================================
-def price_segment(category: str, price: float) -> str:
-    """Phân loại phân khúc giá theo từng category (đơn vị: USD)."""
-    THRESHOLDS: dict[str, tuple[float, float, float]] = {
-        "cpu":         (120, 300, 700),
-        "gpu":         (200, 550, 1000),
-        "ram":         (40, 120, 250),
-        "mainboard":   (80, 200, 400),
-        "psu":         (60, 140, 220),
-        "storage":     (40, 120, 280),
-        "case":        (50, 120, 250),
-        "cpu_cooler":  (30, 100, 200),
-    }
-    budget_max, mid_max, upper_mid_max = THRESHOLDS.get(
-        category, (50, 150, 300)
-    )
-    if price < budget_max:
-        return "budget"
-    elif price < mid_max:
-        return "mid_range"
-    elif price < upper_mid_max:
-        return "upper_mid"
-    else:
-        return "premium"
+from context.helper import (
+    price_segment, check_filter_match, build_filter, detect_category,
+    detect_budget, as_vnd, vnd, doc_name, doc_category, doc_price,
+    doc_uid, doc_image, dedupe_docs, build_context_block, format_markdown_output,
+    _is_generic_keyword, extract_number, extract_ram_speed, _extract_ddr_type,
+    _extract_number, _extract_mm, doc_filtered_attrs, extract_product_ids_from_text,
+    build_json_response, _extract_compat_values,
+    CATEGORY_KEYWORDS, VITAL_ATTRS, COMPATIBILITY_ATTRS, MIN_BUDGETS_FOR_BUILD_PC, MAX_BUDGETS_FOR_BUILD_PC,
+    _COMPAT_KEY_MAP, _COMPAT_KEY_ALIASES
+)
 
 
-
-
-
-def check_filter_match(doc: Any, filters: Optional[Dict[str, Any]]) -> bool:
-    if not filters:
-        return True
-    metadata = getattr(doc, "metadata", {}) or {}
-    def match_condition(cond: Dict[str, Any]) -> bool:
-        for k, v in cond.items():
-            if k == "$and":
-                return all(match_condition(c) for c in v)
-            if k == "$or":
-                return any(match_condition(c) for c in v)
-            doc_val = metadata.get(k)
-            if isinstance(v, dict):
-                for op, op_val in v.items():
-                    if op == "$gte":
-                        if doc_val is None or doc_val < op_val: return False
-                    elif op == "$lte":
-                        if doc_val is None or doc_val > op_val: return False
-                    elif op == "$eq":
-                        if doc_val != op_val: return False
-            else:
-                if doc_val != v: return False
-        return True
-    return match_condition(filters)
-
-# =====================================================
-# CONFIG
-# =====================================================
-
-CATEGORY_KEYWORDS = {
-    "cpu": ["cpu", "vi xu ly", "vi xử lý", "chip"],
-    "gpu": ["gpu", "vga", "card man hinh", "card màn hình"],
-    "psu": ["psu", "nguon", "nguồn"],
-    "ram": ["ram"],
-    "storage": ["ssd", "hdd", "nvme", "storage", "o cung", "ổ cứng"],
-    "mainboard": ["main", "mainboard", "bo mach", "bo mạch", "motherboard"],
-    "cpu_cooler": ["cpu_cooler","cooler", "tan", "tản"],
-    "case": ["case", "vo may", "vỏ máy"],
-}
-
-VITAL_ATTRS: Dict[str, List[str]] = {
-    "cpu": [
-        "Core Count",
-        "Performance Core Clock",
-        "Performance Core Boost Clock",
-        "TDP",
-        "L3 Cache",
-        "Memory Type",
-        "Integrated Graphics",
-        "Thread Count"
-    ],
-    "gpu": [
-        "Chipset",
-        "Memory",
-        "Memory Type",
-        "Boost Clock",
-        "TDP",
-        "Length",
-        "External Power",
-    ],
-    "ram": [
-        "Capacity",
-        "Modules",
-        "Type",
-        "Speed",
-        "CAS Latency",
-    ],
-    "mainboard": [
-        "Socket/CPU",
-        "Form Factor",
-        "Memory Type",
-        "Memory Max",
-        "Memory Slots",
-        "M.2 Slots",
-        "Wireless Networking",
-    ],
-    "psu": [
-        "Wattage",
-        "Efficiency Rating",
-        "Modular",
-    ],
-    "storage": [
-        "Capacity",
-        "Type",
-        "Interface",
-        "NVME",
-        "Form Factor",
-    ],
-    "case": [
-        "Type",
-        "Motherboard Form Factor",
-        "Maximum Video Card Length",
-    ],
-    "cpu_cooler": [
-        "Water Cooled",
-        "Height",
-        "Noise Level",
-        "Socket/CPU",
-    ],
-}
-
-COMPATIBILITY_ATTRS: Dict[tuple[str, str], List[str]] = {
-    ("cpu", "mainboard"): ["Socket"],
-    ("cpu", "cpu_cooler"): ["Socket"],
-    ("cpu", "ram"): ["Memory Type"],
-    
-    ("mainboard", "cpu"): ["Socket/CPU"],
-    ("mainboard", "ram"): ["Memory Type"],
-    ("mainboard", "case"): ["Form Factor"],
-    
-    ("ram", "mainboard"): ["Type", "Memory Type"],
-    ("ram", "cpu"): ["Type", "Memory Type"],
-    
-    ("gpu", "case"): ["Length"],
-    
-    ("case", "mainboard"): ["Motherboard Form Factor"],
-    ("case", "gpu"): ["Maximum Video Card Length"],
-    
-    ("cpu_cooler", "cpu"): ["CPU Socket", "Socket"],
-}
-
-MIN_BUDGETS_FOR_BUILD_PC = {
-    "office": 300,
-    "gaming": 600,
-    "creator": 900,
-    "workstation": 1200,
-}
-
-MAX_BUDGETS_FOR_BUILD_PC  = {
-    "office": 1500,
-    "gaming": 10000,
-    "creator": 15000,
-    "workstation": 20000,
-}
 # =====================================================
 # STATE
 # =====================================================
@@ -191,283 +39,6 @@ class AgentState(TypedDict):
 
 
 # =====================================================
-# HELPERS
-# =====================================================
-
-def build_filter(
-    product_type: Optional[str] = None,
-    min_price: Optional[int] = None,
-    max_price: Optional[int] = None
-) -> Optional[Dict[str, Any]]:
-
-    conditions = []
-
-    # category
-    if product_type:
-        conditions.append({
-            "category": product_type.strip().lower()
-        })
-
-    # price >=
-    if min_price is not None:
-        conditions.append({
-            "price": {"$gte": min_price}
-        })
-
-    # price <=
-    if max_price is not None:
-        conditions.append({
-            "price": {"$lte": max_price}
-        })
-
-    # không có filter
-    if not conditions:
-        return None
-
-    # chỉ 1 điều kiện → không cần $and
-    if len(conditions) == 1:
-        return conditions[0]
-
-    # nhiều điều kiện → dùng $and
-    return {
-        "$and": conditions
-    }
-
-def detect_category(text: str) -> Optional[str]:
-    text_low = text.lower()
-    for category, keywords in CATEGORY_KEYWORDS.items():
-        for keyword in keywords:
-            if keyword in text_low:
-                return category
-    return None
-
-
-def detect_budget(text: str) -> Optional[int]:
-    text_low = text.lower().replace(",", ".")
-
-    # 20.5 triệu, 20tr5
-    match = re.search(r"(\d+(?:\.\d+)?)\s*(triệu|tr|củ)", text_low)
-    if match:
-        return int(float(match.group(1)) * 1_000_000)
-
-    # 20tr5
-    match = re.search(r"(\d+)tr(\d+)", text_low)
-    if match:
-        return int((int(match.group(1)) + int(match.group(2)) / 10) * 1_000_000)
-
-    # 500k
-    match = re.search(r"(\d+(?:\.\d+)?)\s*k\b", text_low)
-    if match:
-        return int(float(match.group(1)) * 1_000)
-
-    # 20,000,000
-    match = re.search(r"(\d{1,3}(?:[\.,]\d{3})+)", text_low)
-    if match:
-        cleaned = re.sub(r"[^0-9]", "", match.group(1))
-        return int(cleaned)
-
-    return None
-
-
-def as_vnd(value: Any) -> Optional[int]:
-    if value is None:
-        return None
-    if isinstance(value, (int, float)):
-        return int(value)
-
-    digits = re.sub(r"[^0-9]", "", str(value))
-    return int(digits) if digits else None
-
-
-def vnd(value: Optional[int]) -> str:
-    if value is None:
-        return "N/A"
-    return f"{value:,}đ".replace(",", ".")
-
-
-def doc_name(doc: Any) -> str:
-    metadata = getattr(doc, "metadata", {}) or {}
-    for key in ("name", "title", "product_name"):
-        if metadata.get(key):
-            return str(metadata[key])
-
-    content = (getattr(doc, "page_content", "") or "").strip().splitlines()
-    return content[0][:120] if content else "San pham khong ro ten"
-
-
-def doc_category(doc: Any) -> str:
-    metadata = getattr(doc, "metadata", {}) or {}
-    return str(metadata.get("category") or "unknown")
-
-
-def doc_price(doc: Any) -> Optional[int]:
-    metadata = getattr(doc, "metadata", {}) or {}
-    return (metadata.get("price_vnd") or metadata.get("price"))
-
-
-def doc_uid(doc: Any) -> str:
-    metadata = getattr(doc, "metadata", {}) or {}
-    for key in ("product_id", "id", "sku", "slug", "name"):
-        if metadata.get(key):
-            return str(metadata[key])
-    return doc_name(doc)
-
-
-def doc_image(doc: Any) -> Optional[str]:
-    metadata = getattr(doc, "metadata", {}) or {}
-    image = metadata.get("image") or metadata.get("image_url")
-    print("Doc image metadata:", image)
-    return str(image) if image else None
-
-
-def dedupe_docs(docs: List[Any]) -> List[Any]:
-    seen = set()
-    output: List[Any] = []
-    for doc in docs:
-        uid = doc_uid(doc)
-        if uid in seen:
-            continue
-        seen.add(uid)
-        output.append(doc)
-    return output
-
-
-def build_context_block(docs: List[Any]) -> str:
-    if not docs:
-        return "Khong co du lieu san pham phu hop."
-
-    lines: List[str] = []
-    for idx, doc in enumerate(docs, start=1):
-        product_id = doc_uid(doc)
-        # content = (getattr(doc, "page_content", "") or "").replace("\n", " ").strip()
-        # excerpt = content[:300] if content else "Khong co mo ta"
-        # line = (
-        #     f"[{idx}] [{doc_name(doc)}]({product_link}) | "
-        #     f"category={doc_category(doc)} | price={vnd(doc_price(doc))}\n"
-        # )
-        attrs = doc_filtered_attrs(doc)
-        line = (
-            f"[{idx}]: [{doc_name(doc)}] | "
-            f"category={doc_category(doc)} | product_id={product_id}"
-            f"Thông số: {attrs}"
-        )
-        # if image_url:
-        #     line += f"image: [![{doc_name(doc)}]({image_url})]({product_link})\n"
-        # line += f"mo_ta={excerpt}"
-        lines.append(line)
-    return "\n\n".join(lines)
-
-
-def format_markdown_output(text: str) -> str:
-    if not text:
-        return text
-
-    cleaned = text.strip()
-    if not cleaned:
-        return cleaned
-
-
-
-    return cleaned
-
-def _is_generic_keyword(keyword: str) -> bool:
-    if not keyword or not keyword.strip():
-        return True
-
-    text = keyword.strip().lower()
-    score = 0
-    model_patterns = [
-        # CPU
-        r"\bi[3579]\s*-?\s*\d{4,5}[a-z]*\b",          # i5-14600k
-        r"\bcore\s+i[3579]\s*\d{4,5}[a-z]*\b",
-        r"\bryzen\s*[3579]\s*\d{3,5}[a-z0-9]*\b",    # ryzen 7 7800x3d
-        r"\bthreadripper\s+\d+\b",
-        # GPU
-        r"\b(rtx|gtx)\s*\d{3,4}\s*(ti|super|xt)?\b",
-        r"\brx\s*\d{3,4}\s*(xt|xtx)?\b",
-        # Mainboard
-        r"\b[bzxh]\d{3,4}[a-z]*\b",                  # B650 Z790
-        # RAM
-        r"\b\d+\s*gb\s*(ddr[45])\b",
-        r"\bddr[45]\s*\d+\s*gb\b",
-        # SSD
-        r"\b\d+\s*(gb|tb)\s*(nvme|ssd|m\.2)\b",
-        # PSU
-        r"\b\d{3,4}\s*w\s*(psu|nguồn)?\b",
-    ]
-    # model rõ -> gần như chắc chắn specific
-    if any(re.search(p, text) for p in model_patterns):
-        score += 5
-    # ================= BRAND =================
-    brands = {
-        "intel", "amd", "nvidia",
-        "asus", "msi", "gigabyte", "asrock",
-        "corsair", "kingston", "crucial",
-        "samsung", "wd", "seagate",
-        "noctua", "be quiet",
-        "deepcool", "thermalright",
-        "nzxt", "lian li",
-        "fractal", "cooler master",
-        "zotac", "galax", "sapphire"
-    }
-    if any(b in text for b in brands):
-        score += 2
-    # ================= SPEC =================
-    if re.search(r"\b\d+\s*(gb|tb)\b", text):
-        score += 1
-
-    if re.search(r"\b\d+\s*(mhz|mt/s|w)\b", text):
-        score += 1
-
-    if re.search(r"\bcl\d+\b", text):
-        score += 1
-    # ================= GENERIC CATEGORY =================
-    categories = {
-        "cpu", "processor",
-        "gpu", "vga",
-        "ram", "memory",
-        "ssd", "nvme", "hdd",
-        "main", "mainboard",
-        "psu", "nguồn",
-        "case",
-        "cooler", "tản nhiệt","cpu_cooler",
-        "linh kiện",
-        "build",
-        "cấu hình",
-        "pc"
-    }
-    if any(x in text for x in categories):
-        score -= 2
-    # ================= GENERATION / SERIES =================
-    generic_patterns = [
-        r"^ryzen\s*[3579]$",
-        r"^intel\s+core$",
-        r"^rtx\s*\d{2}\s*series$",
-        r"^rx\s*\d{4}\s*series$",
-        r"\b\d{2}th\s*gen\b",
-        r"\bgen\s*\d+\b",
-    ]
-    if any(re.search(p, text) for p in generic_patterns):
-        score -= 3
-    # query quá ngắn
-    if len(text.split()) <= 1:
-        score -= 2
-    # score >= 3 là đủ hẹp
-    return score < 3
-
-def extract_number(value):
-    if not value:
-        return 0
-
-    match = re.search(r"\d+", str(value))
-    return float(match.group()) if match else 0
-
-def extract_ram_speed(value):
-    if not value:
-        return 0.0
-
-    match = re.search(r"(\d+(?:\.\d+)?)$", str(value))
-    return float(match.group(1)) if match else 0.0
     
 def ranked_search(query: str, filters: Optional[Dict[str, Any]], k: int = 8) -> List[Any]:
     results: List[Any] = []
@@ -559,9 +130,7 @@ def choose_doc_by_budget(
         price = doc_price(doc)
         if price is None or price <= 0:
             continue
-            
-        # Trích xuất an toàn (Giả định trả về số, nếu không có hoặc None thì mặc định là 0)
-        # Thay đổi cách lấy thuộc tính tùy thuộc vào cấu trúc doc của bạn (ví dụ: doc.get() hoặc doc.cpu_multi_thread)
+
         cpu_multi = float(doc.metadata.get('cpu_multi_thread', 0) or 0)
         cpu_single = float(doc.metadata.get('cpu_single_thread', 0) or 0)
         gpu_g3d = float(doc.metadata.get('gpu_g3d', 0) or 0)
@@ -607,88 +176,59 @@ def choose_doc_by_budget(
     pool = within_budget if within_budget else candidates
 
     def score(item: Dict[str, Any]) -> float:
-        price = item["price"]
-        rank = item["rank"]
+        price, rank = item["price"], item["rank"]
 
-        # --- TIÊU CHÍ CŨ ---
-        # Độ lệch tuyệt đối so với target
-        distance_score = abs(price - target_price) / target_price
+        # 1. PRICE SUITABILITY (0 = tốt nhất)
+        distance_score = min(abs(price - target_price) / target_price, 1.0)
+        over_budget_score = min(max(price - target_price, 0) / target_price, 1.0)
+        price_score = (0.35 * distance_score) + (0.65 * over_budget_score)
 
-        # Phạt lũy tiến nếu vượt target
-        over_ratio = max(price - target_price, 0) / target_price
-        over_budget_penalty = over_ratio * 1
-
-        # Rank penalty (mỗi bậc phạt 3%)
-        rank_penalty = rank * 0.02
-
-        # Chuẩn hóa giá trị về khoảng [0, 1]. Hiệu năng càng cao, giá trị càng gần 1.
+        # 2. PERFORMANCE SCORE (0 = tốt nhất)
         norm_cpu_multi = item["cpu_multi"] / max_cpu_multi
         norm_cpu_single = item["cpu_single"] / max_cpu_single
         norm_gpu_g3d = item["gpu_g3d"] / max_gpu_g3d
-        doc = item.get("doc")
-        attrs_json = "{}"
-        if doc:
-            attrs_json = doc.metadata.get("attrs_json", "{}")
-            attrs_dict = json.loads(attrs_json)
-        perf_weight = 1
+
+        doc = item["doc"]
+        attrs_dict = json.loads(doc.metadata.get("attrs_json", "{}"))
+        performance_bonus = 1.0
+
         if category == "cpu":
-            performance_bonus = (norm_cpu_multi * 0.6) + (norm_cpu_single * 0.4) 
+            performance_bonus = (norm_cpu_multi * 0.6) + (norm_cpu_single * 0.4)
         elif category == "gpu":
             performance_bonus = norm_gpu_g3d
         elif category == "storage":
-            performance_bonus = 0
-            if attrs_dict.get("NVME", "").lower() == "yes":
-                performance_bonus += 0.6
-            interface = attrs_dict.get("Interface","").lower()
-            if "pcie 5" in interface:
-                performance_bonus += 0.4
-            elif "pcie 4" in interface:
-                performance_bonus += 0.3
-            elif "pcie 3" in interface:
-                performance_bonus += 0.2
+            performance_bonus = 0.6 if attrs_dict.get("NVME", "").lower() == "yes" else 0.0
+            interface = attrs_dict.get("Interface", "").lower()
+            if "pcie 5" in interface: performance_bonus += 0.4
+            elif "pcie 4" in interface: performance_bonus += 0.3
+            elif "pcie 3" in interface: performance_bonus += 0.2
         elif category == "ram":
             performance_bonus = 0.0
             speed = extract_ram_speed(attrs_dict.get("Speed", ""))
             latency = extract_number(attrs_dict.get("CAS Latency", ""))
-            if speed > 0:
-                speed_score = min(speed / 6400, 1.0)
-                performance_bonus += speed_score * 0.4
-            if latency > 0:
-                latency_score = max(min(1 - latency / 40, 1.0), 0.0)
-                performance_bonus += latency_score * 0.15
-            modules = attrs_dict.get("Modules", "")
-            m = re.search(r"(\d+)\s*x\s*(\d+)", modules, re.IGNORECASE)
-            if m:
-                number_of_ram = int(m.group(1))
-                ram_size = int(m.group(2))
+            
+            if speed: performance_bonus += min(speed / 6400, 1.0) * 0.4
+            if latency: performance_bonus += max(min(1 - latency / 40, 1.0), 0.0) * 0.15
 
-                total_gb = number_of_ram * ram_size
-                capacity_score = min(total_gb / 128, 1.0)
-                module_score = min(number_of_ram / 2, 1.0)
-                performance_bonus += capacity_score * 0.3
-                performance_bonus += module_score * 0.15
+            m = re.search(r"(\d+)\s*x\s*(\d+)", attrs_dict.get("Modules", ""))
+            if m:
+                module_count, module_size = int(m.group(1)), int(m.group(2))
+                total_capacity = module_count * module_size
+                performance_bonus += min(total_capacity / 128, 1.0) * 0.3
+                performance_bonus += min(module_count / 2, 1.0) * 0.15
         elif category == "psu":
-            efficiency_score = {
-            "80+ Bronze": 0.5,
-            "80+ Silver": 0.6,
-            "80+ Gold": 0.75,
-            "80+ Platinum": 0.9,
-            "80+ Titanium": 1.0,
-            }
-            efficiency_label = attrs_dict.get("Efficiency Rating", "")
-            performance_bonus = efficiency_score.get(efficiency_label, 0)
+            efficiency_score = {"80+ Bronze": 0.5, "80+ Silver": 0.6, "80+ Gold": 0.7, "80+ Platinum": 0.9, "80+ Titanium": 1.0}
+            performance_bonus = efficiency_score.get(attrs_dict.get("Efficiency Rating", ""), 0)
         elif category == "cpu_cooler":
-            performance_bonus = 0
-            if attrs_dict.get("Water Cooled", "").lower() == "yes":
-                performance_bonus = 0.6
+            performance_bonus = 0.6 if attrs_dict.get("Water Cooled", "").lower() == "yes" else 0.0
             noise = extract_number(attrs_dict.get("Noise Level", ""))
-            if noise:
-                performance_bonus += (1 - min(noise / 40, 1)) * 0.4
-        else:
-            performance_bonus = 1
-        
-        perf_penalty = (1.0 - performance_bonus) * perf_weight    
-        total_score = distance_score + over_budget_penalty + rank_penalty + perf_penalty
+            if noise: performance_bonus += (1 - min(noise / 40, 1)) * 0.4
+
+        performance_score = 1.0 - min(performance_bonus, 1.0)
+
+        # 3. SEARCH RELEVANCE & FINAL SCORE
+        relevance_score = min(rank / 40.0, 1.0)
+        total_score = (0.45 * price_score) + (0.35 * performance_score) + (0.2 * relevance_score)
 
         return total_score
 
@@ -697,12 +237,6 @@ def choose_doc_by_budget(
     return [item["doc"] for item in ranked_pool]
 
  
-def _extract_ddr_type(value: str) -> Optional[str]:
-    """Trích xuất DDR generation từ chuỗi như 'DDR5-5600' → 'DDR5', 'DDR4-3200' → 'DDR4'."""
-    m = re.match(r"(DDR\d+)", str(value).strip(), re.IGNORECASE)
-    if m:
-        return m.group(1).upper()
-    return None
 
 
 def update_compat_info(compat_info: Dict[str, Any], chosen: Any, category: str) -> None:
@@ -778,7 +312,7 @@ def resolve_preferred_parts(
             chosen = docs[0]
             locked[resolved_cat] = chosen
             update_compat_info(compat_info, chosen, resolved_cat)
-            print(f"[preferred] Locked {resolved_cat}: {doc_name(chosen)} - {vnd(doc_price(chosen))}")
+            print(f"[preferred] Locked {resolved_cat}: {doc_name(chosen)} - {(doc_price(chosen))}")
         else:
             print(f"[preferred] Không tìm thấy '{keyword_clean}' cho category '{resolved_cat}'")
 
@@ -786,29 +320,6 @@ def resolve_preferred_parts(
 
 
 
-def _extract_number(value: Any) -> Optional[float]:
-    """Trích xuất giá trị số đầu tiên tìm thấy trong chuỗi hoặc trả về float/int nếu đã là số."""
-    if value is None:
-        return None
-    if isinstance(value, (int, float)):
-        return float(value)
-    m = re.search(r"([\d]+(?:[.,]\d+)?)", str(value))
-    if m:
-        return float(m.group(1).replace(",", "."))
-    return None
-
-
-def _extract_mm(value: str) -> Optional[float]:
-    """Trích xuất giá trị số mm từ chuỗi như '267 mm', '400 mm / 15.748\"', '15.748\"'."""
-    # Ưu tiên tìm giá trị mm trước
-    m = re.search(r"([\d]+(?:[.,]\d+)?)\s*mm", str(value), re.IGNORECASE)
-    if m:
-        return float(m.group(1).replace(",", "."))
-    # Fallback: tìm số bất kỳ đầu tiên
-    m = re.search(r"([\d]+(?:[.,]\d+)?)", str(value))
-    if m:
-        return float(m.group(1).replace(",", "."))
-    return None
 
 
 def filter_docs_by_compat(
@@ -1176,7 +687,7 @@ def build_pc_recommendation(
     if not selected_parts:
         return "Không tìm được cấu hình phù hợp với ngân sách hiện tại."
 
-    lines = [f"Đề xuất cấu hình theo ngân sách {vnd(budget)}, Cấu hình dưới đây đã được kiểm tra tính tương thích giữa các linh kiện:"]
+    lines = [f"Đề xuất cấu hình theo ngân sách {(budget)}, Cấu hình dưới đây đã được kiểm tra tính tương thích giữa các linh kiện:"]
     for idx, doc in enumerate(selected_parts, start=1):
         product_id = doc_uid(doc)
         cat = doc_category(doc)
@@ -1191,41 +702,120 @@ def build_pc_recommendation(
     lines.append(f"\nTổng chi phí ước tính: {total_cost}")
     return "\n".join(lines)
 
-def doc_filtered_attrs(doc: Any) -> str:
-    metadata = getattr(doc, "metadata", {}) or {}
-    attrs_str = metadata.get("attrs_json", "{}")
-    category = metadata.get("category", "")
-    try:
-        attrs = json.loads(attrs_str)
-    except Exception:
-        attrs = {}
-        
-    if category in VITAL_ATTRS:
-        filtered = {k: v for k, v in attrs.items() if k in VITAL_ATTRS[category]}
-        return json.dumps(filtered, ensure_ascii=False)
-    
-    return attrs_str
-
-def extract_product_ids_from_text(text: str) -> List[str]:
-    product_ids = re.findall(r"/product-info/([^\)\s]+)", text or "")
-    return list(dict.fromkeys(product_ids))
 
 
-def build_json_response(message: str, intent: str = "") -> str:
-    product_ids = extract_product_ids_from_text(message)
-    product_groups = []
-    if product_ids:
-        product_groups.append({
-            "label": "",
-            "order": 1,
-            "product_ids": product_ids,
-        })
-    payload = {
-        "message": message,
-        "product_groups": product_groups,
-        "intent": intent,
-    }
-    return json.dumps(payload, ensure_ascii=False)
+def _compare_compat_pair(
+    src_vals: Dict[str, str], src_cat: str,
+    tgt_attrs: Dict[str, Any], tgt_cat: str,
+    constraint_keys: List[str],
+) -> tuple[List[str], List[str]]:
+    """Kiểm tra ràng buộc 1 chiều (src -> tgt). Trả về (matches, issues)."""
+    matches, issues = [], []
+    for ck in constraint_keys:
+        canon = _COMPAT_KEY_MAP.get(ck)
+        if not canon:
+            continue
+        expected = src_vals.get(canon)
+        if not expected:
+            continue
+
+        # Tìm giá trị thực tế trong target attrs
+        actual, matched_alias = None, None
+        for alias in _COMPAT_KEY_ALIASES.get(canon, [canon]):
+            if alias in tgt_attrs:
+                actual, matched_alias = str(tgt_attrs[alias]), alias
+                break
+        if actual is None:
+            continue
+
+        # RAM Speed -> extract DDR type
+        if matched_alias == "Speed" and canon == "Memory Type":
+            ddr = _extract_ddr_type(actual)
+            actual = ddr if ddr else actual
+
+        exp, act = expected.strip(), actual.strip()
+
+        # Length: so sánh số mm
+        if canon == "Length":
+            mm_src, mm_tgt = _extract_mm(exp), _extract_mm(act)
+            if mm_src is not None and mm_tgt is not None:
+                if src_cat == "gpu" and mm_src > mm_tgt:
+                    issues.append(f"Chieu dai GPU ({mm_src}mm) vuot qua gioi han Case ({mm_tgt}mm)")
+                elif tgt_cat == "gpu" and mm_tgt > mm_src:
+                    issues.append(f"Chieu dai GPU ({mm_tgt}mm) vuot qua gioi han Case ({mm_src}mm)")
+                else:
+                    matches.append(f"Length tuong thich: '{exp}' va '{act}'")
+            continue
+
+        # Socket / Memory Type / Form Factor: contains (case-insensitive)
+        if exp.lower() in act.lower() or act.lower() in exp.lower():
+            matches.append(f"{canon} tuong thich: '{exp}' va '{act}'")
+        else:
+            issues.append(f"{canon} khong tuong thich: '{exp}' vs '{act}'")
+
+    return matches, issues
+
+
+def _check_all_compatibility(docs: List[Any], not_found: List[str]) -> str:
+    """Kiểm tra tương thích pairwise giữa danh sách docs. Trả về report dạng text."""
+    lines: List[str] = ["San pham duoc kiem tra:"]
+    for idx, doc in enumerate(docs, start=1):
+        lines.append(f"  {idx}. {doc_name(doc)} (category: {doc_category(doc)}, product_id: {doc_uid(doc)})")
+    if not_found:
+        lines.append(f"\nKhong tim thay: {', '.join(not_found)}")
+    lines.append("")
+
+    has_any, all_ok = False, True
+
+    for i in range(len(docs)):
+        for j in range(i + 1, len(docs)):
+            doc_a, doc_b = docs[i], docs[j]
+            cat_a, cat_b = doc_category(doc_a), doc_category(doc_b)
+
+            keys_ab = COMPATIBILITY_ATTRS.get((cat_a, cat_b), [])
+            keys_ba = COMPATIBILITY_ATTRS.get((cat_b, cat_a), [])
+            if not keys_ab and not keys_ba:
+                continue
+
+            attrs_a = json.loads(getattr(doc_a, "metadata", {}).get("attrs_json", "{}"))
+            attrs_b = json.loads(getattr(doc_b, "metadata", {}).get("attrs_json", "{}"))
+            vals_a = _extract_compat_values(attrs_a, cat_a)
+            vals_b = _extract_compat_values(attrs_b, cat_b)
+
+            matches, issues = [], []
+            if keys_ab:
+                m, iss = _compare_compat_pair(vals_a, cat_a, attrs_b, cat_b, keys_ab)
+                matches += m; issues += iss
+            if keys_ba:
+                m, iss = _compare_compat_pair(vals_b, cat_b, attrs_a, cat_a, keys_ba)
+                matches += m; issues += iss
+
+            # Dedup
+            matches = list(dict.fromkeys(matches))
+            issues = list(dict.fromkeys(issues))
+            if not matches and not issues:
+                continue
+
+            has_any = True
+            ok = len(issues) == 0
+            if not ok:
+                all_ok = False
+
+            lines.append(f"--- {doc_name(doc_a)} <-> {doc_name(doc_b)} ---")
+            lines.append(f"Ket qua: {'Tuong thich' if ok else 'Khong tuong thich'}")
+            for m in matches:
+                lines.append(f"  [OK] {m}")
+            for iss in issues:
+                lines.append(f"  [FAIL] {iss}")
+            lines.append("")
+
+    if not has_any:
+        lines.append("Khong co rang buoc tuong thich giua cac linh kien duoc cung cap.")
+    else:
+        lines.append(f"Tong ket: {'Tat ca linh kien deu tuong thich.' if all_ok else 'Co mot so van de tuong thich can luu y.'}")
+
+    return "\n".join(lines)
+
 # =====================================================
 # TOOLS
 # =====================================================
@@ -1510,154 +1100,6 @@ def find_compatible_products(provided_products: List[str], target_categories: Li
             
     return "\n".join(results)
 
-
-def _extract_compat_values(attrs: Dict[str, Any], category: str) -> Dict[str, str]:
-    """Trích xuất các giá trị tương thích từ attrs, logic giống update_compat_info."""
-    info: Dict[str, str] = {}
-    for k, v in attrs.items():
-        if k in ["Socket/CPU", "Socket", "CPU Socket"]:
-            info["Socket"] = str(v)
-        elif k in ["Type", "Memory Type"] and category in ["ram", "cpu", "mainboard"]:
-            info["Memory Type"] = str(v)
-        elif k == "Speed" and category == "ram":
-            ddr = _extract_ddr_type(str(v))
-            if ddr and "Memory Type" not in info:
-                info["Memory Type"] = ddr
-        elif k in ["Motherboard Form Factor", "Form Factor"] and category not in ["ram", "storage"]:
-            info["Form Factor"] = str(v)
-        elif k in ["Length", "Maximum Video Card Length"]:
-            info["Length"] = str(v)
-    return info
-
-
-_COMPAT_KEY_MAP = {
-    "Socket": "Socket", "Socket/CPU": "Socket", "CPU Socket": "Socket",
-    "Memory Type": "Memory Type", "Type": "Memory Type",
-    "Form Factor": "Form Factor", "Motherboard Form Factor": "Form Factor",
-    "Length": "Length", "Maximum Video Card Length": "Length",
-}
-
-_COMPAT_KEY_ALIASES: Dict[str, List[str]] = {
-    "Socket":      ["Socket", "Socket/CPU", "CPU Socket"],
-    "Memory Type": ["Memory Type", "Type", "Speed"],
-    "Form Factor": ["Form Factor", "Motherboard Form Factor"],
-    "Length":      ["Length", "Maximum Video Card Length"],
-}
-
-
-def _compare_compat_pair(
-    src_vals: Dict[str, str], src_cat: str,
-    tgt_attrs: Dict[str, Any], tgt_cat: str,
-    constraint_keys: List[str],
-) -> tuple[List[str], List[str]]:
-    """Kiểm tra ràng buộc 1 chiều (src -> tgt). Trả về (matches, issues)."""
-    matches, issues = [], []
-    for ck in constraint_keys:
-        canon = _COMPAT_KEY_MAP.get(ck)
-        if not canon:
-            continue
-        expected = src_vals.get(canon)
-        if not expected:
-            continue
-
-        # Tìm giá trị thực tế trong target attrs
-        actual, matched_alias = None, None
-        for alias in _COMPAT_KEY_ALIASES.get(canon, [canon]):
-            if alias in tgt_attrs:
-                actual, matched_alias = str(tgt_attrs[alias]), alias
-                break
-        if actual is None:
-            continue
-
-        # RAM Speed -> extract DDR type
-        if matched_alias == "Speed" and canon == "Memory Type":
-            ddr = _extract_ddr_type(actual)
-            actual = ddr if ddr else actual
-
-        exp, act = expected.strip(), actual.strip()
-
-        # Length: so sánh số mm
-        if canon == "Length":
-            mm_src, mm_tgt = _extract_mm(exp), _extract_mm(act)
-            if mm_src is not None and mm_tgt is not None:
-                if src_cat == "gpu" and mm_src > mm_tgt:
-                    issues.append(f"Chieu dai GPU ({mm_src}mm) vuot qua gioi han Case ({mm_tgt}mm)")
-                elif tgt_cat == "gpu" and mm_tgt > mm_src:
-                    issues.append(f"Chieu dai GPU ({mm_tgt}mm) vuot qua gioi han Case ({mm_src}mm)")
-                else:
-                    matches.append(f"Length tuong thich: '{exp}' va '{act}'")
-            continue
-
-        # Socket / Memory Type / Form Factor: contains (case-insensitive)
-        if exp.lower() in act.lower() or act.lower() in exp.lower():
-            matches.append(f"{canon} tuong thich: '{exp}' va '{act}'")
-        else:
-            issues.append(f"{canon} khong tuong thich: '{exp}' vs '{act}'")
-
-    return matches, issues
-
-
-def _check_all_compatibility(docs: List[Any], not_found: List[str]) -> str:
-    """Kiểm tra tương thích pairwise giữa danh sách docs. Trả về report dạng text."""
-    lines: List[str] = ["San pham duoc kiem tra:"]
-    for idx, doc in enumerate(docs, start=1):
-        lines.append(f"  {idx}. {doc_name(doc)} (category: {doc_category(doc)}, product_id: {doc_uid(doc)})")
-    if not_found:
-        lines.append(f"\nKhong tim thay: {', '.join(not_found)}")
-    lines.append("")
-
-    has_any, all_ok = False, True
-
-    for i in range(len(docs)):
-        for j in range(i + 1, len(docs)):
-            doc_a, doc_b = docs[i], docs[j]
-            cat_a, cat_b = doc_category(doc_a), doc_category(doc_b)
-
-            keys_ab = COMPATIBILITY_ATTRS.get((cat_a, cat_b), [])
-            keys_ba = COMPATIBILITY_ATTRS.get((cat_b, cat_a), [])
-            if not keys_ab and not keys_ba:
-                continue
-
-            attrs_a = json.loads(getattr(doc_a, "metadata", {}).get("attrs_json", "{}"))
-            attrs_b = json.loads(getattr(doc_b, "metadata", {}).get("attrs_json", "{}"))
-            vals_a = _extract_compat_values(attrs_a, cat_a)
-            vals_b = _extract_compat_values(attrs_b, cat_b)
-
-            matches, issues = [], []
-            if keys_ab:
-                m, iss = _compare_compat_pair(vals_a, cat_a, attrs_b, cat_b, keys_ab)
-                matches += m; issues += iss
-            if keys_ba:
-                m, iss = _compare_compat_pair(vals_b, cat_b, attrs_a, cat_a, keys_ba)
-                matches += m; issues += iss
-
-            # Dedup
-            matches = list(dict.fromkeys(matches))
-            issues = list(dict.fromkeys(issues))
-            if not matches and not issues:
-                continue
-
-            has_any = True
-            ok = len(issues) == 0
-            if not ok:
-                all_ok = False
-
-            lines.append(f"--- {doc_name(doc_a)} <-> {doc_name(doc_b)} ---")
-            lines.append(f"Ket qua: {'Tuong thich' if ok else 'Khong tuong thich'}")
-            for m in matches:
-                lines.append(f"  [OK] {m}")
-            for iss in issues:
-                lines.append(f"  [FAIL] {iss}")
-            lines.append("")
-
-    if not has_any:
-        lines.append("Khong co rang buoc tuong thich giua cac linh kien duoc cung cap.")
-    else:
-        lines.append(f"Tong ket: {'Tat ca linh kien deu tuong thich.' if all_ok else 'Co mot so van de tuong thich can luu y.'}")
-
-    return "\n".join(lines)
-
-
 @tool
 def check_compatibility(product_names: List[str]) -> str:
     """
@@ -1711,113 +1153,90 @@ def query_shop_faq(question: str) -> str:
 
 def format_node(state: AgentState):
     messages = state.get("messages", [])
-    if not messages:
-        return {"messages": []}
+    if not messages: return {"messages": []}
 
     last_message = messages[-1]
     content = getattr(last_message, "content", "")
-    if not content:
-        return {"messages": []}
+    if not content: return {"messages": []}
 
-    # Xử lý format Gemini: content là list với {'type': 'thinking'} và {'type': 'text'}
+    # =====================================================
+    # Lấy text từ Gemini hoặc các model khác & xử lý markdown
+    # =====================================================
     if isinstance(content, list):
-        text_content = ""
-        for item in content:
-            if isinstance(item, dict) and item.get("type") == "text":
-                text_content = item.get("text", "")
-                break
-        content_str = text_content.strip()
+        parts = [item.get("text", "") for item in content if isinstance(item, dict) and item.get("type") == "text"]
+        content_str = "\n".join(parts).strip()
     else:
         content_str = str(content).strip()
 
-    if not content_str:
-        return {"messages": []}
+    if not content_str: return {"messages": []}
 
-    # Extract JSON từ markdown code block nếu có
-    json_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", content_str, re.DOTALL)
-    if json_match:
-        content_str = json_match.group(1).strip()
+    if code_match := re.search(r"```(?:json)?\s*(.*?)```", content_str, re.S | re.I):
+        content_str = code_match.group(1).strip()
 
-    # Chuyển format cũ (product_ids) sang format mới (product_groups)
-    def _migrate_to_groups(parsed):
-        if "product_groups" not in parsed and "product_ids" in parsed:
+    # =====================================================
+    # Helpers
+    # =====================================================
+    def normalize(parsed: dict):
+        # migrate schema cũ
+        if "product_groups" not in parsed:
             pids = parsed.pop("product_ids", [])
-            parsed["product_groups"] = (
-                [{"label": "", "order": 1, "product_ids": list(pids)}]
-                if pids
-                else []
-            )
+            parsed["product_groups"] = []
+            if pids: parsed["product_groups"].append({"label": "", "order": 1, "product_ids": [str(x) for x in pids]})
 
-        parsed.setdefault("intent", "")
-        parsed.setdefault("suggested_prompts", [])
+        groups = []
+        for g in parsed.get("product_groups", []):
+            if not isinstance(g, dict): continue
+            ids = g.get("product_ids", [])
+            if not isinstance(ids, list): ids = []
+            groups.append({"label": str(g.get("label", "")), "order": int(g.get("order", 1)), "product_ids": [str(x) for x in ids]})
 
-        return parsed
+        return {
+            "message": str(parsed.get("message") or ""),
+            "intent": str(parsed.get("intent") or ""),
+            "suggested_prompts": parsed.get("suggested_prompts") if isinstance(parsed.get("suggested_prompts"), list) else [],
+            "product_groups": groups,
+        }
 
-    # ==========================
-    # THỬ PARSE JSON
-    # ==========================
+    def extract_json_with_message(text: str):
+        decoder = json.JSONDecoder()
+        for i, ch in enumerate(text):
+            if ch != "{": continue
+            try:
+                obj, end = decoder.raw_decode(text[i:])
+                return text[:i].strip(), obj
+            except json.JSONDecodeError: continue
+        return None, None
+
+    # =====================================================
+    # 1. Thử parse toàn bộ & 2. Thử tìm JSON nằm cuối
+    # =====================================================
     try:
         parsed = json.loads(content_str)
-
         if isinstance(parsed, dict):
-            # Nếu có text thì dùng làm message rồi xóa key text
-            text = str(parsed.pop("text", "")).strip()
-            if text:
-                parsed["message"] = text
+            return {"messages": [AIMessage(content=json.dumps(normalize(parsed), ensure_ascii=False))]}
+    except Exception: pass
 
-            parsed = _migrate_to_groups(parsed)
-            parsed.setdefault("message", "")
+    message_before_json, parsed = extract_json_with_message(content_str)
+    if isinstance(parsed, dict):
+        parsed = normalize(parsed)
+        if message_before_json: parsed["message"] = message_before_json
+        return {"messages": [AIMessage(content=json.dumps(parsed, ensure_ascii=False))]}
 
-            formatted = json.dumps(parsed, ensure_ascii=False)
-            return {"messages": [AIMessage(content=formatted)]}
-
-    except (json.JSONDecodeError, ValueError):
-        pass
-
-    # ==========================
-    # KHÔNG PHẢI JSON -> ÉP VỀ FORMAT CHUẨN
-    # ==========================
+    # =====================================================
+    # 3. Fallback regex product ids
+    # =====================================================
     product_ids = extract_product_ids_from_text(content_str)
-
-    id_list_pattern = r"\[[\d\s,]+\]"
-    id_matches = re.findall(id_list_pattern, content_str)
-
-    if id_matches:
-        try:
-            for match in id_matches:
-                extracted = re.findall(r"\d+", match)
-                if extracted:
-                    product_ids.extend(extracted)
-        except Exception:
-            pass
-
+    for match in re.findall(r"\[[\d\s,]+\]", content_str):
+        product_ids.extend(re.findall(r"\d+", match))
     product_ids = list(dict.fromkeys(product_ids))
 
-    message = re.sub(id_list_pattern, "", content_str).strip()
+    message = re.sub(r"\[[\d\s,]+\]", "", content_str)
     message = re.sub(r"product_id\s*:\s*\[[\d\s,]+\]", "", message).strip()
-    message = message or content_str
 
-    product_groups = []
-    if product_ids:
-        product_groups.append(
-            {
-                "label": "",
-                "order": 1,
-                "product_ids": product_ids,
-            }
-        )
+    product_groups = [{"label": "", "order": 1, "product_ids": product_ids}] if product_ids else []
+    result = {"message": message, "intent": "", "suggested_prompts": [], "product_groups": product_groups}
 
-    formatted_json = json.dumps(
-        {
-            "message": message,
-            "product_groups": product_groups,
-            "intent": "",
-            "suggested_prompts": [],
-        },
-        ensure_ascii=False,
-    )
-
-    return {"messages": [AIMessage(content=formatted_json)]}
+    return {"messages": [AIMessage(content=json.dumps(result, ensure_ascii=False))]}
 
 tools = [
     search_products,
