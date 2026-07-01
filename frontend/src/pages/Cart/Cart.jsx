@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { UserContext } from "../../context/UserProvider";
 import { toast } from 'react-toastify';
 import { loadCart, removeFromCart, checkOutStock } from '../../services/apiService';
@@ -11,6 +11,7 @@ import './Cart.css';
 
 const CartPage = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [cartItems, setCartItems] = useState([]);
     const { user, fetchUser } = useContext(UserContext);
     const [selectedItems, setSelectedItems] = useState([]);
@@ -25,7 +26,47 @@ const CartPage = () => {
                     setIsLoading(true);
                     const response = await loadCart(user.account.id);
                     if (response && response.errCode === 0) {
-                        setCartItems(response.data);
+                        if (location.state?.addedProductIds) {
+                            const addedIds = location.state.addedProductIds;
+                            
+                            const expectedQuantities = {};
+                            addedIds.forEach(id => {
+                                expectedQuantities[id] = (expectedQuantities[id] || 0) + 1;
+                            });
+
+                            let adjusted = false;
+
+                            const updatedData = response.data.map(item => {
+                                if (expectedQuantities[item.product_id]) {
+                                    if (item.quantity > expectedQuantities[item.product_id]) {
+                                        adjusted = true;
+                                        return { ...item, quantity: expectedQuantities[item.product_id] };
+                                    }
+                                }
+                                return item;
+                            });
+
+                            setCartItems(updatedData);
+
+                            const itemsToSelect = updatedData
+                                .filter(item => addedIds.includes(item.product_id))
+                                .map(item => item.cart_id);
+                            
+                            if (itemsToSelect.length > 0) {
+                                setSelectedItems(prev => [...new Set([...prev, ...itemsToSelect])]);
+                            }
+
+                            if (adjusted) {
+                                toast.warn("Some items were already in your cart. Quantities have been adjusted to match your Build.", { 
+                                    toastId: 'build-adjust-warn',
+                                    autoClose: 2000 
+                                });
+                            }
+
+                            navigate(location.pathname, { replace: true, state: {} });
+                        } else {
+                            setCartItems(response.data);
+                        }
                     } else {
                         toast.error("Failed to load cart items.");
                     }

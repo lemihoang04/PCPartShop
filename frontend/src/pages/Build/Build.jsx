@@ -921,6 +921,10 @@ const Build = () => {
       toast.error('Vui lòng chọn đủ 8 linh kiện để lưu/chia sẻ cấu hình!');
       return;
     }
+    if (!isCompatible) {
+      toast.error('Vui lòng giải quyết các lỗi tương thích trước khi lưu cấu hình!');
+      return;
+    }
     const items = collectBuildItems();
     if (items.length === 0) {
       alert('Please select at least one component before saving.');
@@ -1055,7 +1059,8 @@ const Build = () => {
       ));
       toast.success('Added components to cart successfully!');
       if (fetchUser) fetchUser();
-      navigate('/cart');
+      const addedProductIds = itemsToAdd.map(item => item.product_id || item.id);
+      navigate('/cart', { state: { addedProductIds } });
     } catch (err) {
       console.error('Error adding to cart:', err);
       toast.error('An error occurred while adding components to the cart.');
@@ -1087,8 +1092,8 @@ const Build = () => {
           <button
             className="save-build-btn"
             onClick={handleOpenSaveModal}
-            disabled={!isFullySelected}
-            title={isFullySelected ? "Save this build" : `Vui lòng chọn đủ 8 linh kiện để lưu/chia sẻ cấu hình (Đang chọn: ${selectedComponentsCount}/8)`}
+            disabled={!isFullySelected || !isCompatible}
+            title={!isCompatible ? "Vui lòng giải quyết các lỗi tương thích trước khi lưu" : (isFullySelected ? "Save this build" : `Vui lòng chọn đủ 8 linh kiện để lưu/chia sẻ cấu hình (Đang chọn: ${selectedComponentsCount}/8)`)}
           >
             <FaSave style={{ marginRight: '6px' }} />
             Save Build {isFullySelected ? '' : `(${selectedComponentsCount}/8)`}
