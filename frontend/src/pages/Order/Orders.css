@@ -407,14 +407,14 @@
 }
 
 .odrs__btn-return {
-    background: #f0eeff;
-    color: #6c63ff;
-    border-color: #c4bfff;
+    background: #e8f4ff;
+    color: #1f93ff;
+    border-color: #bee3ff;
     font-weight: 600;
 }
 
 .odrs__btn-return:hover {
-    background: #e4dfff;
+    background: #cce5ff;
 }
 
 /* ── Inline rate / return ── */

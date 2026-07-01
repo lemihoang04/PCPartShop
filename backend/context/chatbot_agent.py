@@ -12,7 +12,10 @@ from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from context.init_models import db, get_llm, faq_db
-from DAL.chatbot_dal import dal_get_faq_by_id
+from DAL.chatbot_dal import (
+    dal_get_faq_by_id, dal_fuzzy_search_game_profile, dal_get_game_tier_requirements,
+    dal_fuzzy_search_software_profile, dal_get_software_tier_requirements
+)
 
 import pickle
 from langchain_community.retrievers import BM25Retriever
@@ -62,7 +65,7 @@ def ranked_search(query: str, filters: Optional[Dict[str, Any]], k: int = 8) -> 
             if _is_generic_keyword(q):
                 print("Generic keyword detected")
                 w=0.2
-            else: w=0.7
+            else: w=0.8
             db_retriever = db.as_retriever(search_kwargs={"k": k, "filter": filters if filters else None})
             if bm25_retriever and all_docs:
                 if filters and "category" in filters:
@@ -318,10 +321,6 @@ def resolve_preferred_parts(
 
     return locked, compat_info, generic_parts
 
-
-
-
-
 def filter_docs_by_compat(
     docs: List[Any],
     category: str,
@@ -339,7 +338,7 @@ def filter_docs_by_compat(
     - Length               : GPU length (mm) phải <= case Maximum Video Card Length (mm)
     """
     if category == "psu" and "Wattage" in compat_info:
-        required_wattage = (float(compat_info["Wattage"]) + 110.0) * 1.1
+        required_wattage = (float(compat_info["Wattage"]) + 50.0) / 0.6
         def psu_matches(doc: Any) -> bool:
             attrs_str = getattr(doc, "metadata", {}).get("attrs_json", "{}")
             try:
@@ -821,8 +820,8 @@ def _check_all_compatibility(docs: List[Any], not_found: List[str]) -> str:
 # =====================================================
 
 @tool
-def search_products(keyword: str = "", category: str = "", limit: int = 5, purpose: str = "") -> str:
-    """Tìm sản phẩm theo từ khóa(keyword: bằng tiếng Anh) và loại linh kiện(category), các giá trị category có thể điền: cpu, gpu, mainboard, cpu_cooler, ram, storage, psu, case. limit là số sản phẩm được trả về. Tham số purpose (tùy chọn) tính chất, mục đích sử dụng ngắn gọn bằng tiếng Anh(ví dụ: gaming, office, ...)."""
+def search_products(keyword: str = "", category: str = "", limit: int = 15, purpose: str = "") -> str:
+    """Tìm sản phẩm theo từ khóa(keyword: bằng tiếng Anh) và loại linh kiện(category), các giá trị category có thể điền: cpu, gpu, mainboard, cpu_cooler, ram, storage, psu, case. Tham số purpose (tùy chọn) tính chất, mục đích sử dụng ngắn gọn bằng tiếng Anh(ví dụ: gaming, office, ...)."""
     keyword = (keyword or "").strip()
     category = (category or "").strip().lower()
     purpose = (purpose or "").strip()
@@ -906,6 +905,235 @@ def recommend_pc_build(budget: int, purpose: str = "gaming", preferred_parts: Op
         return "Ngân sách phải lớn hơn 0."
 
     return build_pc_recommendation(budget=budget, purpose=purpose, preferred_parts=preferred_parts)
+
+
+def find_best_component_by_score(
+    category: str,
+    min_score: float,
+    brand: Optional[str] = None,
+) -> Optional[Any]:
+    """Vector search CPU/GPU rồi lọc theo benchmark score >= min_score, chọn sản phẩm có score gần nhất."""
+    if category == "cpu":
+        query = "high performance gaming cpu"
+        score_key = "cpu_single_thread"
+    elif category == "gpu":
+        query = "modern gaming gpu"
+        score_key = "gpu_g3d"
+    else:
+        return None
+
+    if brand:
+        query = f"{brand} {query}"
+
+    docs = ranked_search(query, {"category": category}, k=150)
+    if not docs:
+        return None
+
+    # Filter by brand name if specified
+    if brand:
+        brand_lower = brand.strip().lower()
+        brand_filtered = []
+        for d in docs:
+            if brand_lower in doc_name(d).lower():
+                brand_filtered.append(d)
+                continue
+                
+            attrs_str = getattr(d, "metadata", {}).get("attrs_json", "{}")
+            try:
+                attrs = json.loads(attrs_str)
+                if any(brand_lower in str(v).lower() for v in attrs.values()):
+                    brand_filtered.append(d)
+            except Exception:
+                pass
+                
+        if brand_filtered:
+            docs = brand_filtered
+
+    # Filter docs that meet min_score, then sort by score ascending (closest to min)
+    candidates = []
+    for doc in docs:
+        score_val = float(doc.metadata.get(score_key, 0) or 0)
+        if score_val >= min_score:
+            candidates.append((doc, score_val))
+
+    if candidates:
+        # Sort by score ascending → pick the one closest to min_score (best value)
+        candidates.sort(key=lambda x: (x[1], doc_price(x[0])))
+        chosen = candidates[0][0]
+        print(f"[find_best] {category}: {doc_name(chosen)} (score={candidates[0][1]}, min={min_score})")
+        return chosen
+
+    # Fallback: no doc meets min_score → pick the one with highest score
+    fallback = []
+    for doc in docs:
+        score_val = float(doc.metadata.get(score_key, 0) or 0)
+        if score_val > 0:
+            fallback.append((doc, score_val))
+
+    if fallback:
+        fallback.sort(key=lambda x: (x[1] - min_score, doc_price(x[0])))
+        chosen = fallback[0][0]
+        print(f"[find_best] {category} FALLBACK: {doc_name(chosen)} (score={fallback[0][1]}, min={min_score})")
+        return chosen
+
+    return None
+
+
+@tool
+def build_pc_for_game(
+    game_name: str,
+    resolution: str = "1080p",
+    target_setting: str = "Ultra",
+    target_fps: int = 60,
+    budget: Optional[int] = None,
+    cpu_brand: Optional[str] = None,
+    gpu_brand: Optional[str] = None,
+) -> str:
+    """
+    Build cấu hình PC tối ưu để chơi một game cụ thể.
+    Tham số:
+    - game_name (bắt buộc): Tên game đầy đủ, chính thức, ví dụ: "Cyberpunk 2077", "League of Legends", "Counter-Strike 2 (CS2)". Nếu người dùng nhập tên viết tắt (như lol, cs2, gta5), hãy chuẩn hóa thành tên đầy đủ trước khi gọi tool. Nếu người dùng yêu cầu nhiều game thì đưa vào game nặng nhất.
+    - resolution: độ phân giải mục tiêu ("1080p", "1440p", "4K"). Mặc định "1080p".
+    - target_setting: mức cài đặt đồ họa ("Low", "Medium", "High", "Ultra"). Mặc định "Ultra".
+    - target_fps: FPS mong muốn (60, 120, 144...). Mặc định 60.
+    - budget: ngân sách (USD, tùy chọn). Nếu không cung cấp, sẽ tự ước tính.
+    - cpu_brand: thương hiệu CPU ưa thích ("Intel", "AMD", tùy chọn), nếu người dùng không đề cập thì để trống.
+    - gpu_brand: thương hiệu GPU ưa thích ("Nvidia", "AMD", tùy chọn), nếu người dùng không đề cập thì để trống.
+    """
+    # Step 1: Fuzzy search game profile
+    game_result, game_status = dal_fuzzy_search_game_profile(game_name)
+    if game_status != 200:
+        return f"Không tìm thấy game '{game_name}' trong cơ sở dữ liệu. Vui lòng kiểm tra lại tên game."
+
+    matched_game = game_result["game_name"]
+    tier = game_result["tier"]
+    ram_gb = game_result["ram_gb"]
+    storage_gb = game_result["storage_gb"]
+    print(f"[build_pc_for_game] Game: {matched_game}, Tier: {tier}, RAM: {ram_gb}GB, Storage: {storage_gb}GB")
+
+    # Step 2: Get tier requirements
+    tier_result, tier_status = dal_get_game_tier_requirements(tier, resolution, target_setting, target_fps)
+    if tier_status != 200:
+        return (f"Không tìm thấy yêu cầu phần cứng cho game '{matched_game}' "
+                f"ở {resolution}/{target_setting}/{target_fps}fps. Vui lòng thử mức cài đặt khác.")
+
+    min_cpu_score = float(tier_result["min_cpu_score"])
+    min_gpu_score = float(tier_result["min_gpu_score"])
+    print(f"[build_pc_for_game] Min CPU score: {min_cpu_score}, Min GPU score: {min_gpu_score}")
+
+    # Step 3: Find best CPU & GPU by benchmark score
+    cpu_doc = find_best_component_by_score("cpu", min_cpu_score, cpu_brand)
+    gpu_doc = find_best_component_by_score("gpu", min_gpu_score, gpu_brand)
+
+    if not cpu_doc and not gpu_doc:
+        return "Không tìm được CPU/GPU phù hợp với yêu cầu của game."
+
+    preferred_parts: Dict[str, str] = {}
+    if cpu_doc:
+        preferred_parts["cpu"] = doc_name(cpu_doc)
+    if gpu_doc:
+        preferred_parts["gpu"] = doc_name(gpu_doc)
+
+    # Step 4: Estimate budget if not provided
+    if not budget or budget <= 0:
+        # Estimate from CPU + GPU prices (they're ~65-70% of total)
+        estimated_component_cost = 0
+        if cpu_doc:
+            estimated_component_cost += doc_price(cpu_doc) or 0
+        if gpu_doc:
+            estimated_component_cost += doc_price(gpu_doc) or 0
+
+        if estimated_component_cost > 0:
+            budget = int(estimated_component_cost * 1.5)
+        else:
+            budget = 1000  # Fallback default
+        print(f"[build_pc_for_game] Auto-estimated budget: ${budget}")
+
+    # Step 5: Build full PC
+    result = build_pc_recommendation(budget=budget, purpose="gaming", preferred_parts=preferred_parts)
+
+    header = (
+        f"Cấu hình PC cho game **{matched_game}** "
+        f"({resolution} / {target_setting} / {target_fps}fps):\n"
+        f"Yêu cầu: RAM >= {ram_gb}GB, Storage >= {storage_gb}GB\n\n"
+    )
+    return header + result
+
+
+@tool
+def build_pc_for_software(
+    software_name: str,
+    workload_scale: str = "Intermediate",
+    budget: Optional[int] = None,
+    cpu_brand: Optional[str] = None,
+    gpu_brand: Optional[str] = None,
+) -> str:
+    """
+    Build cấu hình PC tối ưu để sử dụng một phần mềm làm việc/đồ họa cụ thể.
+    Tham số:
+    - software_name (bắt buộc): Tên phần mềm đầy đủ, ví dụ: "Adobe Premiere Pro", "AutoCAD", "Blender".
+    - workload_scale: Mức độ sử dụng ("Basic", "Intermediate", "Professional"). Mặc định "Intermediate".
+    - budget: ngân sách (USD, tùy chọn). Nếu không cung cấp, sẽ tự ước tính.
+    - cpu_brand: thương hiệu CPU ưa thích ("Intel", "AMD", tùy chọn).
+    - gpu_brand: thương hiệu GPU ưa thích ("Nvidia", "AMD", tùy chọn).
+    """
+    # Step 1: Fuzzy search software profile
+    software_result, software_status = dal_fuzzy_search_software_profile(software_name)
+    if software_status != 200:
+        return f"Không tìm thấy phần mềm '{software_name}' trong cơ sở dữ liệu. Vui lòng kiểm tra lại tên phần mềm."
+
+    matched_software = software_result["software_name"]
+    tier = software_result["tier"]
+    ram_gb = software_result["ram_gb"]
+    storage_gb = software_result["storage_gb"]
+    print(f"[build_pc_for_software] Software: {matched_software}, Tier: {tier}, RAM: {ram_gb}GB, Storage: {storage_gb}GB")
+
+    # Step 2: Get tier requirements
+    tier_result, tier_status = dal_get_software_tier_requirements(tier, workload_scale)
+    if tier_status != 200:
+        return (f"Không tìm thấy yêu cầu phần cứng cho phần mềm '{matched_software}' "
+                f"ở mức độ {workload_scale}. Vui lòng thử mức độ khác.")
+
+    min_cpu_score = float(tier_result["min_cpu"])
+    min_gpu_score = float(tier_result["min_gpu"])
+    print(f"[build_pc_for_software] Min CPU score: {min_cpu_score}, Min GPU score: {min_gpu_score}")
+
+    # Step 3: Find best CPU & GPU by benchmark score
+    cpu_doc = find_best_component_by_score("cpu", min_cpu_score, cpu_brand)
+    gpu_doc = find_best_component_by_score("gpu", min_gpu_score, gpu_brand)
+
+    if not cpu_doc and not gpu_doc:
+        return "Không tìm được CPU/GPU phù hợp với yêu cầu của phần mềm."
+
+    preferred_parts: Dict[str, str] = {}
+    if cpu_doc:
+        preferred_parts["cpu"] = doc_name(cpu_doc)
+    if gpu_doc:
+        preferred_parts["gpu"] = doc_name(gpu_doc)
+
+    # Step 4: Estimate budget if not provided
+    if not budget or budget <= 0:
+        estimated_component_cost = 0
+        if cpu_doc:
+            estimated_component_cost += doc_price(cpu_doc) or 0
+        if gpu_doc:
+            estimated_component_cost += doc_price(gpu_doc) or 0
+
+        if estimated_component_cost > 0:
+            budget = int(estimated_component_cost * 1.6)
+        else:
+            budget = 1000  # Fallback default
+        print(f"[build_pc_for_software] Auto-estimated budget: ${budget}")
+
+    # Step 5: Build full PC
+    result = build_pc_recommendation(budget=budget, purpose="creator", preferred_parts=preferred_parts)
+
+    header = (
+        f"Cấu hình PC cho phần mềm **{matched_software}** "
+        f"(Mức độ: {workload_scale}):\n"
+        f"Yêu cầu: RAM >= {ram_gb}GB, Storage >= {storage_gb}GB\n\n"
+    )
+    return header + result
 
 
 @tool
@@ -1242,6 +1470,8 @@ tools = [
     search_products,
     search_products_by_budget,
     recommend_pc_build,
+    build_pc_for_game,
+    build_pc_for_software,
     get_available_types,
     compare_products,
     find_compatible_products,
@@ -1270,12 +1500,14 @@ Quy tắc:
 Tool Guidance:
 - Trả lời các câu hỏi về cửa hàng, chính sách, thông tin liên hệ, vận chuyển, bảo hành, giờ làm việc... hoặc kiến thức về linh kiện PC (Ví dụ: Intel Core i5 là gì?, Khác biệt giữa Intel Core i5 và Intel Core i7 là gì?, DDR4 và DDR5 khác nhau thế nào?, ...) → query_shop_faq
 - Tìm danh mục sản phẩm → get_available_types
-- Tìm/duyệt sản phẩm → search_products
+- Tìm/duyệt sản phẩm → search_products (trả về người dùng tối đa 5 sản phẩm chuẩn nhất với yêu cầu người dùng)
 - Tìm/duyệt sản phẩm theo ngân sách → search_products_by_budget
 - So sánh các sản phẩm cụ thể (nhận xét từng thông số + kết luận ngắn) → compare_products
 - Kiểm tra tương thích giữa các linh kiện có sẵn → check_compatibility
 - Tìm linh kiện tương thích với sản phẩm người dùng đưa ra → find_compatible_products
 - Build PC hoặc thay đổi, nâng cấp linh kiện trong cấu hình trước đó → recommend_pc_build; hỏi thêm nếu thiếu ngân sách/nhu cầu (gaming, office, workstation, creator); dùng preferred_parts nếu người dùng chỉ định hoặc muốn chỉnh sửa cấu hình trước đó.
+- Build PC để chơi game cụ thể (ví dụ: "build PC chơi Cyberpunk 2077", "cấu hình chơi game triple A ổn định", "cấu hình chơi Valorant 1440p 144fps") → build_pc_for_game; chỉ cần tên game là đủ, các tham số khác tùy chọn. Nếu user chỉ định budget thì truyền vào, nếu không thì để tool tự ước tính.
+- Build PC để dùng phần mềm cụ thể (ví dụ: "build PC chạy Premiere Pro chuyên nghiệp", "cấu hình AutoCAD cơ bản") → build_pc_for_software; chỉ cần tên phần mềm là đủ, có thể thêm workload_scale (Basic/Intermediate/Professional).
 - Khi sử dụng các tool mà có đầu vào là các sản phẩm có tên cụ thể thì cần dùng tool search_products để lấy list sản phẩm được trả về để xác nhận sản phẩm có đúng không rồi mới dùng các tool kia. (ví dụ cần dùng tool find_compatible_products để tìm mainboard nào phù hợp với cpu Intel Celeron E3400 thì dùng search_products để xác nhận cpu Intel Celeron E3400 có tồn tại không)
 
 Output: Trả về JSON hợp lệ với 4 khóa:

@@ -44,7 +44,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 18px 22px 14px;
-    background: #6c63ff;
+    background: #1f93ff;
     color: #fff;
     border-radius: 16px 16px 0 0;
 }
@@ -111,7 +111,7 @@
 .rsm__badge--APPROVED   { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
 .rsm__badge--REJECTED   { background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; }
 .rsm__badge--RECEIVED   { background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; }
-.rsm__badge--COMPLETED  { background: #ede9fe; color: #6c63ff; border: 1px solid #c4b5fd; }
+.rsm__badge--COMPLETED  { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
 .rsm__badge--FAILED     { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
 
 .rsm__type-chip {
@@ -119,8 +119,8 @@
     font-weight: 600;
     padding: 4px 10px;
     border-radius: 12px;
-    background: #f0eeff;
-    color: #6c63ff;
+    background: #e8f4ff;
+    color: #1f93ff;
 }
 
 /* ── Info rows ── */
@@ -153,7 +153,7 @@
 }
 
 .rsm__refund-amount {
-    color: #6c63ff;
+    color: #1f93ff;
     font-weight: 700;
 }
 
@@ -201,7 +201,7 @@
 
 .rsm__img-thumb:hover {
     transform: scale(1.06);
-    border-color: #6c63ff;
+    border-color: #1f93ff;
 }
 
 /* ── Footer ── */

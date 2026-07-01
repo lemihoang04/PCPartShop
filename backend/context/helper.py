@@ -155,8 +155,8 @@ COMPATIBILITY_ATTRS: Dict[tuple[str, str], List[str]] = {
 
 MIN_BUDGETS_FOR_BUILD_PC = {
     "office": 300,
-    "gaming": 600,
-    "creator": 900,
+    "gaming": 550,
+    "creator": 800,
     "workstation": 1200,
 }
 

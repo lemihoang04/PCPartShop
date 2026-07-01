@@ -47,7 +47,7 @@
     justify-content: space-between;
     padding: 20px 24px 16px;
     border-bottom: 1px solid #f0f0f0;
-    background: #6c63ff;
+    background: #1f93ff;
     color: #fff;
     border-radius: 16px 16px 0 0;
 }
@@ -141,7 +141,7 @@
 
 .rrm__product-price {
     font-weight: 700;
-    color: #6c63ff;
+    color: #1f93ff;
     font-size: 0.92rem;
 }
 
@@ -195,19 +195,19 @@
 }
 
 .rrm__type-btn:hover {
-    border-color: #6c63ff;
-    color: #6c63ff;
+    border-color: #1f93ff;
+    color: #1f93ff;
 }
 
-.rrm__type-btn:hover svg { color: #6c63ff; }
+.rrm__type-btn:hover svg { color: #1f93ff; }
 
 .rrm__type-btn--active {
-    border-color: #6c63ff;
-    background: #f0eeff;
-    color: #6c63ff;
+    border-color: #1f93ff;
+    background: #e8f4ff;
+    color: #1f93ff;
 }
 
-.rrm__type-btn--active svg { color: #6c63ff; }
+.rrm__type-btn--active svg { color: #1f93ff; }
 
 /* ── Textarea ── */
 .rrm__textarea {
@@ -223,8 +223,8 @@
     outline: none;
 }
 .rrm__textarea:focus {
-    border-color: #6c63ff;
-    box-shadow: 0 0 0 3px rgba(108,99,255,0.12);
+    border-color: #1f93ff;
+    box-shadow: 0 0 0 3px rgba(31,147,255,0.12);
 }
 
 /* ── Image upload area ── */
@@ -237,8 +237,8 @@
     text-align: center;
 }
 .rrm__upload-area:hover {
-    border-color: #6c63ff;
-    background: #faf9ff;
+    border-color: #1f93ff;
+    background: #f0f8ff;
 }
 
 .rrm__upload-label {
@@ -253,7 +253,7 @@
 
 .rrm__upload-label svg {
     font-size: 1.8rem;
-    color: #b0abf0;
+    color: #bee3ff;
 }
 
 .rrm__upload-input {
@@ -305,7 +305,7 @@
 .rrm__uploading-badge {
     position: absolute;
     inset: 0;
-    background: rgba(108,99,255,0.55);
+    background: rgba(31,147,255,0.55);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -351,13 +351,13 @@
 .rrm__btn--cancel:hover { background: #e4e4ec; }
 
 .rrm__btn--submit {
-    background: #6c63ff;
+    background: #1f93ff;
     color: #fff;
-    box-shadow: 0 4px 14px rgba(108,99,255,0.35);
+    box-shadow: 0 4px 14px rgba(31,147,255,0.35);
 }
 .rrm__btn--submit:hover {
     transform: translateY(-1px);
-    box-shadow: 0 6px 18px rgba(108,99,255,0.45);
+    box-shadow: 0 6px 18px rgba(31,147,255,0.45);
 }
 .rrm__btn--submit:disabled {
     opacity: 0.6;

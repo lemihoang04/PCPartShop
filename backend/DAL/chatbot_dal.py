@@ -1,4 +1,5 @@
 import json
+import difflib
 from config import get_db_connection
 
 
@@ -413,6 +414,217 @@ def dal_delete_faq(faq_id):
         return True, 200
     except Exception as e:
         db.rollback()
+        return {"error": str(e)}, 500
+    finally:
+        cursor.close()
+        db.close()
+
+
+# =====================================================
+# GAME PROFILES & TIERS
+# =====================================================
+
+def dal_fuzzy_search_game_profile(game_name: str):
+    """Fuzzy search game_profiles table by game_name.
+    Returns (row_dict, status_code). row_dict has: id, game_name, tier, ram_gb, storage_gb.
+    """
+    db = get_db_connection()
+    if not db:
+        return {"error": "Database connection failed"}, 500
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT id, game_name, tier, ram_gb, storage_gb FROM game_profiles")
+        rows = cursor.fetchall()
+        if not rows:
+            return {"error": "No game profiles found"}, 404
+
+        query_lower = game_name.strip().lower()
+
+        # 1. Exact match first
+        for row in rows:
+            if row["game_name"].strip().lower() == query_lower:
+                return row, 200
+
+        # 2. Fuzzy match using SequenceMatcher
+        best_row = None
+        best_score = 0.0
+        for row in rows:
+            name_lower = row["game_name"].strip().lower()
+            score = difflib.SequenceMatcher(None, query_lower, name_lower).ratio()
+            # Also check if query is a substring
+            if query_lower in name_lower or name_lower in query_lower:
+                score = max(score, 0.75)
+            if score > best_score:
+                best_score = score
+                best_row = row
+
+        if best_row and best_score >= 0.45:
+            print(f"[game_profile] Fuzzy matched '{game_name}' -> '{best_row['game_name']}' (score={best_score:.2f})")
+            return best_row, 200
+        else:
+            return {"error": f"Game '{game_name}' not found (best score={best_score:.2f})"}, 404
+    except Exception as e:
+        return {"error": str(e)}, 500
+    finally:
+        cursor.close()
+        db.close()
+
+
+def dal_get_game_tier_requirements(tier: int, resolution: str, target_setting: str, target_fps: int):
+    """Lookup min_cpu_score and min_gpu_score from game_tiers table.
+    Falls back to nearest target_fps (<= requested) if exact match not found.
+    Returns (row_dict, status_code). row_dict has: min_cpu_score, min_gpu_score.
+    """
+    db = get_db_connection()
+    if not db:
+        return {"error": "Database connection failed"}, 500
+    cursor = db.cursor(dictionary=True)
+    try:
+        # Exact match
+        cursor.execute(
+            """
+            SELECT min_cpu_score, min_gpu_score
+            FROM game_tiers
+            WHERE tier = %s AND resolution = %s AND target_setting = %s AND target_fps = %s
+            LIMIT 1
+            """,
+            (tier, resolution, target_setting, target_fps)
+        )
+        row = cursor.fetchone()
+        if row:
+            return row, 200
+
+        # Fallback: nearest fps <= requested
+        cursor.execute(
+            """
+            SELECT min_cpu_score, min_gpu_score, target_fps
+            FROM game_tiers
+            WHERE tier = %s AND resolution = %s AND target_setting = %s AND target_fps <= %s
+            ORDER BY target_fps DESC
+            LIMIT 1
+            """,
+            (tier, resolution, target_setting, target_fps)
+        )
+        row = cursor.fetchone()
+        if row:
+            print(f"[game_tiers] Fallback fps: requested {target_fps}, found {row['target_fps']}")
+            return row, 200
+
+        # Fallback: same tier + resolution, any setting/fps
+        cursor.execute(
+            """
+            SELECT min_cpu_score, min_gpu_score
+            FROM game_tiers
+            WHERE tier = %s AND resolution = %s
+            ORDER BY target_fps DESC
+            LIMIT 1
+            """,
+            (tier, resolution)
+        )
+        row = cursor.fetchone()
+        if row:
+            print(f"[game_tiers] Broad fallback for tier={tier}, resolution={resolution}")
+            return row, 200
+
+        return {"error": f"No tier requirements found for tier={tier}, resolution={resolution}, setting={target_setting}, fps={target_fps}"}, 404
+    except Exception as e:
+        return {"error": str(e)}, 500
+    finally:
+        cursor.close()
+        db.close()
+
+
+# =====================================================
+# SOFTWARE PROFILES & TIERS
+# =====================================================
+
+def dal_fuzzy_search_software_profile(software_name: str):
+    """Fuzzy search software_profiles table by software_name.
+    Returns (row_dict, status_code). row_dict has: id, software_name, tier, ram_gb, storage_gb.
+    """
+    db = get_db_connection()
+    if not db:
+        return {"error": "Database connection failed"}, 500
+    cursor = db.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT id, software_name, tier, ram_gb, storage_gb FROM software_profiles")
+        rows = cursor.fetchall()
+        if not rows:
+            return {"error": "No software profiles found"}, 404
+
+        query_lower = software_name.strip().lower()
+
+        # 1. Exact match first
+        for row in rows:
+            if row["software_name"].strip().lower() == query_lower:
+                return row, 200
+
+        # 2. Fuzzy match using SequenceMatcher
+        best_row = None
+        best_score = 0.0
+        for row in rows:
+            name_lower = row["software_name"].strip().lower()
+            score = difflib.SequenceMatcher(None, query_lower, name_lower).ratio()
+            # Also check if query is a substring
+            if query_lower in name_lower or name_lower in query_lower:
+                score = max(score, 0.75)
+            if score > best_score:
+                best_score = score
+                best_row = row
+
+        if best_row and best_score >= 0.45:
+            print(f"[software_profile] Fuzzy matched '{software_name}' -> '{best_row['software_name']}' (score={best_score:.2f})")
+            return best_row, 200
+        else:
+            return {"error": f"Software '{software_name}' not found (best score={best_score:.2f})"}, 404
+    except Exception as e:
+        return {"error": str(e)}, 500
+    finally:
+        cursor.close()
+        db.close()
+
+
+def dal_get_software_tier_requirements(tier: int, workload_scale: str):
+    """Lookup min_cpu and min_gpu from software_tiers table.
+    Returns (row_dict, status_code). row_dict has: min_cpu, min_gpu.
+    """
+    db = get_db_connection()
+    if not db:
+        return {"error": "Database connection failed"}, 500
+    cursor = db.cursor(dictionary=True)
+    try:
+        # Exact match
+        cursor.execute(
+            """
+            SELECT min_cpu, min_gpu
+            FROM software_tiers
+            WHERE tier = %s AND workload_scale = %s
+            LIMIT 1
+            """,
+            (tier, workload_scale)
+        )
+        row = cursor.fetchone()
+        if row:
+            return row, 200
+
+        # Fallback: same tier, any workload scale (usually Intermediate)
+        cursor.execute(
+            """
+            SELECT min_cpu, min_gpu
+            FROM software_tiers
+            WHERE tier = %s
+            ORDER BY FIELD(workload_scale, 'Intermediate', 'Professional', 'Basic')
+            LIMIT 1
+            """,
+            (tier,)
+        )
+        row = cursor.fetchone()
+        if row:
+            print(f"[software_tiers] Fallback workload_scale for tier={tier}")
+            return row, 200
+
+        return {"error": f"No tier requirements found for tier={tier}, workload_scale={workload_scale}"}, 404
+    except Exception as e:
         return {"error": str(e)}, 500
     finally:
         cursor.close()

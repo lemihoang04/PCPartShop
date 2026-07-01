@@ -37,7 +37,7 @@ const ReturnStatusModal = ({ returnRequest, onClose, onCancelled }) => {
         }
     };
 
-    const status   = returnRequest.status || 'PENDING';
+    const status   = (returnRequest.status || 'PENDING').toUpperCase();
     const images   = returnRequest.images
         ? returnRequest.images.split(';').filter(Boolean)
         : [];

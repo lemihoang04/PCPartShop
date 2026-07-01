@@ -1070,17 +1070,26 @@ def dal_get_products_from_different_categories(limit=4):
     cursor = db.cursor(dictionary=True)
     try:
         query = """
-        SELECT p.product_id, p.title, p.price, p.image, p.rating, c.category_id, c.category_name
-        FROM (
-            SELECT DISTINCT category_id 
-            FROM products 
-            ORDER BY category_id DESC
-            LIMIT %s
-        ) as distinct_categories
-        JOIN categories c ON distinct_categories.category_id = c.category_id
-        JOIN products p ON c.category_id = p.category_id
-        GROUP BY c.category_id
-        LIMIT %s
+                SELECT
+                    ANY_VALUE(p.product_id) AS product_id,
+                    ANY_VALUE(p.title) AS title,
+                    ANY_VALUE(p.price) AS price,
+                    ANY_VALUE(p.image) AS image,
+                    ANY_VALUE(p.rating) AS rating,
+                    c.category_id,
+                    c.category_name
+                FROM (
+                    SELECT DISTINCT category_id
+                    FROM products
+                    ORDER BY category_id DESC
+                    LIMIT %s
+                ) distinct_categories
+                JOIN categories c
+                    ON distinct_categories.category_id = c.category_id
+                JOIN products p
+                    ON p.category_id = c.category_id
+                GROUP BY c.category_id, c.category_name
+                LIMIT %s
         """
         
         cursor.execute(query, (limit, limit))

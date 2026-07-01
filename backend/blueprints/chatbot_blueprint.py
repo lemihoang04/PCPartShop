@@ -19,6 +19,10 @@ from DAL.chatbot_dal import (
     dal_create_faq,
     dal_update_faq,
     dal_delete_faq,
+    dal_fuzzy_search_game_profile,
+    dal_get_game_tier_requirements,
+    dal_fuzzy_search_software_profile,
+    dal_get_software_tier_requirements,
 )
 
 chatbot_blueprint = Blueprint('chatbot', __name__)
