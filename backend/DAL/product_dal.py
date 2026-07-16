@@ -689,28 +689,32 @@ def dal_get_compatible_components(component_type, filters=None, legacy_filter=No
             params = [category_id]
             order_by = ""
             
+            select_extra = ""
             for idx, (rule, val) in enumerate(applied_filters):
                 alias = f"pa{idx}"
                 joins += f" JOIN product_attributes {alias} ON p.product_id = {alias}.product_id"
                 
+                sort_expr = f"CAST(REGEXP_SUBSTR({alias}.attribute_value, '[0-9]+') AS UNSIGNED)"
                 if rule['match_type'] == 'gte':
                     required = int(float(val))
                     if component_type == 'psu' and rule['attr'] == 'Wattage':
                         required = int(float(val) * 1.2)
-                        order_by = f" ORDER BY CAST(REGEXP_SUBSTR({alias}.attribute_value, '[0-9]+') AS UNSIGNED) ASC"
-                    conditions += f" AND {alias}.attribute_name = %s AND CAST(REGEXP_SUBSTR({alias}.attribute_value, '[0-9]+') AS UNSIGNED) >= %s"
+                        select_extra = f", {sort_expr} AS sort_val"
+                        order_by = " ORDER BY sort_val ASC"
+                    conditions += f" AND {alias}.attribute_name = %s AND {sort_expr} >= %s"
                     params.extend([rule['attr'], required])
                 elif rule['match_type'] == 'lte':
                     max_val = int(float(val))
-                    conditions += f" AND {alias}.attribute_name = %s AND CAST(REGEXP_SUBSTR({alias}.attribute_value, '[0-9]+') AS UNSIGNED) <= %s"
+                    conditions += f" AND {alias}.attribute_name = %s AND {sort_expr} <= %s"
                     params.extend([rule['attr'], max_val])
-                    order_by = f" ORDER BY CAST(REGEXP_SUBSTR({alias}.attribute_value, '[0-9]+') AS UNSIGNED) ASC"
+                    select_extra = f", {sort_expr} AS sort_val"
+                    order_by = " ORDER BY sort_val ASC"
                 else:
                     conditions += f" AND {alias}.attribute_name = %s AND {alias}.attribute_value LIKE %s"
                     params.extend([rule['attr'], f"%{val}%"])
                     
             query = f"""
-                SELECT DISTINCT p.product_id
+                SELECT DISTINCT p.product_id{select_extra}
                 FROM products p
                 {joins}
                 WHERE {conditions}

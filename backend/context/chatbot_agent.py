@@ -1510,10 +1510,9 @@ Tool Guidance:
 - Build PC để dùng phần mềm cụ thể (ví dụ: "build PC chạy Premiere Pro chuyên nghiệp", "cấu hình AutoCAD cơ bản") → build_pc_for_software; chỉ cần tên phần mềm là đủ, có thể thêm workload_scale (Basic/Intermediate/Professional).
 - Khi sử dụng các tool mà có đầu vào là các sản phẩm có tên cụ thể thì cần dùng tool search_products để lấy list sản phẩm được trả về để xác nhận sản phẩm có đúng không rồi mới dùng các tool kia. (ví dụ cần dùng tool find_compatible_products để tìm mainboard nào phù hợp với cpu Intel Celeron E3400 thì dùng search_products để xác nhận cpu Intel Celeron E3400 có tồn tại không)
 
-Output: Trả về JSON hợp lệ với 4 khóa:
+Output: Trả về JSON hợp lệ với 3 khóa:
 - "intent": ý định ngắn gọn bằng tiếng Anh (ví dụ: "build pc", "search", "compare", ...).
 - "message": markdown, hiển thị thêm bảng nếu cần, in đậm những từ cần thiết, không dùng icon, in ra danh sách sản phẩm nếu có (không kèm product_id).
-- "suggested_prompts": tối đa 2 gợi ý hành động tiếp theo phù hợp với khả năng của tool, không có suggest kiểm tra tương thích. Để [] nếu không cần.
 - "product_groups": mảng nhóm sản phẩm, mỗi nhóm gồm "label", "order", "product_ids".
   Chỉ chia nhiều nhóm khi kết quả thuộc các category rõ ràng khác nhau; còn lại dùng 1 nhóm, label = "".
   Nếu không có sản phẩm: [].
