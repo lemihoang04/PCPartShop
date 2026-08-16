@@ -11,14 +11,12 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
 
-from context.init_models import db, get_llm, faq_db
+from context.init_models import db, get_llm, faq_db, get_all_docs, get_bm25_retriever
 from DAL.chatbot_dal import (
     dal_get_faq_by_id, dal_fuzzy_search_game_profile, dal_get_game_tier_requirements,
     dal_fuzzy_search_software_profile, dal_get_software_tier_requirements
 )
 
-import pickle
-from langchain_community.retrievers import BM25Retriever
 from langchain_classic.retrievers import EnsembleRetriever
 
 from context.helper import (
@@ -45,62 +43,32 @@ class AgentState(TypedDict):
     
 def ranked_search(query: str, filters: Optional[Dict[str, Any]], k: int = 8) -> List[Any]:
     results: List[Any] = []
+    category = filters.get("category") if filters else None
+    
+    # Lấy cached BM25 retriever (không load file docs.pkl lại nhiều lần)
+    bm25_retriever = get_bm25_retriever(category=category, k=max(k * 2, 20))
+    w = 0.2 if _is_generic_keyword(query) else 0.8
+    db_retriever = db.as_retriever(search_kwargs={"k": k, "filter": filters if filters else None})
+
     try:
-        docs_path = os.path.join(os.path.dirname(__file__), "chroma_db", "docs.pkl")
-        with open(docs_path, "rb") as f:
-            all_docs = pickle.load(f)
-        bm25_retriever = BM25Retriever.from_documents(all_docs)
-    except Exception as e:
-        print(f"Error loading docs.pkl for BM25: {e}")
-        bm25_retriever = None
-
-    queries = [
-        query,
-        # f"sản phẩm phù hợp cho nhu cầu {query}",
-        # f"linh kiện pc {query}",
-    ]
-
-    for q in queries:
-        try:
-            if _is_generic_keyword(q):
-                print("Generic keyword detected")
-                w=0.2
-            else: w=0.8
-            db_retriever = db.as_retriever(search_kwargs={"k": k, "filter": filters if filters else None})
-            if bm25_retriever and all_docs:
-                if filters and "category" in filters:
-                    target_category = filters["category"]
-                    # Chỉ giữ lại các tài liệu có category trùng khớp
-                    filtered_docs = [
-                        doc for doc in all_docs 
-                        if doc.metadata.get("category") == target_category
-                    ]
-                else:
-                    # Nếu không có hoặc không chứa "category", giữ nguyên toàn bộ tài liệu
-                    filtered_docs = all_docs
-                
-                bm25_retriever = BM25Retriever.from_documents(filtered_docs)
-                bm25_retriever.k = max(k * 2, 20)
-                ensemble_retriever = EnsembleRetriever(
-                    retrievers=[bm25_retriever, db_retriever], weights=[w, 1-w]
-                )
-                docs = ensemble_retriever.invoke(q)
-                
-                if filters:
-                    filtered_docs = [d for d in docs if check_filter_match(d, filters)]
-                    docs = filtered_docs[:k]
-                else:
-                    docs = docs[:k]
-                
-                results.extend(docs)
+        if bm25_retriever:
+            ensemble_retriever = EnsembleRetriever(
+                retrievers=[bm25_retriever, db_retriever], weights=[w, 1.0 - w]
+            )
+            docs = ensemble_retriever.invoke(query)
+            if filters:
+                docs = [d for d in docs if check_filter_match(d, filters)][:k]
             else:
-                docs = db_retriever.invoke(q)
-                results.extend(docs[:k])
-        except Exception as e:
-            print(f"Hybrid search error: {e}")
-            continue
+                docs = docs[:k]
+            results.extend(docs)
+        else:
+            docs = db_retriever.invoke(query)
+            results.extend(docs[:k])
+    except Exception as e:
+        print(f"Hybrid search error: {e}")
 
     return dedupe_docs(results)
+
 
 
 def choose_doc_by_budget(
@@ -138,42 +106,46 @@ def choose_doc_by_budget(
         cpu_single = float(doc.metadata.get('cpu_single_thread', 0) or 0)
         gpu_g3d = float(doc.metadata.get('gpu_g3d', 0) or 0)
 
+        attrs_str = getattr(doc, "metadata", {}).get("attrs_json", "{}")
+        try:
+            attrs_dict = json.loads(attrs_str)
+        except Exception:
+            attrs_dict = {}
+
         candidates.append({
             "doc": doc,
             "price": int(price),
             "rank": rank,
             "cpu_multi": cpu_multi,
             "cpu_single": cpu_single,
-            "gpu_g3d": gpu_g3d
+            "gpu_g3d": gpu_g3d,
+            "attrs": attrs_dict,
         })
 
     if not candidates:
         return []
 
-    # 2. Tìm giá trị lớn nhất (Max) của từng chỉ số trong pool để phục vụ chuẩn hóa (Min-Max Normalization)
-    max_cpu_multi = max([c["cpu_multi"] for c in candidates]) or 1.0
-    max_cpu_single = max([c["cpu_single"] for c in candidates]) or 1.0
-    max_gpu_g3d = max([c["gpu_g3d"] for c in candidates]) or 1.0
+    # 2. Single-pass min-max calculation
+    max_cpu_multi = 1.0
+    max_cpu_single = 1.0
+    max_gpu_g3d = 1.0
+    for c in candidates:
+        if c["cpu_multi"] > max_cpu_multi: max_cpu_multi = c["cpu_multi"]
+        if c["cpu_single"] > max_cpu_single: max_cpu_single = c["cpu_single"]
+        if c["gpu_g3d"] > max_gpu_g3d: max_gpu_g3d = c["gpu_g3d"]
+
     min_price = target_price * (0.6 if is_pc_build else 0.9)
-    within_budget = [c for c in candidates if c["price"] <= max_price and c["price"] >= min_price]
-    extra = []
+    within_budget = [c for c in candidates if min_price <= c["price"] <= max_price]
     if len(within_budget) < 8:
-        extra = sorted(
-            candidates,
-            key=lambda x: abs(x["price"] - target_price)
-        )
-
+        extra = sorted(candidates, key=lambda x: abs(x["price"] - target_price))
         seen = {id(x["doc"]) for x in within_budget}
+        for item in extra:
+            if id(item["doc"]) not in seen:
+                within_budget.append(item)
+                seen.add(id(item["doc"]))
+                if len(within_budget) >= 8:
+                    break
 
-    for item in extra:
-        if id(item["doc"]) in seen:
-            continue
-
-        within_budget.append(item)
-
-        if len(within_budget) >= 8:
-            break
-    print("within_budget count:", len(within_budget))
     if not within_budget and not is_pc_build:
         return []
     pool = within_budget if within_budget else candidates
@@ -191,8 +163,7 @@ def choose_doc_by_budget(
         norm_cpu_single = item["cpu_single"] / max_cpu_single
         norm_gpu_g3d = item["gpu_g3d"] / max_gpu_g3d
 
-        doc = item["doc"]
-        attrs_dict = json.loads(doc.metadata.get("attrs_json", "{}"))
+        attrs_dict = item["attrs"]
         performance_bonus = 1.0
 
         if category == "cpu":
@@ -210,32 +181,29 @@ def choose_doc_by_budget(
             speed = extract_ram_speed(attrs_dict.get("Speed", ""))
             latency = extract_number(attrs_dict.get("CAS Latency", ""))
             
-            if speed: performance_bonus += min(speed / 6400, 1.0) * 0.4
-            if latency: performance_bonus += max(min(1 - latency / 40, 1.0), 0.0) * 0.15
+            if speed: performance_bonus += min(speed / 6400.0, 1.0) * 0.4
+            if latency: performance_bonus += max(min(1.0 - latency / 40.0, 1.0), 0.0) * 0.15
 
             m = re.search(r"(\d+)\s*x\s*(\d+)", attrs_dict.get("Modules", ""))
             if m:
                 module_count, module_size = int(m.group(1)), int(m.group(2))
                 total_capacity = module_count * module_size
-                performance_bonus += min(total_capacity / 128, 1.0) * 0.3
-                performance_bonus += min(module_count / 2, 1.0) * 0.15
+                performance_bonus += min(total_capacity / 128.0, 1.0) * 0.3
+                performance_bonus += min(module_count / 2.0, 1.0) * 0.15
         elif category == "psu":
             efficiency_score = {"80+ Bronze": 0.5, "80+ Silver": 0.6, "80+ Gold": 0.7, "80+ Platinum": 0.9, "80+ Titanium": 1.0}
             performance_bonus = efficiency_score.get(attrs_dict.get("Efficiency Rating", ""), 0)
         elif category == "cpu_cooler":
             performance_bonus = 0.6 if attrs_dict.get("Water Cooled", "").lower() == "yes" else 0.0
             noise = extract_number(attrs_dict.get("Noise Level", ""))
-            if noise: performance_bonus += (1 - min(noise / 40, 1)) * 0.4
+            if noise: performance_bonus += (1.0 - min(noise / 40.0, 1.0)) * 0.4
 
         performance_score = 1.0 - min(performance_bonus, 1.0)
 
         # 3. SEARCH RELEVANCE & FINAL SCORE
         relevance_score = min(rank / 40.0, 1.0)
-        total_score = (0.45 * price_score) + (0.35 * performance_score) + (0.2 * relevance_score)
+        return (0.45 * price_score) + (0.35 * performance_score) + (0.2 * relevance_score)
 
-        return total_score
-
-    # Trả về pool đã được rank theo score tăng dần (score thấp = tốt hơn)
     ranked_pool = sorted(pool, key=score)
     return [item["doc"] for item in ranked_pool]
 
@@ -416,39 +384,26 @@ def filter_docs_by_compat(
                 case_max_mm = _extract_mm(act_str)
                 if gpu_mm is not None and case_max_mm is not None:
                     if gpu_mm > case_max_mm:
-                        # print(
-                        #     f"  [compat filter] Loại '{doc_name(doc)}': "
-                        #     f"GPU length {gpu_mm}mm > case max {case_max_mm}mm ('{act_str}')"
-                        # )
                         return False
-                # Nếu không parse được số → bỏ qua (an toàn)
                 continue
 
             # --- Form Factor: kiểm tra mainboard FF nằm trong danh sách case hỗ trợ ---
             if compat_key == "Form Factor":
                 if exp_str.lower() not in act_str.lower():
-                    # print(
-                    #     f"  [compat filter] Loại '{doc_name(doc)}': "
-                    #     f"Form Factor '{exp_str}' không nằm trong '{act_str}'"
-                    # )
                     return False
                 continue
 
             # --- Socket / Memory Type: contains (case-insensitive) ---
             if exp_str.lower() not in act_str.lower():
-                # print(
-                #     f"  [compat filter] Loại '{doc_name(doc)}': "
-                #     f"{compat_key} = '{act_str}' không chứa '{exp_str}'"
-                # )
                 return False
 
         return True
 
     filtered = [d for d in docs if doc_matches(d)]
     if not filtered:
-        print(f"  [compat filter] Không có doc nào vượt qua bộ lọc cho {category}, dùng danh sách gốc.")
+        print(f"  [compat filter] Khong co doc nao vuot qua bo loc cho {category}, dung danh sach goc.")
         return docs  # fallback
-    print(f"  [compat filter] {category}: giữ {len(filtered)}/{len(docs)} docs sau khi lọc.")
+    print(f"  [compat filter] {category}: giu {len(filtered)}/{len(docs)} docs sau khi loc.")
     return filtered
 
 
@@ -758,28 +713,43 @@ def _compare_compat_pair(
 def _check_all_compatibility(docs: List[Any], not_found: List[str]) -> str:
     """Kiểm tra tương thích pairwise giữa danh sách docs. Trả về report dạng text."""
     lines: List[str] = ["San pham duoc kiem tra:"]
+    
+    # Pre-parse attributes and compat values once per doc
+    doc_info = []
     for idx, doc in enumerate(docs, start=1):
         lines.append(f"  {idx}. {doc_name(doc)} (category: {doc_category(doc)}, product_id: {doc_uid(doc)})")
+        cat = doc_category(doc)
+        attrs_str = getattr(doc, "metadata", {}).get("attrs_json", "{}")
+        try:
+            attrs = json.loads(attrs_str)
+        except Exception:
+            attrs = {}
+        vals = _extract_compat_values(attrs, cat)
+        doc_info.append({
+            "doc": doc,
+            "category": cat,
+            "attrs": attrs,
+            "vals": vals
+        })
+
     if not_found:
         lines.append(f"\nKhong tim thay: {', '.join(not_found)}")
     lines.append("")
 
     has_any, all_ok = False, True
 
-    for i in range(len(docs)):
-        for j in range(i + 1, len(docs)):
-            doc_a, doc_b = docs[i], docs[j]
-            cat_a, cat_b = doc_category(doc_a), doc_category(doc_b)
+    n = len(doc_info)
+    for i in range(n):
+        info_a = doc_info[i]
+        doc_a, cat_a, attrs_a, vals_a = info_a["doc"], info_a["category"], info_a["attrs"], info_a["vals"]
+        for j in range(i + 1, n):
+            info_b = doc_info[j]
+            doc_b, cat_b, attrs_b, vals_b = info_b["doc"], info_b["category"], info_b["attrs"], info_b["vals"]
 
             keys_ab = COMPATIBILITY_ATTRS.get((cat_a, cat_b), [])
             keys_ba = COMPATIBILITY_ATTRS.get((cat_b, cat_a), [])
             if not keys_ab and not keys_ba:
                 continue
-
-            attrs_a = json.loads(getattr(doc_a, "metadata", {}).get("attrs_json", "{}"))
-            attrs_b = json.loads(getattr(doc_b, "metadata", {}).get("attrs_json", "{}"))
-            vals_a = _extract_compat_values(attrs_a, cat_a)
-            vals_b = _extract_compat_values(attrs_b, cat_b)
 
             matches, issues = [], []
             if keys_ab:
@@ -789,7 +759,6 @@ def _check_all_compatibility(docs: List[Any], not_found: List[str]) -> str:
                 m, iss = _compare_compat_pair(vals_b, cat_b, attrs_a, cat_a, keys_ba)
                 matches += m; issues += iss
 
-            # Dedup
             matches = list(dict.fromkeys(matches))
             issues = list(dict.fromkeys(issues))
             if not matches and not issues:
@@ -930,48 +899,37 @@ def find_best_component_by_score(
         return None
 
     # Filter by brand name if specified
-    if brand:
-        brand_lower = brand.strip().lower()
-        brand_filtered = []
-        for d in docs:
-            if brand_lower in doc_name(d).lower():
-                brand_filtered.append(d)
-                continue
-                
-            attrs_str = getattr(d, "metadata", {}).get("attrs_json", "{}")
-            try:
-                attrs = json.loads(attrs_str)
-                if any(brand_lower in str(v).lower() for v in attrs.values()):
-                    brand_filtered.append(d)
-            except Exception:
-                pass
-                
-        if brand_filtered:
-            docs = brand_filtered
+    brand_lower = brand.strip().lower() if brand else None
 
-    # Filter docs that meet min_score, then sort by score ascending (closest to min)
     candidates = []
-    for doc in docs:
-        score_val = float(doc.metadata.get(score_key, 0) or 0)
+    fallback = []
+
+    for d in docs:
+        if brand_lower:
+            name_match = brand_lower in doc_name(d).lower()
+            if not name_match:
+                attrs_str = getattr(d, "metadata", {}).get("attrs_json", "{}")
+                try:
+                    attrs = json.loads(attrs_str)
+                    if not any(brand_lower in str(v).lower() for v in attrs.values()):
+                        continue
+                except Exception:
+                    continue
+
+        score_val = float(d.metadata.get(score_key, 0) or 0)
         if score_val >= min_score:
-            candidates.append((doc, score_val))
+            candidates.append((d, score_val))
+        elif score_val > 0:
+            fallback.append((d, score_val))
 
     if candidates:
-        # Sort by score ascending → pick the one closest to min_score (best value)
-        candidates.sort(key=lambda x: (x[1], doc_price(x[0])))
+        candidates.sort(key=lambda x: (x[1], doc_price(x[0]) or 0))
         chosen = candidates[0][0]
         print(f"[find_best] {category}: {doc_name(chosen)} (score={candidates[0][1]}, min={min_score})")
         return chosen
 
-    # Fallback: no doc meets min_score → pick the one with highest score
-    fallback = []
-    for doc in docs:
-        score_val = float(doc.metadata.get(score_key, 0) or 0)
-        if score_val > 0:
-            fallback.append((doc, score_val))
-
     if fallback:
-        fallback.sort(key=lambda x: (x[1] - min_score, doc_price(x[0])))
+        fallback.sort(key=lambda x: (x[1] - min_score, doc_price(x[0]) or 0))
         chosen = fallback[0][0]
         print(f"[find_best] {category} FALLBACK: {doc_name(chosen)} (score={fallback[0][1]}, min={min_score})")
         return chosen
@@ -1379,6 +1337,11 @@ def query_shop_faq(question: str) -> str:
         return "Đã xảy ra lỗi khi truy vấn thông tin cửa hàng."
 
 
+_RE_CODE_BLOCK = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL | re.IGNORECASE)
+_RE_BRACKET_NUMS = re.compile(r"\[[\d\s,]+\]")
+_RE_DIGITS = re.compile(r"\d+")
+_RE_PRODUCT_ID_CLEAN = re.compile(r"product_id\s*:\s*\[[\d\s,]+\]", re.IGNORECASE)
+
 def format_node(state: AgentState):
     messages = state.get("messages", [])
     if not messages: return {"messages": []}
@@ -1398,7 +1361,7 @@ def format_node(state: AgentState):
 
     if not content_str: return {"messages": []}
 
-    if code_match := re.search(r"```(?:json)?\s*(.*?)```", content_str, re.S | re.I):
+    if code_match := _RE_CODE_BLOCK.search(content_str):
         content_str = code_match.group(1).strip()
 
     # =====================================================
@@ -1454,12 +1417,12 @@ def format_node(state: AgentState):
     # 3. Fallback regex product ids
     # =====================================================
     product_ids = extract_product_ids_from_text(content_str)
-    for match in re.findall(r"\[[\d\s,]+\]", content_str):
-        product_ids.extend(re.findall(r"\d+", match))
+    for match in _RE_BRACKET_NUMS.findall(content_str):
+        product_ids.extend(_RE_DIGITS.findall(match))
     product_ids = list(dict.fromkeys(product_ids))
 
-    message = re.sub(r"\[[\d\s,]+\]", "", content_str)
-    message = re.sub(r"product_id\s*:\s*\[[\d\s,]+\]", "", message).strip()
+    message = _RE_BRACKET_NUMS.sub("", content_str)
+    message = _RE_PRODUCT_ID_CLEAN.sub("", message).strip()
 
     product_groups = [{"label": "", "order": 1, "product_ids": product_ids}] if product_ids else []
     result = {"message": message, "intent": "", "suggested_prompts": [], "product_groups": product_groups}

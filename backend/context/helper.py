@@ -219,28 +219,102 @@ def detect_category(text: str) -> Optional[str]:
     return None
 
 
+# PRE-COMPILED REGEX PATTERNS FOR OPTIMIZATION
+# =====================================================
+_RE_MODEL_PATTERNS = [
+    re.compile(p, re.IGNORECASE) for p in [
+        r"\bi[3579]\s*-?\s*\d{4,5}[a-z]*\b",
+        r"\bcore\s+i[3579]\s*\d{4,5}[a-z]*\b",
+        r"\bryzen\s*[3579]\s*\d{3,5}[a-z0-9]*\b",
+        r"\bthreadripper\s+\d+\b",
+        r"\b(rtx|gtx)\s*\d{3,4}\s*(ti|super|xt)?\b",
+        r"\brx\s*\d{3,4}\s*(xt|xtx)?\b",
+        r"\b[bzxh]\d{3,4}[a-z]*\b",
+        r"\b\d+\s*gb\s*(ddr[45])\b",
+        r"\bddr[45]\s*\d+\s*gb\b",
+        r"\b\d+\s*(gb|tb)\s*(nvme|ssd|m\.2)\b",
+        r"\b\d{3,4}\s*w\s*(psu|nguồn)?\b",
+    ]
+]
+
+_RE_GENERIC_PATTERNS = [
+    re.compile(p, re.IGNORECASE) for p in [
+        r"^ryzen\s*[3579]$",
+        r"^intel\s+core$",
+        r"^rtx\s*\d{2}\s*series$",
+        r"^rx\s*\d{4}\s*series$",
+        r"\b\d{2}th\s*gen\b",
+        r"\bgen\s*\d+\b",
+    ]
+]
+
+_RE_SPEC_GB_TB = re.compile(r"\b\d+\s*(gb|tb)\b", re.IGNORECASE)
+_RE_SPEC_MHZ_W = re.compile(r"\b\d+\s*(mhz|mt/s|w)\b", re.IGNORECASE)
+_RE_SPEC_CL = re.compile(r"\bcl\d+\b", re.IGNORECASE)
+
+_RE_BUDGET_TRIEU = re.compile(r"(\d+(?:\.\d+)?)\s*(triệu|tr|củ)", re.IGNORECASE)
+_RE_BUDGET_TR_FRACTION = re.compile(r"(\d+)tr(\d+)", re.IGNORECASE)
+_RE_BUDGET_K = re.compile(r"(\d+(?:\.\d+)?)\s*k\b", re.IGNORECASE)
+_RE_BUDGET_FORMATTED = re.compile(r"(\d{1,3}(?:[\.,]\d{3})+)", re.IGNORECASE)
+_RE_NON_DIGITS = re.compile(r"[^0-9]")
+
+_RE_EXTRACT_DIGITS = re.compile(r"\d+")
+_RE_RAM_SPEED = re.compile(r"(\d+(?:\.\d+)?)$")
+_RE_DDR_TYPE = re.compile(r"(DDR\d+)", re.IGNORECASE)
+_RE_FLOAT_NUM = re.compile(r"([\d]+(?:[.,]\d+)?)")
+_RE_MM_NUM = re.compile(r"([\d]+(?:[.,]\d+)?)\s*mm", re.IGNORECASE)
+_RE_PRODUCT_LINK = re.compile(r"/product-info/([^\)\s]+)")
+
+_BRANDS_SET = {
+    "intel", "amd", "nvidia",
+    "asus", "msi", "gigabyte", "asrock",
+    "corsair", "kingston", "crucial",
+    "samsung", "wd", "seagate",
+    "noctua", "be quiet",
+    "deepcool", "thermalright",
+    "nzxt", "lian li",
+    "fractal", "cooler master",
+    "zotac", "galax", "sapphire"
+}
+
+_GENERIC_CATEGORIES_SET = {
+    "cpu", "processor",
+    "gpu", "vga",
+    "ram", "memory",
+    "ssd", "nvme", "hdd",
+    "main", "mainboard",
+    "psu", "nguồn",
+    "case",
+    "cooler", "tản nhiệt", "cpu_cooler",
+    "linh kiện",
+    "build",
+    "cấu hình",
+    "pc"
+}
+
+
 def detect_budget(text: str) -> Optional[int]:
     text_low = text.lower().replace(",", ".")
 
     # 20.5 triệu, 20tr5
-    match = re.search(r"(\d+(?:\.\d+)?)\s*(triệu|tr|củ)", text_low)
+    match = _RE_BUDGET_TRIEU.search(text_low)
     if match:
         return int(float(match.group(1)) * 1_000_000)
 
     # 20tr5
-    match = re.search(r"(\d+)tr(\d+)", text_low)
+    match = _RE_BUDGET_TR_FRACTION.search(text_low)
     if match:
         return int((int(match.group(1)) + int(match.group(2)) / 10) * 1_000_000)
 
     # 500k
-    match = re.search(r"(\d+(?:\.\d+)?)\s*k\b", text_low)
+    match = _RE_BUDGET_K.search(text_low)
     if match:
         return int(float(match.group(1)) * 1_000)
 
     # 20,000,000
-    match = re.search(r"(\d{1,3}(?:[\.,]\d{3})+)", text_low)
+    match = _RE_BUDGET_FORMATTED.search(text_low)
     if match:
-        cleaned = re.sub(r"[^0-9]", "", match.group(1))
+        cleaned = _RE_NON_DIGITS.sub("", match.group(1))
         return int(cleaned)
 
     return None
@@ -252,7 +326,7 @@ def as_vnd(value: Any) -> Optional[int]:
     if isinstance(value, (int, float)):
         return int(value)
 
-    digits = re.sub(r"[^0-9]", "", str(value))
+    digits = _RE_NON_DIGITS.sub("", str(value))
     return int(digits) if digits else None
 
 
@@ -265,8 +339,9 @@ def vnd(value: Optional[int]) -> str:
 def doc_name(doc: Any) -> str:
     metadata = getattr(doc, "metadata", {}) or {}
     for key in ("name", "title", "product_name"):
-        if metadata.get(key):
-            return str(metadata[key])
+        val = metadata.get(key)
+        if val:
+            return str(val)
 
     content = (getattr(doc, "page_content", "") or "").strip().splitlines()
     return content[0][:120] if content else "San pham khong ro ten"
@@ -285,15 +360,15 @@ def doc_price(doc: Any) -> Optional[int]:
 def doc_uid(doc: Any) -> str:
     metadata = getattr(doc, "metadata", {}) or {}
     for key in ("product_id", "id", "sku", "slug", "name"):
-        if metadata.get(key):
-            return str(metadata[key])
+        val = metadata.get(key)
+        if val:
+            return str(val)
     return doc_name(doc)
 
 
 def doc_image(doc: Any) -> Optional[str]:
     metadata = getattr(doc, "metadata", {}) or {}
     image = metadata.get("image") or metadata.get("image_url")
-    print("Doc image metadata:", image)
     return str(image) if image else None
 
 
@@ -316,21 +391,12 @@ def build_context_block(docs: List[Any]) -> str:
     lines: List[str] = []
     for idx, doc in enumerate(docs, start=1):
         product_id = doc_uid(doc)
-        # content = (getattr(doc, "page_content", "") or "").replace("\n", " ").strip()
-        # excerpt = content[:300] if content else "Khong co mo ta"
-        # line = (
-        #     f"[{idx}] [{doc_name(doc)}]({product_link}) | "
-        #     f"category={doc_category(doc)} | price={vnd(doc_price(doc))}\n"
-        # )
         attrs = doc_filtered_attrs(doc)
         line = (
             f"[{idx}]: [{doc_name(doc)}] | "
             f"category={doc_category(doc)} | product_id={product_id}"
             f"Thông số: {attrs}"
         )
-        # if image_url:
-        #     line += f"image: [![{doc_name(doc)}]({image_url})]({product_link})\n"
-        # line += f"mo_ta={excerpt}"
         lines.append(line)
     return "\n\n".join(lines)
 
@@ -338,14 +404,8 @@ def build_context_block(docs: List[Any]) -> str:
 def format_markdown_output(text: str) -> str:
     if not text:
         return text
+    return text.strip()
 
-    cleaned = text.strip()
-    if not cleaned:
-        return cleaned
-
-
-
-    return cleaned
 
 def _is_generic_keyword(keyword: str) -> bool:
     if not keyword or not keyword.strip():
@@ -353,103 +413,58 @@ def _is_generic_keyword(keyword: str) -> bool:
 
     text = keyword.strip().lower()
     score = 0
-    model_patterns = [
-        # CPU
-        r"\bi[3579]\s*-?\s*\d{4,5}[a-z]*\b",          # i5-14600k
-        r"\bcore\s+i[3579]\s*\d{4,5}[a-z]*\b",
-        r"\bryzen\s*[3579]\s*\d{3,5}[a-z0-9]*\b",    # ryzen 7 7800x3d
-        r"\bthreadripper\s+\d+\b",
-        # GPU
-        r"\b(rtx|gtx)\s*\d{3,4}\s*(ti|super|xt)?\b",
-        r"\brx\s*\d{3,4}\s*(xt|xtx)?\b",
-        # Mainboard
-        r"\b[bzxh]\d{3,4}[a-z]*\b",                  # B650 Z790
-        # RAM
-        r"\b\d+\s*gb\s*(ddr[45])\b",
-        r"\bddr[45]\s*\d+\s*gb\b",
-        # SSD
-        r"\b\d+\s*(gb|tb)\s*(nvme|ssd|m\.2)\b",
-        # PSU
-        r"\b\d{3,4}\s*w\s*(psu|nguồn)?\b",
-    ]
+
     # model rõ -> gần như chắc chắn specific
-    if any(re.search(p, text) for p in model_patterns):
+    if any(p.search(text) for p in _RE_MODEL_PATTERNS):
         score += 5
+
     # ================= BRAND =================
-    brands = {
-        "intel", "amd", "nvidia",
-        "asus", "msi", "gigabyte", "asrock",
-        "corsair", "kingston", "crucial",
-        "samsung", "wd", "seagate",
-        "noctua", "be quiet",
-        "deepcool", "thermalright",
-        "nzxt", "lian li",
-        "fractal", "cooler master",
-        "zotac", "galax", "sapphire"
-    }
-    if any(b in text for b in brands):
+    if any(b in text for b in _BRANDS_SET):
         score += 2
+
     # ================= SPEC =================
-    if re.search(r"\b\d+\s*(gb|tb)\b", text):
+    if _RE_SPEC_GB_TB.search(text):
         score += 1
 
-    if re.search(r"\b\d+\s*(mhz|mt/s|w)\b", text):
+    if _RE_SPEC_MHZ_W.search(text):
         score += 1
 
-    if re.search(r"\bcl\d+\b", text):
+    if _RE_SPEC_CL.search(text):
         score += 1
+
     # ================= GENERIC CATEGORY =================
-    categories = {
-        "cpu", "processor",
-        "gpu", "vga",
-        "ram", "memory",
-        "ssd", "nvme", "hdd",
-        "main", "mainboard",
-        "psu", "nguồn",
-        "case",
-        "cooler", "tản nhiệt","cpu_cooler",
-        "linh kiện",
-        "build",
-        "cấu hình",
-        "pc"
-    }
-    if any(x in text for x in categories):
+    if any(x in text for x in _GENERIC_CATEGORIES_SET):
         score -= 2
+
     # ================= GENERATION / SERIES =================
-    generic_patterns = [
-        r"^ryzen\s*[3579]$",
-        r"^intel\s+core$",
-        r"^rtx\s*\d{2}\s*series$",
-        r"^rx\s*\d{4}\s*series$",
-        r"\b\d{2}th\s*gen\b",
-        r"\bgen\s*\d+\b",
-    ]
-    if any(re.search(p, text) for p in generic_patterns):
+    if any(p.search(text) for p in _RE_GENERIC_PATTERNS):
         score -= 3
+
     # query quá ngắn
     if len(text.split()) <= 1:
         score -= 2
+
     # score >= 3 là đủ hẹp
     return score < 3
 
-def extract_number(value):
-    if not value:
-        return 0
 
-    match = re.search(r"\d+", str(value))
-    return float(match.group()) if match else 0
-
-def extract_ram_speed(value):
+def extract_number(value: Any) -> float:
     if not value:
         return 0.0
+    match = _RE_EXTRACT_DIGITS.search(str(value))
+    return float(match.group()) if match else 0.0
 
-    match = re.search(r"(\d+(?:\.\d+)?)$", str(value))
+
+def extract_ram_speed(value: Any) -> float:
+    if not value:
+        return 0.0
+    match = _RE_RAM_SPEED.search(str(value))
     return float(match.group(1)) if match else 0.0
 
 
 def _extract_ddr_type(value: str) -> Optional[str]:
     """Trích xuất DDR generation từ chuỗi như 'DDR5-5600' → 'DDR5', 'DDR4-3200' → 'DDR4'."""
-    m = re.match(r"(DDR\d+)", str(value).strip(), re.IGNORECASE)
+    m = _RE_DDR_TYPE.match(str(value).strip())
     if m:
         return m.group(1).upper()
     return None
@@ -461,7 +476,7 @@ def _extract_number(value: Any) -> Optional[float]:
         return None
     if isinstance(value, (int, float)):
         return float(value)
-    m = re.search(r"([\d]+(?:[.,]\d+)?)", str(value))
+    m = _RE_FLOAT_NUM.search(str(value))
     if m:
         return float(m.group(1).replace(",", "."))
     return None
@@ -469,12 +484,11 @@ def _extract_number(value: Any) -> Optional[float]:
 
 def _extract_mm(value: str) -> Optional[float]:
     """Trích xuất giá trị số mm từ chuỗi như '267 mm', '400 mm / 15.748\"', '15.748\"'."""
-    # Ưu tiên tìm giá trị mm trước
-    m = re.search(r"([\d]+(?:[.,]\d+)?)\s*mm", str(value), re.IGNORECASE)
+    val_str = str(value)
+    m = _RE_MM_NUM.search(val_str)
     if m:
         return float(m.group(1).replace(",", "."))
-    # Fallback: tìm số bất kỳ đầu tiên
-    m = re.search(r"([\d]+(?:[.,]\d+)?)", str(value))
+    m = _RE_FLOAT_NUM.search(val_str)
     if m:
         return float(m.group(1).replace(",", "."))
     return None
@@ -488,15 +502,17 @@ def doc_filtered_attrs(doc: Any) -> str:
         attrs = json.loads(attrs_str)
     except Exception:
         attrs = {}
-        
-    if category in VITAL_ATTRS:
-        filtered = {k: v for k, v in attrs.items() if k in VITAL_ATTRS[category]}
+
+    vitals = VITAL_ATTRS.get(category)
+    if vitals:
+        filtered = {k: v for k, v in attrs.items() if k in vitals}
         return json.dumps(filtered, ensure_ascii=False)
-    
+
     return attrs_str
 
+
 def extract_product_ids_from_text(text: str) -> List[str]:
-    product_ids = re.findall(r"/product-info/([^\)\s]+)", text or "")
+    product_ids = _RE_PRODUCT_LINK.findall(text or "")
     return list(dict.fromkeys(product_ids))
 
 
@@ -549,5 +565,6 @@ _COMPAT_KEY_ALIASES: Dict[str, List[str]] = {
     "Form Factor": ["Form Factor", "Motherboard Form Factor"],
     "Length":      ["Length", "Maximum Video Card Length"],
 }
+
 
 
